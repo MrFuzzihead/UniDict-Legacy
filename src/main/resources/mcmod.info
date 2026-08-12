@@ -1,16 +1,21 @@
-[
 {
-  "modid": "unidict",
-  "name": "UniDict",
-  "description": "A mod about unifying all the things.",
-  "version": "${version}",
-  "mcversion": "${mcversion}",
-  "url": "http://minecraft.curseforge.com/projects/unidict",
-  "updateUrl": "",
-  "authorList": ["WanionCane", "ElektroKill"],
-  "credits": "Mojang for creating Minecraft.\nForge/FML for creating this awesome modding platform.\nThe creators of every mod that UniDict interacts with.\nAll the users of UniDict.",
-  "logoFile": "unidictlogo.png",
-  "screenshots": [],
-  "dependencies": []
+	"modListVersion": 2,
+	"modList": [{
+		"modid": "${modId}",
+		"name": "${modName}",
+		"description": "An example mod for Minecraft 1.7.10 with Forge focused on a stable setup.",
+		"version": "${modVersion}",
+		"mcversion": "${minecraftVersion}",
+		"url": "https://github.com/SinTh0r4s/MyMod",
+		"updateUrl": "",
+		"authorList": ["SinTho0r4s"],
+		"credits": "",
+		"logoFile": "",
+		"screenshots": [],
+		"parent": "",
+		"requiredMods": [],
+		"dependencies": [],
+		"dependants": [],
+		"useDependencyInformation": false
+	}]
 }
-]
