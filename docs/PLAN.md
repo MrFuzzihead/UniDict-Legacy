@@ -1,143 +1,296 @@
-# Implementation Plan: Reimplementing UniDict as a Mixin-Based Mod
+# Implementation Plan: Reimplementing UniDict as a Mixin-Based Mod (v2 — gate-driven)
 
-## Scope confirmation
+> **v2 restructure (supersedes v1):** the same 48 implementation steps are re-sequenced into ten
+> milestones (**M0–M9**), each ending in a *gate* that can be checked in a few minutes with
+> `./gradlew test build runClient`. Every v1 step is preserved and tagged `(v1 step N)`; use
+> the §"Step → milestone traceability" table to relocate anything.
+>
+> The two top risks from v1 (`@Accessor` on static fields, `@Invoker` on private constructors)
+> are now **spiked in M0** so no architecture depends on an unverified mechanism. The
+> deterministic-execution requirements (kill the thread pool, explicit integration order) move
+> **before** the feature ports (M2), so every later integration is an isolated, diffable change.
+
+## Scope confirmation (unchanged)
+
 - **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
 - **Drop:** AbyssalCraft, Foundry (+FoundryUniHelper), FSP, Hydraulicraft, Magneticraft, Mekanism, NuclearCraft.
 - **Defer:** Galacticraft (stub note only); Forestry crate system (port as-is, flag for future rework).
 
+## Boilerplate checkpoint (repo state at v2)
+
+- GTNH toolchain (gtnhconvention 2.x, Gradle 9.3.1, Java 25 via Jabel → J8 bytecode), MC 1.7.10 / Forge 10.13.4.1614.
+- Mixins on: `usesMixins = true`, `usesMixinDebug = false` (turn on in dev when debugging), `separateMixinSourceSet` empty.
+- `Mixins` / `TargetMods` enums + `EarlyMixinsLoader` / `LateMixinsLoader` exist, but the enum still references **non-existent example mixin classes** → must be emptied in M0 or the game won't boot.
+- `mixins.unidict.json`, `mixins.unidict.early.json` (pkg `com.mrfuzzihead.unidict.mixins.early`), `mixins.unidict.late.json` (pkg `...late`) already exist.
+- NEI 2.8.122-GTNH is in as `devOnlyNonPublishable` (uncommitted working-tree change — keep). No JUnit in the `test` source set yet.
+- `migrate/UniDict-Upstream/` holds the authoritative `wanion.unidict` source to port (gitignored).
+
+## 0. Testing doctrine (read first)
+
+Three verification tiers. Every gate below is expressed in these terms.
+
+- **T1 — JVM unit test** (`./gradlew test`): pure logic, zero `net.minecraft`/`net.minecraftforge` imports. Targets: kind taxonomy, `MetaItem` hash arithmetic, recipe keys, Config parsing, selection rules, comparator ordering, load-stage/manager ordering.
+- **T2 — seam/fake test** (`./gradlew test`): logic that touches MC *types* but not MC *statics*, run through fakes. **Rule: every mixin accessor is declared as an interface** (`IOreDictionaryAccessor`, `IChestGenHooksAccessor`, …) whose `@Mixin` class is the live impl and whose `Fake…` lives in `src/test`. Same seam idea for the OreDict view and the MetaItem provider.
+- **T3 — in-game regression harness** (`./gradlew build runClient`, then grep): a dev-only verify routine emits `[unidict-verify] PASS|FAIL <feature>` lines. Because execution is sequential (M2), the output is deterministic and diffable.
+
+**Rules that make all of this possible**
+
+1. Accessor mixins are "interface + mixin impl + test fake" (T2).
+2. Decision logic lives in pure MC-free helpers (`SelectionRules`, `RecipeKey`, kind registry); MC glue stays thin.
+3. Integration execution is explicit and sequential — never off the main thread.
+4. Every behavior promise gets a verify line; a feature is "done" when its line is PASS in the full suite.
+5. One risk per milestone; risky mechanisms are spiked before the port depends on them.
+## M0 — Harness & risk retirement *(v1 steps 1–3; spike of v1 steps 11 & 27)*
+
+**Goal:** prove the toolchain (tests, mixin mechanism, CI) and retire v1's two biggest risks before anything depends on them.
+
+Tasks
+
+- **Fix the boot:** empty/replace the placeholder `Mixins` enum entries (see boilerplate checkpoint) so the project boots with zero registered mixins.
+- **Dependencies (v1 step 2):** finalize `dependencies.gradle` — keep NEI, CodeChickenCore, Mantle, Railcraft, TConstruct, Thermal Expansion/Foundation, AE2, IC2, Forestry, EnderCore/EnderIO, IE, Galacticraft (future stub); remove AbyssalCraft, Foundry, FSP, HydCraft, Magneticraft, Mekanism, NuclearCraft, k4lib. UniMixins comes in implicitly via `usesMixins`.
+- **JUnit:** add `testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")` + platform launcher (and `tasks.test { useJUnitPlatform() }` in `addon.gradle.kts` if `./gradlew test` doesn't already use the platform). Land one demo T1 test; confirm `./gradlew test build` green; confirm CI (`.github/workflows/build-and-test.yml` → shared GTNH workflow) runs `test`.
+- **Verify harness scaffold:** dev-only `[unidict-verify]` writer, system-property-gated (`-Dunidict.devVerify=true`), stubbed initially.
+- **Spike A — static `@Accessor` on `OreDictionary`:** minimal mixin in `mixins.early` registered via the `Mixins` enum, exposing the 5 static fields (`nameToId`, `idToName`, `idToStack`, `idToStackUn`, `stackToId`) and logging sizes at `Init`. Success ⇒ lock the M3 interface design. Failure ⇒ adopt the `@Inject`-based accessor fallback now and update M3.
+- **Spike B — `@Invoker` on a private constructor:** target a vanilla class with a non-public ctor (try `Block`, `Vec3`, `Potion`) or a tiny TE probe in `late` with `TargetMods` gating; alternatively pre-write the 3 TE AT entries (`FurnaceManager$RecipeFurnace`, `PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter` ctors) so M7 becomes a mechanical swap. Record the outcome in M7.
+
+Toolchain adaptation (replaces v1 step 3): with gtnhmixins, mixin classes are declared in the **`Mixins` enum** and auto-resolved against the config packages (early → `...mixins.early`, late → `...mixins.late`). Never hand-edit a JSON `"mixins": [...]` list.
+
+Create `docs/TestPlan.md` (defines T1/T2/T3 + how to run a verification pass) and `docs/STATUS.md` (checkboxes per milestone/integration, updated every commit).
+
+**Gate**
+
+```
+[ ] `./gradlew test` && `./gradlew build` green (demo test runs; CI passes)
+[ ] `runClient` boots; Spike A logs `accessor OK: nameToId.size=<n>` (or fallback documented)
+[ ] `docs/TestPlan.md` + `docs/STATUS.md` exist and are reviewed
+```
 ---
 
-## Phase 0 — Build infrastructure (Mixins on)
+## M1 — Pure resource model (kinds) *(v1 steps 6, 7 + pure part of v1 step 4)*
 
-**Files:** `gradle.properties`, `dependencies.gradle`, new `src/main/resources/mixins.UniDict.json`
+**Files:** `resource/Resource`, `resource/UniAttributes`, new pure hash helpers (the `id | damage<<16` arithmetic extracted from `MetaItem`).
 
-1. `gradle.properties`: set `usesMixins = true`, `mixinsPackage = wanion.unidict.mixin`, `usesMixinDebug = true` (dev), leave `separateMixinSourceSet` empty (mixin classes live alongside main; simpler given the accessors need main-package types).
-2. `dependencies.gradle`: drop the dropped mods' `compileOnly` lines (AbyssalCraft, Foundry, FSP, HydCraft, Magneticraft, Mekanism, NuclearCraft, k4lib). Keep: NEI, CodeChickenCore, Mantle, Railcraft, TConstruct, Thermal Expansion/Foundation, AE2, IC2, Forestry, EnderCore/EnderIO, IE, Galacticraft (for the future stub). Add UniMixins implicitly via `usesMixins`.
-3. Create `mixins.UniDict.json` with `"refmap": "mixins.UniDict.refmap.json"`, `"minVersion": "0.8"`, `"package": "wanion.unidict.mixin"`, empty `"mixins": []` initially (populate as mixins are added).
+- Port `Resource` unchanged in behavior (bitfield kind taxonomy) but **enforce the 64-kind limit with a guard and test**, not just a comment (v1 step 6 upgrade).
+- Port `UniAttributes` unchanged (package-private value pair).
+- Extract `MetaItem`'s hash arithmetic as pure static helpers; the MC-glue `get(ItemStack)` wrapper lands in M4.
 
----
+Tests (T1): kind bit assignment; `register`/`registerAndGet` idempotence; 64-kind overflow guard; `addChild` merge + name-suffix semantics; `filteredClone` bit math; `getResources` AND-filter; kind name ↔ bit round-trip; `toString`.
 
-## Phase 1 — Core resource model (direct ports + fixes)
-
-**Files:** `MetaItem`, `Config`, `resource/Resource`, `resource/UniAttributes`, `resource/UniResourceContainer`, `resource/ResourceHandler`, `resource/UniResourceHandler`
-
-4. **Port `MetaItem`** unchanged (core `item+meta -> int` hashing). It uses `GameData.getItemRegistry()` which is public API — no Mixin needed.
-5. **Port `Config`** preserving every user-facing config key (compat) but clean up the static-init pattern. Keep: `keepOneEntry`, `inputReplacement`, `keepOneEntryModBlackSet`, `autoHideInNEI`, `hideInNEIBlackSet`, `kindDebugMode`, `enableSpecificKindSort`, `ownerOfEveryThing`, `metalsToUnify`, `childrenOfMetals`, `resourceBlackList`, `customUnifiedResources`, per-kind owner maps, and the kept integration toggles (drop toggles for the 7 removed mods).
-6. **Port `Resource`** unchanged (bitfield kind taxonomy). Note the 64-kind limit in a comment.
-7. **Port `UniAttributes`** unchanged (package-private value pair).
-8. **Port `UniResourceContainer`** with one fix: `removeBadEntriesFromNEI()` must **not** be called from a parallel stream. It stays as a method but is only invoked on the main thread (see step 11).
-9. **Port `ResourceHandler`** unchanged (public read API + `populateIndividualStackAttributes`).
-10. **Port `UniResourceHandler`** with two fixes:
-    - `createResources()`: replace `parallelStream().parallel().forEach(...)` with a plain sequential `forEach` — the `^ingot` set is tiny; parallelism is pure overhead.
-    - `postInit()`: replace `apiResourceMap.values().parallelStream().forEach(Resource::updateEntries)` with **sequential** `forEach`. This is the NEI-crash root cause: `updateEntries` -> `removeBadEntriesFromNEI` -> `API.hideItem` was running on fork-join pool threads. Now all on main thread.
-
----
-
-## Phase 2 — UniOreDictionary -> Mixin (the big reflection win)
-
-**Files:** new `mixin/OreDictionaryMixin.java`, rewritten `UniOreDictionary.java`, delete `common/Util.getField/setField` usages here.
-
-11. **`OreDictionaryMixin`** (`@Mixin(OreDictionary.class)`) with `@Accessor` getters for the 5 private static fields: `nameToId` (`Map<String, Integer>`), `idToName` (`List<String>`), `idToStack` (`List<List<ItemStack>>`), `idToStackUn` (`List<List<ItemStack>>`), `stackToId` (`Map<Integer, List<Integer>>`). Since these are `static` fields, use `@Accessor` on an interface-style mixin with `@At("FIELD")` + `INVOKE_STATIC` remap, or a `@Mixin` with `@Accessor` methods that SpongePowered Mixin supports for static fields via `remap = false`. (Sponge supports `@Accessor` on static fields — confirm at implementation; fallback is a tiny `@Inject` accessor.)
-12. **Rewrite `UniOreDictionary`** to obtain the 5 maps via the mixin accessors instead of `Util.getField`. All public methods (`get`, `getUn`, `getId`, `getThoseThatMatches`, `removeFromElsewhere`, `getFirstEntry`, etc.) keep their signatures for API compat. `removeFromElsewhere` keeps using `OreDictionary.getOreIDs` (public) + direct list manipulation via the accessor.
-13. Remove `Util.getField`/`setField` calls from `UniOreDictionary` (the only reflection left in core).
-
----
-
-## Phase 3 — Recipe layer (port + key rework)
-
-**Files:** `recipe/IRecipeResearcher`, `recipe/VanillaRecipeResearcher`, `recipe/ForgeRecipeResearcher`, `recipe/IC2RecipeResearcher`, `integration/CraftingIntegration`, `helper/RecipeHelper`
-
-14. **Port `IRecipeResearcher`** interface unchanged.
-15. **Port `VanillaRecipeResearcher`** unchanged.
-16. **Port `ForgeRecipeResearcher`** — keep the Forestry `ShapedRecipeCustom` `Class.forName` lookup but guard it behind `Loader.isModLoaded("Forestry")` (already there). Consider replacing with a direct import since Forestry is now a kept `compileOnly` dep — **decide: direct import** (cleaner, compile-time-checked).
-17. **Port `IC2RecipeResearcher`** unchanged (IC2 is a kept dep).
-18. **Rework recipe key generation** in all three researchers: replace the sum-of-`MetaItem`-hashes key (collision-prone) with a **structured key**: a sorted `TIntList` of main-entry ids joined with the recipe shape signature (width/height + a normalized grid pattern). This eliminates the false dedup merges that the commit history shows were repeatedly patched. Keep the `getShapedRecipeKey`/`getShapelessRecipeKey` method signatures.
-19. **Port `CraftingIntegration`** logic unchanged (group -> sort -> keep best -> rewrite), but it now runs **sequentially** (see Phase 5). The `RecipeComparator` inner class stays.
-20. **Audit `RecipeHelper`**: `singleWayCompressionRecipe` / `resourcesToCompressionRecipes` / `createCompressionRecipe` — verify callers. If unused, delete (trim). Keep `rawShapeToShape` (used by researchers).
-
----
-
-## Phase 4 — Per-mod integrations (port + Mixin-ify reflection)
-
-Each integration becomes a plain class implementing a `Runnable`/`Callable` (no thread pool — see Phase 5). Reflection points get Mixin replacements.
-
-21. **`AE2Integration`** — pure public-API (`AEApi.instance().registries().grinder()`), no reflection. Direct port.
-22. **`EnderIOIntegration`** — replace `Util.getField(OreDictionaryPreferences, "preferences", ...)` with a Mixin: new `mixin/EnderIO/OreDictionaryPreferencesMixin.java` (`@Mixin(OreDictionaryPreferences.class)`) `@Accessor` for the `preferences` map. Port the rest (alloy smelter + SAG mill) unchanged. Drop `FixedSizeList` usage if it's trivially replaceable with `ArrayList` (audit `FixedSizeList` — likely safe to inline).
-23. **`ForestryIntegration`** — replace `Util.getField(CarpenterRecipeManager, "recipes", ...)` with: new `mixin/Forestry/CarpenterRecipeManagerMixin.java` `@Accessor` for the `recipes` set. **Note (deferred):** the crate system (`createCratesDefault` + `ForestryUniHelper.registerCratesAndCreateRecipes` registers new `ItemCrated` items at runtime) is a future rework candidate — port as-is for now, add a `// TODO: rework crate registration` comment.
-24. **`IC2Integration`** — pure public-API (`Recipes.centrifuge` etc.), no reflection. Direct port.
-25. **`IEIntegration`** — uses public static lists (`ArcFurnaceRecipe.recipeList`, etc.) + `UniOreDictionary.getFirstEntry`. The `UniCrusherRecipe` inner subclass accesses `protected` fields via `super.` — that's fine (subclass access), no Mixin needed. Direct port.
-26. **`RailcraftIntegration`** — replace `Util.getField(BlastFurnaceCraftingManager, "recipes", instance, ...)` with: new `mixin/Railcraft/BlastFurnaceCraftingManagerMixin.java` `@Accessor` for the `recipes` list (instance field, so `@Accessor` on the instance). Port the rest unchanged.
-27. **`TEIntegration`** — the heaviest reflection. Three private-constructor calls + three `recipeMap` field reads. Replace with: new `mixin/ThermalExpansion/FurnaceManagerMixin.java` (`@Accessor` for `recipeMap` + `@Invoker` for the private `RecipeFurnace` constructor); new `mixin/ThermalExpansion/PulverizerManagerMixin.java` (`@Accessor` for `recipeMap` + `@Invoker` for the private `RecipePulverizer` constructor); new `mixin/ThermalExpansion/SmelterManagerMixin.java` (`@Accessor` for `recipeMap` + `@Invoker` for the private `RecipeSmelter` constructor). `@Invoker` on private constructors is supported by SpongePowered Mixin — this is the cleanest AT-free path. **If `@Invoker` can't target a constructor in this Mixin version**, fallback: one AT entry per constructor (flag for review). Keep the `@SpecifiedLoadStage(LOAD_COMPLETE)` annotation.
-28. **`ChestIntegration`** — replace `Util.getField(ChestGenHooks, "chestInfo"/"contents", ...)` with: new `mixin/ChestGenHooksMixin.java` — `@Accessor` for `chestInfo` (static) and `contents` (instance). Port the loot replacement logic unchanged.
-29. **`FurnaceIntegration`** — uses public `FurnaceRecipes.smelting().getSmeltingList()` (public API). Direct port, no Mixin.
+**Gate:** `./gradlew test` green; new pure packages contain **zero** `net.minecraft*` imports (scriptable grep gate).
 
 ---
 
-## Phase 5 — Module/infra rework (kill the thread pool + DI)
+## M2 — Determinism & infra rework FIRST *(v1 steps 5, 30–38)*
 
-**Files:** `UniDict`, `module/ModuleHandler`, `module/AbstractModule`, `module/AbstractModuleThread`, `module/SpecifiedLoadStage`, `LoadStage`, `integration/IntegrationModule`, `common/Dependencies`, `common/Instantiator`, `common/FixedSizeList`, `common/Util`, `common/SpecificKindItemStackComparator`
+**Goal:** no thread pool, no DI container, explicit sequential ordering — in place **before** any feature is ported, so every later integration is an isolated diff whose verify output is stable run-to-run.
 
-30. **Kill the `ExecutorService` thread pool** in `AbstractModule.start`: replace `Executors.newFixedThreadPool(...).invokeAll(threadList)` with a sequential `for` loop calling each `AbstractModuleThread.call()`. Rationale: integrations mutate shared global state (CraftingManager recipe list, OreDictionary lists, each mod's recipe managers) — the thread pool was racing. Sequential is correct and the perf cost is negligible (these are fast in-memory passes). Log the total time as before.
-31. **`AbstractModuleThread`**: keep as `Callable<String>` (return the log line) or simplify to `Runnable` + name field. Keep `Callable` for minimal diff.
-32. **`IntegrationModule`**: drop the 7 removed integrations from `init()`. Keep the 10 kept ones. Keep the `Class::newInstance` instantiator (or switch to explicit `new` per integration — cleaner; **decide: explicit `new`**).
-33. **`UniDict`**: replace the ASM-data `@Module` annotation discovery (`searchForModules`) with explicit `moduleHandler.addModule(new IntegrationModule())` only. Delete the `@Module` annotation + `searchForModules` method. Keep `@Mod`, `NetworkCheckHandler`, lifecycle handlers.
-34. **`Dependencies`/`DependenceWatcher`/`Instantiator`**: simplify. The DI container exists only to lazy-init `UniDictAPI` and `ResourceHandler`. Replace with direct instantiation in `UniResourceHandler` + static accessors on `UniDict`. Delete `Dependencies`, `DependenceWatcher`, `Instantiator`. Update `UniDict.getDependencies()`/`getAPI()`/`getResourceHandler()` accordingly.
-35. **`FixedSizeList`**: audit; if only used by EnderIO/Railcraft/IE for pre-sized recipe lists, replace with `ArrayList` (capacity hint) and delete the class.
-36. **`Util`**: after removing `getField`/`setField` callers (all moved to Mixins), `Util` keeps only `getModName` + `itemStackComparatorByModName`. Delete `getField`/`setField`.
-37. **`SpecificKindItemStackComparator`**: port unchanged (static comparator cache). Keep `nullify()` at LoadComplete.
-38. **`LoadStage` / `SpecifiedLoadStage`**: port unchanged.
+**Files:** `Config`, `UniDict`, `module/AbstractModule`, `module/AbstractModuleThread`, `module/SpecifiedLoadStage`, `LoadStage`, `IntegrationModule`, `common/Dependencies`, `common/Instantiator`, `common/FixedSizeList`, `common/Util`, `common/SpecificKindItemStackComparator`.
+
+- **`Config` (v1 step 5):** port preserving every user-facing key — `keepOneEntry`, `inputReplacement`, `keepOneEntryModBlackSet`, `autoHideInNEI`, `hideInNEIBlackSet`, `kindDebugMode`, `enableSpecificKindSort`, `ownerOfEveryThing`, `metalsToUnify`, `childrenOfMetals`, `resourceBlackList`, `customUnifiedResources`, per-kind owner maps, kept integration toggles (drop toggles for the 7 removed mods). Clean up the static-init pattern. Add a sample `.cfg` fixture so T1 tests cover every kept key (name → default → type).
+- **Thread pool (v1 step 30):** `AbstractModule.start` → sequential `for` loop over the thread list, calling each `AbstractModuleThread.call()`. Log total time as before. Keep `Callable<String>` (v1 step 31).
+- **Explicit registry (v1 steps 32–33):** `IntegrationModule` builds an explicit list with **explicit `new`** per integration (drop `Class::newInstance`), minus the 7 removed integrations; `UniDict` registers via `moduleHandler.addModule(new IntegrationModule())`; `searchForModules` and the `@Module` annotation are deleted.
+- **DI removal (v1 step 34):** delete `Dependencies`/`DependenceWatcher`/`Instantiator`; instantiate `UniDictAPI` + `ResourceHandler` directly and expose via `UniDict` statics.
+- **Trim (v1 steps 35–36):** `FixedSizeList` → `ArrayList` (capacity hint) unless the audit says otherwise; keep `Util.getModName` + `itemStackComparatorByModName`, delete `getField`/`setField`.
+- **Port (v1 steps 37–38):** `SpecificKindItemStackComparator` (static comparator cache; `nullify()` at LoadComplete), `LoadStage`, `SpecifiedLoadStage`.
+
+Tests (T1/T2): `Config` fixture round-trip; `Manager`/`LoadStage` — registration order == execution order; zero threads reachable in the integration path.
+
+**Gate:** `./gradlew test build` green; `runClient` boots with all integrations off; grep confirms no `ExecutorService` in `src/main` integration code.
+---
+
+## M3 — UniOreDictionary via the accessor seam *(v1 steps 11–13; depends on M0 Spike A)*
+
+**Files:** `mixins.early/OreDictionaryMixin.java`, `IOreDictionaryAccessor.java`, rewritten `UniOreDictionary.java`, `src/test/.../FakeOreDictionaryAccessor.java`.
+
+- Define `IOreDictionaryAccessor` (the 5 maps); the mixin implements it, the fake lives in test sources.
+- Rewrite `UniOreDictionary` to read all maps through the interface. Public methods keep signatures for API compat (`get`, `getUn`, `getId`, `getThoseThatMatches`, `removeFromElsewhere`, `getFirstEntry`, …). `removeFromElsewhere` keeps public `OreDictionary.getOreIDs` + direct list manipulation via the accessor.
+- Delete every `Util.getField`/`setField` call site here — the last reflection in core (v1 step 13).
+
+Tests (T2): fake accessor drives `getThoseThatMatches` (pure on names), `checkId` bounds, `getName(ItemStack | List | other)`, `removeFromElsewhere` entry removal on fake lists, first/last-entry copy semantics.
+
+**Gate:** `./gradlew test` green; `runClient` shows a `[unidict-verify]` line proving `removeFromElsewhere("oreberry…")` mutates live lists.
 
 ---
 
-## Phase 6 — API surface (stable, unchanged)
+## M4 — End-to-end vertical slice: selection + NEI on the main thread *(v1 steps 4, 8, 9, 10, 44)*
 
-**Files:** `api/UniDictAPI`, `api/helper/ForestryUniHelper`, `api/helper/FurnaceUniHelper`, `api/helper/IEUniHelper`, `api/helper/TConUniHelper`
+**Files:** `MetaItem` (MC glue), `resource/UniResourceContainer`, `resource/ResourceHandler`, `resource/UniResourceHandler`, `helper/NEIHelper`, new pure `SelectionRules`.
 
-39. **Port `UniDictAPI`** unchanged (public read API).
-40. **Port `ForestryUniHelper`** — replace its `Util.getField(CarpenterRecipeManager, "recipes", ...)` with the same Mixin accessor used in `ForestryIntegration`. Keep the crate-registration logic (deferred rework).
-41. **Port `FurnaceUniHelper`** unchanged (uses public `FurnaceRecipes.smelting().getSmeltingList()`).
-42. **Port `IEUniHelper`** unchanged (uses `MetalPressRecipe` public API + `NEIHelper`).
-43. **Port `TConUniHelper`** unchanged (uses `TConstructRegistry` public API + `NEIHelper`).
-44. **`NEIHelper`** — keep as the single NEI call site (`API.hideItem`). It's now only ever called on the main thread (Phase 1 fix). Consider adding a guard/assert that it's called from the main thread in dev.
+- **`MetaItem` (v1 step 4):** thin wrapper over the M1 pure helpers; `GameData.getItemRegistry()` is public API — no Mixin; `get(ItemStack)` / `get(Item)` / `toItemStack` / cumulative variants kept.
+- **`UniResourceContainer` (v1 step 8):** port with one fix — `removeBadEntriesFromNEI()` stays a method but is **only invoked on the main thread**.
+- **`ResourceHandler` (v1 step 9):** unchanged (public read API + `populateIndividualStackAttributes`).
+- **`UniResourceHandler` (v1 step 10):** two fixes — `createResources()` → sequential `forEach`; `postInit()` → sequential `forEach`. Root cause: `updateEntries` → `removeBadEntriesFromNEI` → `API.hideItem` was running on fork-join threads (the NEI crash).
+- **`NEIHelper` (v1 step 44):** single NEI call site; add dev-mode main-thread guard/assert.
+- **Extract `SelectionRules` (new):** keep-one-entry semantics, NEI-hide eligibility, black-set handling, sort-trigger conditions — pure functions over `List<T>` + predicates so T1 tests need no `ItemStack`.
 
----
+Tests (T1/T2): `SelectionRules` matrix (keepOneEntry on/off, black set empty/non-empty, kind black set); comparator ordering via `SpecificKindItemStackComparator` / `Util.itemStackComparatorByModName` (mock `ItemStack` if needed; Mockito allowed in test sources).
 
-## Phase 7 — Cleanup & verification
-
-45. Delete: `AbyssalCraftIntegration`, `FoundryIntegration`, `FSPIntegration`, `HydraulicraftIntegration`, `MagneticraftIntegration`, `MekanismIntegration`, `NuclearCraftIntegration`, `GalacticraftIntegration` (replace with a stub `// TODO: Galacticraft integration` note in `IntegrationModule`), `FoundryUniHelper`, `Dependencies`, `DependenceWatcher`, `Instantiator`, `FixedSizeList` (if audited out), `Util.getField/setField`.
-46. Update `mcmod.info` description if desired.
-47. `./gradlew build` — confirm compiles, Spotless/Checkstyle pass.
-48. `./gradlew runClient` with the dev dependency set — verify: no NEI crash (the parallel-stream fix); recipe unification output looks correct (check a few ore types in NEI/JEI); log shows sequential integration timing; each kept mod's recipes are unified (spot-check AE2 grinder, IC2 macerator, TE pulverizer, IE crusher, Railcraft blast furnace, EIO SAG mill, Forestry carpenter).
+**Gate — the vertical-slice moment:** Forge + NEI `runClient`, **no mods installed**: no NEI crash; `[unidict-verify] PASS resource=ingotIron …` lines present. Everything after this is additive.
 
 ---
 
-## Mixin summary table (one row per Mixin)
+## M5 — Recipe layer + key rework (two commits) *(v1 steps 14–20)*
 
-| Mixin class | Target | Accessor/Invoker | Replaces |
-|-------------|--------|------------------|----------|
-| `OreDictionaryMixin` | `OreDictionary` | `@Accessor` x5 (static) | `UniOreDictionary` reflection |
-| `ChestGenHooksMixin` | `ChestGenHooks` | `@Accessor` x2 | `ChestIntegration` reflection |
-| `CarpenterRecipeManagerMixin` | `CarpenterRecipeManager` | `@Accessor` x1 | `ForestryIntegration` + `ForestryUniHelper` reflection |
-| `OreDictionaryPreferencesMixin` | `OreDictionaryPreferences` | `@Accessor` x1 | `EnderIOIntegration` reflection |
-| `BlastFurnaceCraftingManagerMixin` | `BlastFurnaceCraftingManager` | `@Accessor` x1 | `RailcraftIntegration` reflection |
-| `FurnaceManagerMixin` | `FurnaceManager` | `@Accessor` x1 + `@Invoker` x1 | `TEIntegration` reflection |
-| `PulverizerManagerMixin` | `PulverizerManager` | `@Accessor` x1 + `@Invoker` x1 | `TEIntegration` reflection |
-| `SmelterManagerMixin` | `SmelterManager` | `@Accessor` x1 + `@Invoker` x1 | `TEIntegration` reflection |
+**Files:** `recipe/IRecipeResearcher`, `recipe/VanillaRecipeResearcher`, `recipe/ForgeRecipeResearcher`, `recipe/IC2RecipeResearcher`, `integration/CraftingIntegration`, `helper/RecipeHelper`, new pure `RecipeKey`.
 
-**AT fallback note:** if `@Invoker` can't target a private constructor in the UniMixins/Sponge version in use, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace` ctors). Flag for review at Phase 4 step 27.
+**Commit 1 — behavior-preserving port**
+
+- `IRecipeResearcher` (14), `VanillaRecipeResearcher` (15), `IC2RecipeResearcher` (17) unchanged.
+- `ForgeRecipeResearcher` (16): keep the Forestry `ShapedRecipeCustom` path, but resolve the v1 `decide:` → **direct import** (Forestry is a kept `compileOnly` dep; drop `Class.forName`).
+- `CraftingIntegration` logic unchanged (group → sort → keep best → rewrite; `RecipeComparator` stays) — already sequential thanks to M2.
+- `RecipeHelper` audit (20): verify `singleWayCompressionRecipe` / `resourcesToCompressionRecipes` / `createCompressionRecipe` callers — delete if unused; keep `rawShapeToShape`.
+
+**Commit 2 — key rework, isolated (v1 step 18)**
+
+- Replace the sum-of-`MetaItem`-hashes key with `RecipeKey = sorted TIntList of main-entry ids + RecipeShape` (width/height + normalized grid pattern). Keep the `getShapedRecipeKey` / `getShapelessRecipeKey` signatures.
+- Land as its **own commit** so any dedup regression is attributable; run the M4 gate before and after.
+
+Tests (T1): `RecipeKey` — same recipe, different source order ⇒ same key; different shapes ⇒ different keys; a regression test for the historical false-merge that the commit history patched repeatedly.
+
+**Gate:** `./gradlew test` green; vanilla crafting verify lines still PASS after both commits.
+---
+
+## M6 — API-only integrations, one PR each *(v1 steps 29, 21, 24, 25, 28)*
+
+Order builds the integration pattern (config toggle + sequential entry + verify line) before any reflection work is needed.
+
+1. **`FurnaceIntegration` (29)** — public `FurnaceRecipes.smelting().getSmeltingList()`.
+2. **`AE2Integration` (21)** — `AEApi.instance().registries().grinder()`.
+3. **`IC2Integration` (24)** — `Recipes.centrifuge` etc.
+4. **`IEIntegration` (25)** — public static lists; `UniCrusherRecipe` subclass access via `super.` is fine (subclass privilege), no Mixin.
+5. **`ChestIntegration` (28)** — first accessor: `ChestGenHooksMixin` (`chestInfo` static + `contents` instance) as interface + fake.
+
+**Per-PR checklist (repeat for each of the five):**
+
+```
+[ ] T1/T2 tests touched or added (any pure logic extracted)
+[ ] `./gradlew test` && `./gradlew build` green
+[ ] `runClient` with that mod installed → `[unidict-verify] PASS integration=<mod>`
+[ ] Full verify dump re-run: prior lines unchanged (diff against last run)
+[ ] Single squashed commit referencing the v1 step(s)
+```
+
+**Gate:** all five PASS in one runClient; prior lines unchanged.
 
 ---
 
-## Key risks / things to watch
+## M7 — Mixin-accessor integrations *(v1 steps 22, 23, 26, 27)*
 
-- **`@Accessor` on static fields**: confirm SpongePowered Mixin in the GTNH/UniMixins toolchain supports `@Accessor` for `static` fields (it should; if not, the 5 OreDictionary fields need `@Inject`-based accessors). This is the single biggest "could go wrong" item.
-- **`@Invoker` on constructors**: same — confirm before committing to it for TE. AT is the documented fallback.
-- **Recipe key rework** (Phase 3 step 18) changes dedup behavior — verify with spot-checks that we don't over- or under-merge compared to the old sum-of-hashes.
-- **Forestry crate runtime item registration** is left as-is but is the most fragile kept feature; flagged for future rework.
+Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mixins.early` or `…late` per target + fake; `TargetMods` gating where the mod must be loaded.
+
+1. **`EnderIOIntegration` (22)** + `OreDictionaryPreferencesMixin` (`preferences` map). Drop `FixedSizeList` usage if trivially `ArrayList`-able (likely).
+2. **`ForestryIntegration` (23)** + `CarpenterRecipeManagerMixin` (`recipes` set). Crate system (`createCratesDefault` + `ForestryUniHelper.registerCratesAndCreateRecipes`) ported as-is with `// TODO: rework crate registration`.
+3. **`RailcraftIntegration` (26)** + `BlastFurnaceCraftingManagerMixin` (`recipes` list, instance accessor).
+4. **`TEIntegration` (27)** — `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` (each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor). Keep `@SpecifiedLoadStage(LOAD_COMPLETE)`. Prefer `@Invoker` per Spike B; on failure, flip the pre-written 3 AT entries and flag for review.
+
+**Gate:** full kept-mod `runClient` — one verify line per integration, all PASS; NEI safe (M4 main-thread rule still enforced).
 
 ---
 
-## Deferred items (not implemented now)
+## M8 — API surface + helpers *(v1 steps 39–44, 46)*
+
+**Files:** `api/UniDictAPI`, `api/helper/ForestryUniHelper`, `api/helper/FurnaceUniHelper`, `api/helper/IEUniHelper`, `api/helper/TConUniHelper`, `NEIHelper`.
+
+- `UniDictAPI` (39) unchanged (public read API).
+- `ForestryUniHelper` (40): reuse the M7 carpenter accessor interface (fake-driven T2); keep crate-registration as-is (deferred rework).
+- `FurnaceUniHelper` (41), `IEUniHelper` (42), `TConUniHelper` (43): unchanged (public APIs + `NEIHelper`).
+- `NEIHelper` (44): main-thread guard already in (M4); stays the single `API.hideItem` site.
+- `mcmod.info` (46) — currently example-mod boilerplate (author/URL/description); update.
+- Add a compile-compat consumer test reaching `UniDictAPI.getResourceHandler()` as an API-surface guard.
+
+**Gate:** `./gradlew test build` green; verify dump unchanged vs M7 (API is read-only).
+
+---
+
+## M9 — Cleanup sweep + full regression *(v1 steps 45, 47, 48)*
+
+- v1 step 45 deletions are mostly folded into M2 (dead integrations, DI classes, `FixedSizeList`, `Util.getField/setField`); sweep any stragglers and add the `// TODO: Galacticraft integration` stub note in `IntegrationModule`.
+- v1 step 47: `./gradlew build` — confirm compiles, Spotless/Checkstyle pass.
+- v1 step 48 as the **automated** full check: `runClient` with the full dev dependency set; every `[unidict-verify]` line PASS; then the eyeball pass (a few ore types in NEI/JEI; sequential timing in the log; spot-check AE2 grinder, IC2 macerator, TE pulverizer, IE crusher, Railcraft blast furnace, EIO SAG mill, Forestry carpenter).
+
+**Gate:** full verify dump all-PASS; Spotless/Checkstyle clean; `git log --oneline` reads like the milestone list.
+---
+
+## Mixin summary table (v1, + interface/fake column)
+
+| Mixin class                        | Target                        | Accessor/Invoker               | Interface (+ test fake)                                  | Replaces                                               |
+|------------------------------------|-------------------------------|--------------------------------|----------------------------------------------------------|--------------------------------------------------------|
+| `OreDictionaryMixin`               | `OreDictionary`               | `@Accessor` x5 (static)        | `IOreDictionaryAccessor` (+ `FakeOreDictionaryAccessor`) | `UniOreDictionary` reflection                          |
+| `ChestGenHooksMixin`               | `ChestGenHooks`               | `@Accessor` x2                 | `IChestGenHooksAccessor`                                 | `ChestIntegration` reflection                          |
+| `CarpenterRecipeManagerMixin`      | `CarpenterRecipeManager`      | `@Accessor` x1                 | `ICarpenterRecipeManagerAccessor`                        | `ForestryIntegration` + `ForestryUniHelper` reflection |
+| `OreDictionaryPreferencesMixin`    | `OreDictionaryPreferences`    | `@Accessor` x1                 | `IOreDictionaryPreferencesAccessor`                      | `EnderIOIntegration` reflection                        |
+| `BlastFurnaceCraftingManagerMixin` | `BlastFurnaceCraftingManager` | `@Accessor` x1                 | `IBlastFurnaceCraftingManagerAccessor`                   | `RailcraftIntegration` reflection                      |
+| `FurnaceManagerMixin`              | `FurnaceManager`              | `@Accessor` x1 + `@Invoker` x1 | `IFurnaceManagerAccessor`                                | `TEIntegration` reflection                             |
+| `PulverizerManagerMixin`           | `PulverizerManager`           | `@Accessor` x1 + `@Invoker` x1 | `IPulverizerManagerAccessor`                             | `TEIntegration` reflection                             |
+| `SmelterManagerMixin`              | `SmelterManager`              | `@Accessor` x1 + `@Invoker` x1 | `ISmelterManagerAccessor`                                | `TEIntegration` reflection                             |
+
+**AT fallback note (unchanged):** if `@Invoker` can't target a private constructor in the UniMixins / Sponge 0.8.5-GTNH build, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`). Spike B in M0 settles this once and for all.
+
+---
+
+## Key risks / watch items (updated)
+
+- **`@Accessor` on static fields** — demoted from "single biggest could go wrong" to **M0 Spike A**. On failure, the `@Inject`-based accessor fallback is adopted on day one, before M3 depends on it.
+- **`@Invoker` on constructors** — **M0 Spike B**; the 3 TE AT entries are the pre-written fallback.
+- **Recipe key rework** changes dedup behavior — isolated to M5 commit 2, protected by T1 regression tests and before/after verify dumps.
+- **Forestry crate runtime item registration** remains the most fragile kept feature; ported as-is, flagged `// TODO: rework crate registration`.
+- **JUnit wiring depends on the toolchain** — settled by the M0 demo test; the checkout does not yet prove `useJUnitPlatform()` is wired.
+
+---
+
+## Step → milestone traceability (v1 → v2)
+
+| v1 step | v2 milestone                                                                                                                         |
+|---------|--------------------------------------------------------------------------------------------------------------------------------------|
+| 1–3     | M0 (step 3 adapted: enum-driven registration, no JSON hand-editing; `usesMixins` already true, `usesMixinDebug` flip when debugging) |
+| 4       | M1 (pure arithmetic) + M4 (MC glue)                                                                                                  |
+| 5       | M2                                                                                                                                   |
+| 6       | M1 (64-kind guard, not just a comment)                                                                                               |
+| 7       | M1                                                                                                                                   |
+| 8       | M4                                                                                                                                   |
+| 9       | M4                                                                                                                                   |
+| 10      | M4                                                                                                                                   |
+| 11      | M0 (Spike A) + M3                                                                                                                    |
+| 12      | M3                                                                                                                                   |
+| 13      | M3                                                                                                                                   |
+| 14–17   | M5 commit 1                                                                                                                          |
+| 18      | M5 commit 2                                                                                                                          |
+| 19–20   | M5 commit 1                                                                                                                          |
+| 21      | M6                                                                                                                                   |
+| 22      | M7                                                                                                                                   |
+| 23      | M7                                                                                                                                   |
+| 24      | M6                                                                                                                                   |
+| 25      | M6                                                                                                                                   |
+| 26      | M7                                                                                                                                   |
+| 27      | M7                                                                                                                                   |
+| 28      | M6                                                                                                                                   |
+| 29      | M6                                                                                                                                   |
+| 30–38   | M2                                                                                                                                   |
+| 39–43   | M8                                                                                                                                   |
+| 44      | M4                                                                                                                                   |
+| 45      | M2 (mostly) + M9 (sweep)                                                                                                             |
+| 46      | M8                                                                                                                                   |
+| 47      | every gate; final run in M9                                                                                                          |
+| 48      | per-milestone T3 slice; full run in M9                                                                                               |
+
+---
+
+## STATUS.md template (per milestone)
+
+```markdown
+## M0 — Harness & risk retirement
+- [ ] Mixins enum emptied; project boots
+- [ ] JUnit demo test green (./gradlew test)
+- [ ] Verify harness writes [unidict-verify] lines
+- [ ] Spike A: static @Accessor OK (or fallback documented)
+- [ ] Spike B: @Invoker / AT decision recorded
+```
+
+Each integration row in M6/M7 repeats the 5-item per-PR checklist; check them off in the same PR.
+
+---
+
+## Deferred items (unchanged)
 
 - **Galacticraft integration** — stub note only; real implementation to be added later.
 - **Forestry crate system** — ported as-is; the runtime `ItemCrated` registration is a future rework candidate (flagged `// TODO: rework crate registration`).
