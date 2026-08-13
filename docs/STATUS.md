@@ -23,8 +23,25 @@ Progress tracker matching `PLAN.md`. Check a box off in the same PR that satisfi
 - [x] Pure `MetaItem` hash helpers (`pure/MetaKey`) + 5 MetaKeyTest T1 tests green; pure/resource packages contain zero `net.minecraft*` imports (grep gate PASS)
 
 ## M2 — Determinism & infra rework (thread pool / DI / explicit registry)
-- [ ] `Config` port + sample-`.cfg` T1 tests (absorbs BB-2 presets work later)
-- [ ] Thread pool → sequential; DI removed; explicit `new` registry; `@Module` search deleted
+Two commits (scope decision 2026-08-13): **Commit 1** = determinism/infra (lands first, before any
+integration); **Commit 2** = config surface + presets (BB-2), which also ports the config-coupled
+comparators.
+
+### Commit 1 — infra determinism (DONE)
+- [x] Sequential `LoadStageExecutor` replaces the upstream thread pool: registration order == execution order; threads run on the calling thread (`LoadStageExecutorTest` T2: 5 tests green)
+- [x] `ModuleHandler` collapsed to an ordered module list; lazy `init()` once per module (`ModuleHandlerTest` T2: 3 tests green)
+- [x] Explicit `new` registry in `IntegrationModule` (currently empty — M6/M7 add integrations); `@Module` search / `searchForModules` deleted; `LoadStage` + `SpecifiedLoadStage` ported
+- [x] DI removed: `Dependencies`/`Instantiator`/`DependenceWatcher` never recreated; dead code path gone
+- [x] `Util` trimmed to `getModName` (reflection `getField`/`setField` deleted); `FixedSizeList` not used
+- [x] `UniDict` wires the sequential `ModuleHandler` at FML POST_INIT + LOAD_COMPLETE
+- [x] **Determinism guard** (`DeterminismGuardTest`): greps `src/main` for thread pools / reflection / deleted DI types; fails build if reintroduced
+- [ ] `runClient` boots with all integrations off (T3 — needs a live launch; mechanism unit-verified above)
+
+### Commit 2 — config + presets (BB-2) (OPEN)
+- [ ] `Config` port + grouped categories + presets (minimal / standard / max-compat); sample-`.cfg` T1 tests
+- [ ] Legacy-key aliases accepted-but-ignored (no config-file deletion on version mismatch — fixes upstream settings wipe)
+- [ ] `SpecificKindItemStackComparator` + `Util.itemStackComparatorByModName` ported (they depend on the owner-of-kind maps from the new `Config`; deferred here for a clean commit boundary)
+- [ ] `Config` fixture round-trip covers every kept key; preset resolution tested
 
 ## M3 — UniOreDictionary seam — KEEP, TRIMMED to read-only accessor (+ `getFirstEntry` for IE)
 - [ ] `IOreDictionaryAccessor` + mixin + `FakeOreDictionaryAccessor`

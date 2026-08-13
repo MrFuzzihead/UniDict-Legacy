@@ -197,6 +197,8 @@ Tests (T1): kind bit assignment; `register`/`registerAndGet` idempotence; 64-kin
 Tests (T1/T2): `Config` fixture round-trip; `Manager`/`LoadStage` — registration order == execution order; zero threads reachable in the integration path.
 
 **Gate:** `./gradlew test build` green; `runClient` boots with all integrations off; grep confirms no `ExecutorService` in `src/main` integration code.
+
+**M2 sequencing (scope decision 2026-08-13):** M2 lands as **two commits**. **Commit 1** = determinism/infra, in place before any integration exists so every later integration is an isolated, diffable change: sequential `LoadStageExecutor` (replaces the thread pool; registration order == execution order), explicit-`new` registry in `IntegrationModule`, DI classes deleted, `Util` trimmed, `LoadStage`/`SpecifiedLoadStage` ported, and a `DeterminismGuardTest` JUnit grep guard (the enforceable form of the gate grep above). **Commit 2** = `Config` port + BB-2 presets; it also ports the config-coupled `SpecificKindItemStackComparator` and `Util.itemStackComparatorByModName`, which are intentionally deferred out of Commit 1 because they depend on `Config`'s owner-of-kind maps (clean commit boundary). `runClient` gate verified at the end of Commit 1 (mechanism unit-verified by the T2 executor/handler tests) and re-verified after Commit 2.
 ---
 
 ## M3 — UniOreDictionary via the accessor seam *(v1 steps 11–13; depends on M0 Spike A)*
