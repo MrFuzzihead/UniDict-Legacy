@@ -15,6 +15,107 @@
 - **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
 - **Drop:** AbyssalCraft, Foundry (+FoundryUniHelper), FSP, Hydraulicraft, Magneticraft, Mekanism, NuclearCraft.
 - **Defer:** Galacticraft (stub note only); Forestry crate system (port as-is, flag for future rework).
+## ⚠ Scope rework — 2026-08-12 (decision; supersedes the scope above and re-scopes the milestones below)
+
+**Direction:** full rework, not a faithful port. Original UniDict is treated as a *reference for
+mechanics*, not a spec to reproduce. We keep only the low-risk, high-value behavior, rebuild it
+with better code, and prioritize the features a mature "unify" mod should have had.
+
+**Kept from the original feature set (rebuilt, "better code", covered by T1/T2/T3):**
+- **Machine output rewrites — the flagship.** Vanilla furnace, AE2 grinder, IC2 (macerator,
+  compressor, centrifuge, metal-former roller, blast furnace), IE (arc, blast, crusher, metal
+  press), TE (redstone furnace, pulverizer, induction smelter), EIO (alloy smelter, SAG mill),
+  Railcraft (blast furnace). Rewrite existing recipe *outputs* to the canonical entry,
+  **non-destructively** — never remove a recipe unless required, never mutate forge's global
+  OreDictionary source of truth.
+- **Chest / loot rewrite** (`ChestIntegration`) — best-effort, minor.
+
+**Deferred from the original (NOT ported now):**
+- Crafting recipe rewrite + recipe-key rework (was M5) — it removed other mods' recipes from
+  `CraftingManager`; revisit only later through non-destructive rewriting.
+- `keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation — invasive; the
+  historical crash source. Revisit only if a clear need arises.
+- NEI hiding / item hiding beyond what the chosen rewrites require.
+- Forestry (carpenter outputs + crate runtime `ItemCrated` registration) — fragile, low value.
+- API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — mostly deferred; keep
+  only the minimal read surface a kept integration actually uses.
+- `customUnifiedResources`, Galacticraft stub.
+
+**New first-class features (build-better; focus these first):**
+1. **Transparency** — an in-game unification report/audit: per resource, the canonical entry,
+   every variant, the owning mod, and what was rewritten. This productionizes the
+   `[unidict-verify]` harness into a real user-facing + developer-facing feature
+   (e.g. `/unidict report`). It is also the main way we "prove it works" at each stage.
+2. **Cleaner config** — grouped categories plus **presets** (e.g. minimal / standard /
+   max-compat), fewer overlapping knobs than the original.
+3. **Non-destructive rewriting** — machine/loot rewrites never delete or mutate global
+   registries; craft rewriting, when it returns, rewrites in place.
+4. **Broader equivalence** — extend unification beyond OreDictionary tag-equality to other
+   equivalence classes over time.
+
+**Explicitly deferred (infrastructure):** reload / re-run module — a load-time one-shot is
+acceptable for now.
+
+**Unchanged:** M0 infrastructure — JUnit harness, `@Accessor` / `@Invoker` risk spikes,
+sequential/deterministic execution, accessor-as-interface seam (T2). These apply to all kept work.
+
+**Milestone impact (re-scope of the sections below):**
+- **M1** (pure resource model) — keep: the kind×resource selection core is the substrate for
+  main-entry selection and for the transparency report.
+- **M2** (config + determinism/infra) — keep; config work absorbs the *presets* feature.
+- **M3** (UniOreDictionary seam) — keep, trimmed to a **read-only** accessor (+ `getFirstEntry`
+  for the IE crusher); mutation methods deferred.
+- **M4** — reframed: the vertical slice is core selection + **vanilla furnace rewrite** + the
+  first transparency-report output. No NEI hiding.
+- **M5** (crafting rewrite + recipe-key) — **DEFERRED.**
+- **M6** — machine rewrites: Furnace, AE2, IC2, IE + Chest (loot). One PR each.
+- **M7** — machine rewrites (accessor/mixin): EIO, Railcraft, TE. Forestry removed.
+- **M8** — mostly deferred; keep only the minimal read surface kept integrations need.
+- **M9** — cleanup + full regression (unchanged).
+- **Build-better track** — see dedicated section below.
+
+
+## Build-better track (the "accomplish-more" features)
+
+These are first-class deliverables, not post-port extras. Each is testable and ships with its
+own verify line. Priority order as decided 2026-08-12: transparency, config presets,
+non-destructive rewriting, broader equivalence. **Reload / re-run module is deferred.**
+
+### BB-1 — Transparency (unification report / audit)
+- **Scope:** a dev + user command (e.g. `/unidict report`) that prints, per resource, the
+  canonical (main) entry, every variant and owner mod, and — for the kept integrations — what
+  got rewritten. Productionizes the `[unidict-verify]` harness; the report doubles as the T3
+  oracle ("prove it works" at every stage).
+- **Builds on:** M1 selection core, M2 sequential execution, the T3 writer.
+- **Tests:** T1 on a pure `ReportEntry` computation/formatting; T3 grep of report lines.
+- **Gate:** `[unidict-verify] report` output is stable and diffable across runs; every kept
+  rewrite has a matching report line.
+
+### BB-2 — Cleaner config + presets
+- **Scope:** grouped categories, fewer overlapping knobs than the original (dedupe
+  `ownerOfEveryThing` vs per-kind owners vs `enableSpecificKindSort`), and **presets** —
+  minimal / standard / max-compat. Presets pick defaults; explicit keys still override.
+- **Builds on:** M2 Config port; keep legacy key names as aliases where cheap for compat.
+- **Tests:** T1 `Config` fixture covers every key + preset resolution.
+- **Gate:** each preset yields a documented, deterministic default set; fixture test green.
+
+### BB-3 — Non-destructive rewriting
+- **Scope:** machine/loot rewrites rewrite outputs **in place** and never remove or mutate
+  global registries (forge OD lists, CraftingManager, a mod manager's structural recipe list).
+- **Tests:** T2 on a fake machine-recipe map asserts rewrite changes only outputs and preserves
+  entry counts; a grep guard ensures no kept integration calls a destructive API.
+- **Gate:** grep guard passes (no `Iterator.remove` on shared recipe lists in kept code);
+  fabricated-map T2 test green.
+
+### BB-4 — Broader equivalence
+- **Scope:** extend unification beyond OreDictionary tag-equality to other equivalence classes
+  (e.g. fuel/energy-providing stacks, "same item" grouped across mods) as the core matures.
+  Research + spike first; exact equivalences are TBD and added iteratively.
+- **Tests:** T1 on each equivalence classifier; T3 verify lines per equivalence class.
+- **Gate:** at least one non-OD equivalence class implemented, tested, and reported.
+
+### Deferred (infrastructure)
+- Reload / re-run module — a load-time one-shot is acceptable for now.
 
 ## Boilerplate checkpoint (repo state at v2)
 
@@ -224,7 +325,7 @@ Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mix
 | `PulverizerManagerMixin`           | `PulverizerManager`           | `@Accessor` x1 + `@Invoker` x1 | `IPulverizerManagerAccessor`                             | `TEIntegration` reflection                             |
 | `SmelterManagerMixin`              | `SmelterManager`              | `@Accessor` x1 + `@Invoker` x1 | `ISmelterManagerAccessor`                                | `TEIntegration` reflection                             |
 
-**AT fallback note (unchanged):** if `@Invoker` can't target a private constructor in the UniMixins / Sponge 0.8.5-GTNH build, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`). Spike B in M0 settles this once and for all.
+**AT fallback note (unchanged):** if `@Invoker` can't target a private constructor in the UniMixins / Sponge 0.8.5-GTNH build, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`). **Spike B outcome (2026-08-12):** `@Invoker("<init>")` compiles for all three TE constructor signatures (Mixins AP 0.8.7 validates them) — use `@Invoker` in M7. The AT fallback is **documented only, no physical file** (the toolchain `applyJST` auto-applies any `*_at.cfg` in resources to the *decompiled MC* and rejects non-MC class entries — a resource AT would break the build). Write + validate AT entries only if runtime `@Invoker` fails in-game.
 
 ---
 
@@ -290,7 +391,15 @@ Each integration row in M6/M7 repeats the 5-item per-PR checklist; check them of
 
 ---
 
-## Deferred items (unchanged)
+## Deferred items (updated 2026-08-12) — see also the "Scope rework" notice at the top
 
-- **Galacticraft integration** — stub note only; real implementation to be added later.
-- **Forestry crate system** — ported as-is; the runtime `ItemCrated` registration is a future rework candidate (flagged `// TODO: rework crate registration`).
+From the original feature set (deferred, NOT ported now):
+- Crafting recipe rewrite + recipe-key rework (was M5).
+- `keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation.
+- NEI / item hiding beyond what the kept rewrites require.
+- Forestry (carpenter outputs + crate runtime `ItemCrated` registration).
+- API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — keep only the minimal read surface kept integrations use.
+- `customUnifiedResources`, Galacticraft stub.
+
+Infrastructure:
+- Reload / re-run module.

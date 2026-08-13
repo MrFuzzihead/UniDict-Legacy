@@ -16,7 +16,9 @@ public class CommonProxy {
 
     public void init(FMLInitializationEvent event) {}
 
-    public void postInit(FMLPostInitializationEvent event) {}
+    public void postInit(FMLPostInitializationEvent event) {
+        if (VerifyHarness.isEnabled()) VerifyHarness.runChecks();
+    }
 
     public void serverStarting(FMLServerStartingEvent event) {}
 }

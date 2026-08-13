@@ -7,12 +7,12 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum Mixins implements IMixins {
 
-    MINECRAFT(new MixinBuilder().setPhase(Phase.EARLY)
-        .addCommonMixins("EarlyMinecraftMixinExample")),
+    ORE_DICTIONARY(new MixinBuilder().setPhase(Phase.EARLY)
+        .addCommonMixins("OreDictionaryMixin")),
 
-    EXAMPLEMOD(new MixinBuilder().setPhase(Phase.LATE)
-        .addClientMixins("modid.ExampleModMixinExample")
-        .addRequiredMod(TargetMods.EXAMPLEMODNOCORE));
+    THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
+        .addCommonMixins("RecipeFurnaceInvoker", "RecipePulverizerInvoker", "RecipeSmelterInvoker")
+        .addRequiredMod(TargetMods.THERMAL_EXPANSION));
 
     private final MixinBuilder builder;
 

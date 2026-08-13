@@ -7,8 +7,7 @@ import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 
 public enum TargetMods implements ITargetMod {
 
-    EXAMPLEMODNOCORE("examplemodnocoremodid"),
-    EXAMPLEMODCORE("modauthor.modname.core.CoreMod", "examplemodcoremodid");
+    THERMAL_EXPANSION("ThermalExpansion");
 
     private final TargetModBuilder builder;
 
