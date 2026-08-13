@@ -5,6 +5,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.unidict.integration.IntegrationModule;
 import com.mrfuzzihead.unidict.module.ModuleHandler;
+import com.mrfuzzihead.unidict.resource.ResourceHandler;
+import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
@@ -26,6 +28,13 @@ public class UniDict {
     /** Sequential driver for every module (M2): modules are registered explicitly, never discovered. */
     private final ModuleHandler moduleHandler = new ModuleHandler();
 
+    /**
+     * The resource model published by the M4 selection core once its pipeline runs at post-init.
+     * Integrations (furnace) and the transparency report (BB-1) read the canonical lookups through
+     * this (rework: "expose ResourceHandler directly via UniDict statics").
+     */
+    public static volatile ResourceHandler resourceHandler;
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         proxy.preInit(event);
@@ -40,13 +49,23 @@ public class UniDict {
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         proxy.postInit(event);
+        runResourcePipeline();
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
     }
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
+        proxy.loadComplete(event);
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
         // M2 commit 2 ports the comparator cache lifecycle (SpecificKindItemStackComparator.nullify()).
+    }
+
+    /** M4 selection core: create the resource model, reconcile it, and publish the ResourceHandler. */
+    private static void runResourcePipeline() {
+        final UniResourceHandler handler = UniResourceHandler.create();
+        if (handler == null) return; // already ran (defensive)
+        handler.createResources();
+        handler.postInit();
     }
 
     @Mod.EventHandler

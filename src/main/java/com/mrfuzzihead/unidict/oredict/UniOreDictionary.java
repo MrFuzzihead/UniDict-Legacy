@@ -13,9 +13,7 @@ import java.util.regex.Pattern;
 
 import net.minecraft.item.ItemStack;
 
-import com.mrfuzzihead.unidict.pure.MetaKey;
-
-import cpw.mods.fml.common.registry.GameData;
+import com.mrfuzzihead.unidict.MetaItem;
 
 /**
  * Read-only query surface over Forge's Ore Dictionary, rewritten for M3 to read every map through the
@@ -70,8 +68,8 @@ public final class UniOreDictionary {
         if (instance == null) {
             synchronized (UniOreDictionary.class) {
                 if (instance == null)
-                    // TODO(M4): reuse MetaItem glue once it lands; this is the same id+damage math.
-                    instance = new UniOreDictionary(OreDictionaryBridge.instance(), UniOreDictionary::gameDataMetaItem);
+                    // M4: the MetaItem glue (same id+damage math as the pure MetaKey) is the live provider.
+                    instance = new UniOreDictionary(OreDictionaryBridge.instance(), MetaItem.PROVIDER);
             }
         }
         return instance;
@@ -159,14 +157,5 @@ public final class UniOreDictionary {
         return oreDictId != null && oreDictId >= 0
             && oreDictId < accessor.getIdToStack()
                 .size();
-    }
-
-    /** Live MetaItem provider for {@link #instance()}: registry id + damage via the pure {@link MetaKey}. */
-    private static int gameDataMetaItem(final ItemStack stack) {
-        final int damage = stack.getItemDamage();
-        return MetaKey.forItemAndDamage(
-            GameData.getItemRegistry()
-                .getId(stack.getItem()),
-            damage);
     }
 }

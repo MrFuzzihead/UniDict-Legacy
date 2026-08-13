@@ -54,14 +54,20 @@ comparators.
 - [x] `runClient` re-verified: boot clean through all 76 mods (incl. GregTech + Hodgepodge); `OreDictionaryMixin` applied with 5 accessors renamed, no `InvalidMixinException`; log shows `[unidict-verify] PASS spikeA oredict-bridge nameToId=26794` + `summary: 1 passed, 0 failed` (2026-08-13)
 
 ## M4 — Vertical slice (reframed): selection + vanilla furnace + report prototype — NO NEI hiding
-- [ ] `SelectionRules` + `MetaItem`/containers/handlers; main-thread rule applies
-- [ ] Vanilla furnace rewrite (first machine rewrite) → `[unidict-verify] PASS integration=Furnace`
-- [ ] First transparency-report output (BB-1 seed)
+- [x] Pure `SelectionRules` (keep-one-entry / NEI-hide eligibility / sort-trigger decisions) + 7 `SelectionRulesTest` T1 tests green
+- [x] `MetaItem` MC glue over `pure/MetaKey` (exposes `MetaItemProvider`; `UniOreDictionary.instance()` now reuses it)
+- [x] `UniResourceContainer` — non-destructive snapshot selection (sorts a **private copy**, never mutates forge's live OD list — BB-3); live-list `removeBadEntriesFromNEI`/`keepOneEntry` removed (deferred)
+- [x] `ResourceHandler` (canonical-query seam) + `UniResourceHandler` (sequential `createResources`/`postInit` — no `parallelStream`; publishes `UniDict.resourceHandler`)
+- [x] Vanilla furnace rewrite — `FurnaceIntegration.rewriteOutputs` **non-destructive** (only `setValue` outputs, never removes recipes / never mutates global registries) + 3 `FurnaceIntegrationTest` T2 tests green (fabricated-map)
+- [x] `NEIHelper` present as the single guarded `API.hideItem` site with a dev-mode main-thread guard — **not invoked** in M4 (NEI hiding deferred)
+- [x] First transparency report (BB-1 seed): verify pass emits `[unidict-verify] PASS resource=<name> main=<owner:registry> variants=<n>` per unified resource at load-complete (**lines sorted so the dump is diffable run-to-run**)
+- [x] **In-game crash found + fixed (2026-08-13, GTNH pack):** `createResources()` was calling `Resource::register` for **every OD prefix** in the registry, blowing past the 64-kind cap (`Cannot register more than 64 resource kinds`). Since only the configured `childrenOfMetals` child kinds survive `filteredClone(childrenOfMetals)` in the metal map, we now **register bits / build containers only for `childrenOfMetals`** children — the taxonomy stays ≤ 64 and nothing the selection/report/furnace acts on is lost.
+- [x] **T3 in-game gate VERIFIED (2026-08-13, GTNH pack, 76 mods):** `runClient` booted clean (no NEI crash, no `Cannot register more than 64`), `[unidict-verify] summary: 147 passed, 0 failed` — `PASS spikeA oredict-bridge nameToId=52267`, 145 per-resource `PASS resource=<name> main=… variants=<n>` lines (incl. `ingotIron`), and `Furnace Integration: rewrote outputs of 465 furnace recipes`.
+- [ ] `./gradlew build` (Spotless/Checkstyle) on the final M4 tree — `test` is green (already confirmed)
 
 ## M5 — Crafting rewrite + recipe-key — DEFERRED (~)
 
-## M6 — Machine rewrites (one PR each): Furnace · AE2 · IC2 · IE · Chest(loot)
-- [ ] Furnace `[unidict-verify] PASS integration=Furnace`
+## M6 — Machine rewrites (one PR each): AE2 · IC2 · IE · Chest(loot)  *(Furnace landed in M4)*
 - [ ] AE2 `…integration=AE2` · [ ] IC2 `…integration=IC2`
 - [ ] IE `…integration=IE` · [ ] Chest `…integration=Chest`
 

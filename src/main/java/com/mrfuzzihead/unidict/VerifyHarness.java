@@ -1,11 +1,23 @@
 package com.mrfuzzihead.unidict;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import javax.annotation.Nonnull;
+
+import net.minecraft.item.ItemStack;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
+import com.mrfuzzihead.unidict.resource.Resource;
+import com.mrfuzzihead.unidict.resource.ResourceHandler;
+import com.mrfuzzihead.unidict.resource.UniResourceContainer;
+
+import cpw.mods.fml.common.registry.GameData;
 
 /**
  * M0 dev-only verify harness — the T3 oracle (docs/PLAN.md §0, docs/TestPlan.md). When enabled it
@@ -60,7 +72,7 @@ public final class VerifyHarness {
     public static void runChecks() {
         LOG.info("[unidict-verify] harness enabled — running self-checks");
         checkOreDictionaryBridge();
-        // TODO(BB-1 / M1+): add per-resource report checks once the resource model lands.
+        runResourceReport();
         LOG.info("[unidict-verify] summary: {} passed, {} failed", passed, failed);
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
     }
@@ -75,5 +87,36 @@ public final class VerifyHarness {
             "spikeA oredict-bridge",
             populated ? "nameToId=" + bridge.getNameToId()
                 .size() : "bridge empty (lazy OreDictionaryMixin accessors not applied?)");
+    }
+
+    /** M4 transparency-report output (BB-1 seed): one PASS line per unified resource entry. */
+    private static void runResourceReport() {
+        final ResourceHandler resourceHandler = UniDict.resourceHandler;
+        if (resourceHandler == null) {
+            record(false, "resource report", "no ResourceHandler — resource pipeline did not run?");
+            return;
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
+            for (final UniResourceContainer container : resource.getChildrenCollection()) lines.add(
+                "resource=" + container.name
+                    + " main="
+                    + describe(container.getMainEntry())
+                    + " variants="
+                    + container.getEntries()
+                        .size());
+        // The underlying maps iterate in hash order; sort so the report is stable and diffable run-to-run.
+        Collections.sort(lines);
+        for (final String line : lines) record(true, line);
+        record(!lines.isEmpty(), "resource report", "resources=" + lines.size());
+    }
+
+    private static String describe(final ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return "none";
+        final String registryName = GameData.getItemRegistry()
+            .getNameForObject(stack.getItem());
+        final String owner = Util.getModName(stack);
+        // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
+        return registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
     }
 }

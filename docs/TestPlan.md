@@ -27,7 +27,8 @@ Register new checks in the dev verify routine when you add a feature.
 
 Examples once features land:
 
-- `[unidict-verify] PASS resource=ingotIron main=ThermalExpansion:ingotIron hidden=4`
+- `[unidict-verify] PASS resource=ingotIron main=ThermalExpansion:ingotIron variants=4`  (M4 report prototype — per unified resource; "variants=" since M4 has no NEI hiding)
+- `[unidict-verify] PASS resource=ingotIron main=ThermalExpansion:ingotIron hidden=4`  (old default format with NEI hiding)
 - `[unidict-verify] PASS integration=AE2Grinder`
 - `[unidict-verify] INFO oredict.accessor nameToId.size=12345`  (Spike A)
 

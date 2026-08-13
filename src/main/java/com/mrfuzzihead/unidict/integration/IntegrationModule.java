@@ -10,10 +10,9 @@ import com.mrfuzzihead.unidict.module.AbstractModule;
  *
  * <p>
  * Each integration is added with an explicit {@code new} and only when its config toggle is on
- * ({@link Config#furnace()} etc., from the M2 config rework). No integration is ported yet (M6 adds
- * Furnace, AE2, IC2, IE and Chest on top of this; M7 adds the mixin-accessor pairs EIO, Railcraft and
- * TE). Until then {@code init()} is empty, so the mod boots with all integrations disabled — a green
- * start for the M2 gate.
+ * ({@link Config#furnace()} etc., from the M2 config rework). M4 lands the vanilla furnace rewrite
+ * on top of this (which shipped empty); M6 adds AE2, IC2, IE and Chest, and M7 adds the
+ * mixin-accessor pairs EIO, Railcraft and TE.
  *
  * <p>
  * The pattern each landed integration will follow:
@@ -36,7 +35,8 @@ public final class IntegrationModule extends AbstractModule {
 
     @Override
     protected void init() {
-        // M6/M7: add integrations here with explicit `new`, one line each, gated on their config
-        // toggle. Until then nothing is registered, so runClient boots with no integrations.
+        // M6/M7: add more integrations here with explicit `new`, one line each, gated on their config
+        // toggle. M4 lands the vanilla furnace rewrite as the vertical slice.
+        if (Config.integrationModule() && Config.furnace()) executor.add(new FurnaceIntegration());
     }
 }

@@ -179,7 +179,7 @@ public class Resource<E extends IResourceContainer> {
      * Returns the resources that have every requested kind, or an empty list if a requested
      * kind name is unknown.
      */
-    public static List<Resource<?>> getResources(@Nonnull final Collection<Resource<?>> resources,
+    public static List<Resource<?>> getResources(@Nonnull final Collection<? extends Resource<?>> resources,
         final String... kinds) {
         long kindsId = 0;
         for (final String kind : kinds) {
@@ -191,14 +191,15 @@ public class Resource<E extends IResourceContainer> {
     }
 
     /** Returns the resources that have every requested kind bit set, or an empty list for {@code 0}. */
-    public static List<Resource<?>> getResources(@Nonnull final Collection<Resource<?>> resources, final long kinds) {
+    public static List<Resource<?>> getResources(@Nonnull final Collection<? extends Resource<?>> resources,
+        final long kinds) {
         return (kinds != 0) ? resources.stream()
             .filter(resource -> (kinds & resource.getChildren()) == kinds)
             .collect(Collectors.toList()) : Collections.emptyList();
     }
 
     /** Returns the resources that have every requested kind bit set (dropping {@code 0} entries from the mask). */
-    public static List<Resource<?>> getResources(@Nonnull final Collection<Resource<?>> resources,
+    public static List<Resource<?>> getResources(@Nonnull final Collection<? extends Resource<?>> resources,
         final long... kinds) {
         long trueKinds = 0;
         for (final long kind : kinds) if (kind != 0) trueKinds |= kind;
