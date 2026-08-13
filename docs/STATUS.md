@@ -47,9 +47,11 @@ comparators.
 - [x] `./gradlew build` green: 40 tests, Spotless/Checkstyle clean
 
 ## M3 — UniOreDictionary seam — KEEP, TRIMMED to read-only accessor (+ `getFirstEntry` for IE)
-- [ ] `IOreDictionaryAccessor` + mixin + `FakeOreDictionaryAccessor`; `UniOreDictionary` reads all maps through the interface
-- [ ] **Spike-A carry-over:** bridge must be **lazy-read** (call the `@Accessor` getters on demand) — **not** a one-time `@Inject` into `OreDictionary.rebakeMap()`, which Hodgepodge's `SpeedupOreDictionaryTransformer` rewrites. Defer to Hodgepodge (never disable). Green line = `[unidict-verify] PASS spikeA oredict-bridge`.
-- [ ] Mutation methods (`removeFromElsewhere`/`keepOneEntry` collapse) NOT ported now (deferred)
+- [x] `IOreDictionaryAccessor` + mixin + `FakeOreDictionaryAccessor`; read-only `UniOreDictionary` reads all maps through the interface (T2 `UniOreDictionaryTest`, 6 tests)
+- [x] **Spike-A carry-over:** bridge is **lazy-read** — `OreDictionaryMixin` implements `IOreDictionaryAccessor` (instance `@Override` methods merged onto the target, each delegating to a `private static` `@Accessor` and thus reading the live field on every call); `OreDictionaryBridge` holds a target instance cast to the interface. The one-time `@Inject` into `OreDictionary.rebakeMap()` was **removed** (Hodgepodge's `SpeedupOreDictionaryTransformer` strips it). We defer to Hodgepodge (never disable). Green line = `[unidict-verify] PASS spikeA oredict-bridge`.
+- [x] Mutation methods (`removeFromElsewhere`/`keepOneEntry` collapse) NOT ported (deferred) — no `Util.getField`/`setField` remains anywhere in src/main
+- [x] **Startup crash fixed (see below):** an early M3 attempt added `public static unidict$get*` readers to the mixin, but Mixin forbids non-private static members (`InvalidMixinException` → broke `OreDictionary` load → GT `NoClassDefFoundError`). Reworked to the interface-impl pattern above; `compileJava` (Mixin AP) + full build green.
+- [x] `runClient` re-verified: boot clean through all 76 mods (incl. GregTech + Hodgepodge); `OreDictionaryMixin` applied with 5 accessors renamed, no `InvalidMixinException`; log shows `[unidict-verify] PASS spikeA oredict-bridge nameToId=26794` + `summary: 1 passed, 0 failed` (2026-08-13)
 
 ## M4 — Vertical slice (reframed): selection + vanilla furnace + report prototype — NO NEI hiding
 - [ ] `SelectionRules` + `MetaItem`/containers/handlers; main-thread rule applies

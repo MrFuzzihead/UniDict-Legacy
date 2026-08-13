@@ -6,79 +6,89 @@ import java.util.Map;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
+import com.mrfuzzihead.unidict.oredict.IOreDictionaryAccessor;
 
 /**
- * M0 "Spike A": prove Sponge {@code @Accessor} works for {@link OreDictionary}'s five private
- * static fields. The five accessors (e.g. {@link #getNameToId()}) are the proofed seam M3 reads
- * through. This class also carries a short-lived {@code @Inject} into {@code rebakeMap} that copies
- * the fields into {@link OreDictionaryBridge} as a spike.
+ * Accessor mixin for {@link OreDictionary}'s five private static caches (M3). Implements
+ * {@link IOreDictionaryAccessor} so the bridge / {@code UniOreDictionary} query Forge's maps through
+ * the interface — no reflection.
  *
  * <p>
- * All targets use {@code remap = false}: these are Forge-*added* members (not vanilla), so the
- * Mixin refmap has no MCP→SRG mapping for them and their names are the same in dev and obfuscated.
+ * The {@code @Accessor} stubs are {@code private static} (static fields require static accessors).
+ * The {@code @Override} instance methods that realise the interface delegate to those stubs; Mixin
+ * rewrites the {@code accessor$*} call sites to the real generated target accessors at apply time, so
+ * each interface call reads the live static field <b>on demand</b>.
  *
  * <p>
- * <b>Hodgepodge conflict (see docs/PLAN.md §Interop decisions):</b> in a GTNH dev env,
- * Hodgepodge's {@code SpeedupOreDictionaryTransformer} ASM-rewrites {@code OreDictionary.rebakeMap()}
- * and strips injected callbacks, so the {@code @Inject} below does NOT fire there (the accessors
- * still apply cleanly). Per our interop rule we defer to Hodgepodge — we do not disable it. The M3
- * seam drops this one-time-capture approach in favour of <b>lazy reads</b>: {@code UniOreDictionary}
- * / the bridge call the {@code @Accessor} getters on demand. This class's {@code capture()}/inject
- * is a spike artifact to be retired in M3.
+ * Note: Mixin forbids non-private <em>static</em> members in a mixin class, which is why these readers
+ * are instance interface methods rather than {@code public static} helpers — a {@code public static}
+ * accessor would be copied onto the target, which Mixin rejects (an early attempt at exactly that
+ * crashed startup with {@code InvalidMixinException}).
+ *
+ * <p>
+ * All targets use {@code remap = false}: these are Forge-<em>added</em> members (not vanilla), so the
+ * Mixin refmap has no MCP→SRG mapping for them; their names are identical in dev and obfuscated.
+ *
+ * <p>
+ * <b>Hodgepodge conflict (docs/PLAN.md §Interop decisions, hard rule):</b> Hodgepodge's
+ * {@code SpeedupOreDictionaryTransformer} ASM-rewrites {@code OreDictionary.rebakeMap()} and strips
+ * injected callbacks, so a one-time {@code @Inject} capture would silently never fire there. We defer
+ * to Hodgepodge (never disable it) — these lazy readers only call {@code @Accessor} getters on demand
+ * and never inject into a transform-targeted method.
  */
 @Mixin(OreDictionary.class)
-public abstract class OreDictionaryMixin {
-
-    private static final Logger LOG = LogManager.getLogger("UniDict");
+public abstract class OreDictionaryMixin implements IOreDictionaryAccessor {
 
     @Accessor(value = "nameToId", remap = false)
-    private static Map<String, Integer> getNameToId() {
+    private static Map<String, Integer> accessor$nameToId() {
         return null;
     }
 
     @Accessor(value = "idToName", remap = false)
-    private static List<String> getIdToName() {
+    private static List<String> accessor$idToName() {
         return null;
     }
 
     @Accessor(value = "idToStack", remap = false)
-    private static List<List<ItemStack>> getIdToStack() {
+    private static List<List<ItemStack>> accessor$idToStack() {
         return null;
     }
 
     @Accessor(value = "idToStackUn", remap = false)
-    private static List<List<ItemStack>> getIdToStackUn() {
+    private static List<List<ItemStack>> accessor$idToStackUn() {
         return null;
     }
 
     @Accessor(value = "stackToId", remap = false)
-    private static Map<Integer, List<Integer>> getStackToId() {
+    private static Map<Integer, List<Integer>> accessor$stackToId() {
         return null;
     }
 
-    @Inject(method = "rebakeMap", remap = false, at = @At("TAIL"))
-    private static void unidict$onRebakeMap(CallbackInfo ci) {
-        final Map<String, Integer> nameToId = getNameToId();
-        final List<String> idToName = getIdToName();
-        final List<List<ItemStack>> idToStack = getIdToStack();
-        final List<List<ItemStack>> idToStackUn = getIdToStackUn();
-        final Map<Integer, List<Integer>> stackToId = getStackToId();
-        OreDictionaryBridge.capture(nameToId, idToName, idToStack, idToStackUn, stackToId);
-        LOG.info(
-            "unidict.accessor OK: nameToId={} idToName={} idToStack={} idToStackUn={} stackToId={}",
-            nameToId.size(),
-            idToName.size(),
-            idToStack.size(),
-            idToStackUn.size(),
-            stackToId.size());
+    @Override
+    public Map<String, Integer> getNameToId() {
+        return accessor$nameToId();
+    }
+
+    @Override
+    public List<String> getIdToName() {
+        return accessor$idToName();
+    }
+
+    @Override
+    public List<List<ItemStack>> getIdToStack() {
+        return accessor$idToStack();
+    }
+
+    @Override
+    public List<List<ItemStack>> getIdToStackUn() {
+        return accessor$idToStackUn();
+    }
+
+    @Override
+    public Map<Integer, List<Integer>> getStackToId() {
+        return accessor$stackToId();
     }
 }

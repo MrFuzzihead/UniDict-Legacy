@@ -65,15 +65,15 @@ public final class VerifyHarness {
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
     }
 
-    /** Seed check for M0 Spike A: the OreDictionary accessor bridge was captured with data. */
+    /** Seed check for M0 Spike A: the Ore Dictionary accessor bridge reads the live maps lazily. */
     private static void checkOreDictionaryBridge() {
         final OreDictionaryBridge bridge = OreDictionaryBridge.instance();
-        final boolean captured = bridge.getNameToId() != null && !bridge.getNameToId()
+        final boolean populated = bridge.getNameToId() != null && !bridge.getNameToId()
             .isEmpty();
         record(
-            captured,
+            populated,
             "spikeA oredict-bridge",
-            captured ? "nameToId=" + bridge.getNameToId()
-                .size() : "bridge not captured (OreDictionaryMixin not applied?)");
+            populated ? "nameToId=" + bridge.getNameToId()
+                .size() : "bridge empty (lazy OreDictionaryMixin accessors not applied?)");
     }
 }
