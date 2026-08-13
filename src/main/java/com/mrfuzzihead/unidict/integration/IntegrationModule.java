@@ -36,9 +36,10 @@ public final class IntegrationModule extends AbstractModule {
     @Override
     protected void init() {
         // M6/M7: add more integrations here with explicit `new`, one line each, gated on their config
-        // toggle. M4 landed the vanilla furnace rewrite as the vertical slice; M6 adds IC2 (AE2, IE,
-        // Chest next), M7 the mixin-accessor pairs (EIO, Railcraft, TE).
+        // toggle. Landed: M4 vanilla furnace, M6 IC2 + AE2 (IE, Chest next); M7 the mixin-accessor
+        // pairs (EIO, Railcraft, TE).
         if (Config.integrationModule() && Config.furnace()) executor.add(new FurnaceIntegration());
         if (Config.integrationModule() && Config.ic2()) executor.add(new IC2Integration());
+        if (Config.integrationModule() && Config.ae2()) executor.add(new AE2Integration());
     }
 }
