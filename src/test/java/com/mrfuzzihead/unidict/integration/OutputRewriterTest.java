@@ -80,6 +80,51 @@ class OutputRewriterTest {
     }
 
     @Test
+    void genericCoreListRemapsOutputsInPlacePreservingCount() {
+        final Item itemA = new Item();
+        final Item itemB = new Item();
+        final ItemStack outA = new ItemStack(itemA, 2, 1);
+        final ItemStack outB = new ItemStack(itemB, 2, 1);
+
+        // IE-backed list (entry identity is opaque to the core; swap happens by index, not removal).
+        final List<Holder> recipes = new ArrayList<>();
+        recipes.add(new Holder(new ArrayList<>(Arrays.asList(outA))));
+        recipes.add(new Holder(new ArrayList<>(Arrays.asList(outB))));
+        recipes.add(null); // defensive; will be skipped, never replaced
+
+        final ItemStack canonicalA = new ItemStack(itemA, 9, 3);
+        final ItemStack canonicalB = new ItemStack(itemB, 9, 3);
+        final UnaryOperator<ItemStack> resolveMain = s -> {
+            if (s == outA) return canonicalA;
+            if (s == outB) return canonicalB;
+            return s;
+        };
+
+        final int rewritten = OutputRewriter.rewriteList(recipes, HOLDER_VIEW, resolveMain);
+
+        assertEquals(2, rewritten, "both present outputs should have been rewritten");
+        assertEquals(3, recipes.size(), "rewriting a list must never change its size (no remove)");
+        assertSame(canonicalA, recipes.get(0).items.get(0));
+        assertSame(canonicalB, recipes.get(1).items.get(0));
+        assertNull(recipes.get(2), "null list entry is skipped and left untouched");
+    }
+
+    @Test
+    void rewriteListLeavesUnchangedEntriesAndTheirIdentityAlone() {
+        final Item itemA = new Item();
+        final ItemStack unchanged = new ItemStack(itemA, 1, 1);
+
+        final Holder entry = new Holder(new ArrayList<>(Arrays.asList(unchanged)));
+        final List<Holder> recipes = new ArrayList<>(Arrays.asList(entry));
+
+        final int rewritten = OutputRewriter.rewriteList(recipes, HOLDER_VIEW, UnaryOperator.identity());
+
+        assertEquals(0, rewritten);
+        assertEquals(1, recipes.size());
+        assertSame(entry, recipes.get(0), "an unchanged entry must not be replaced (identity preserved)");
+    }
+
+    @Test
     void genericCoreLeavesUnchangedAndNullOutputsAlone() {
         final Item itemA = new Item();
         final ItemStack stack = new ItemStack(itemA, 2, 1);

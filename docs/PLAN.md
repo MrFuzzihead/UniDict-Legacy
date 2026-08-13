@@ -113,6 +113,20 @@ non-destructive rewriting, broader equivalence. **Reload / re-run module is defe
   Research + spike first; exact equivalences are TBD and added iteratively.
 - **Tests:** T1 on each equivalence classifier; T3 verify lines per equivalence class.
 - **Gate:** at least one non-OD equivalence class implemented, tested, and reported.
+- **Scope decision (2026-08-13):** the first non-metal equivalence class is **fuel/coke** (coal coke from
+  Railcraft + IE). It is **deferred until after M6/M7 but prioritized as the next build-better milestone** —
+  it is NOT part of the metal machine-rewrite work. Rationale + plan:
+  - The unification *engine* is already resource-agnostic (`ResourceHandler.getMainItemStack` is what every
+    machine rewrite calls), so registering coke needs no machine code — only (a) a new resource *kind* for
+    the fuel/coke form in the M1 taxonomy (within the 64-kind guard), (b) a config surface (resurrect the
+    deferred `customUnifiedResources` / a "fuels" preset toggle), and (c) a **fuel-equivalence classifier**.
+  - Fuels are NOT naive OD tag-equality: metals are near-interchangeable, but coke variants can differ in
+    burn time and some recipes/fuel slots check the exact item. The classifier must pick the canonical coke
+    by fuel value and preserve per-item burn semantics (config-gated, opt-in).
+  - Before implementing, verify in the live GTNH pack that Railcraft/IE coke actually share a tag and what
+    each fuel value is, so the canonical-selection rule is data-backed.
+  - Shipping shape: register Coke, let the existing machine rewrites pick up its outputs via
+    `getMainItemStack`, add a verify/report line, then satisfy the BB-4 gate with a T3-run equivalence line.
 
 ### Deferred (infrastructure)
 - Reload / re-run module — a load-time one-shot is acceptable for now.

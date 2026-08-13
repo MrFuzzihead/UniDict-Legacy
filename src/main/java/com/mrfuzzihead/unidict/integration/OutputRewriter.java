@@ -9,6 +9,10 @@ package com.mrfuzzihead.unidict.integration;
  * T2-tested source for that logic (docs/PLAN.md §0 rule 2): Furnace rewrites single-stack outputs
  * ({@link #rewriteSingleOutputs} over {@link #SINGLE_ITEM_VIEW}); IC2 rebuilds
  * {@code ic2.api.recipe.RecipeOutput}s through its own view in {@link IC2Integration}.
+ * <p>IE's recipes are immutable value objects ({@code output} is a {@code final} field, see
+ * {@code javap} on the IE api.crafting classes), so its list-backed machine managers are handled by
+ * {@link #rewriteList}: rebuild the corrected recipe and replace it <em>at its index</em>
+ * ({@code List.set}), so the entry count and order are preserved — never a removal.
  */
 
 import java.util.ArrayList;
@@ -50,20 +54,53 @@ final class OutputRewriter {
             final V output = recipe.getValue();
             if (output == null) continue;
             final List<ItemStack> original = view.getItems(output);
-            final List<ItemStack> mapped = new ArrayList<>(original.size());
-            boolean changed = false;
-            for (final ItemStack stack : original) {
-                final ItemStack main = resolveMain.apply(stack);
-                if (main != stack) changed = true;
-                mapped.add(main);
-            }
+            final List<ItemStack> mapped = mapItems(original, resolveMain);
             // Only rebuild when something actually changed; never touch the map otherwise.
-            if (changed) {
+            if (isChanged(original, mapped)) {
                 recipe.setValue(view.rebuild(output, mapped));
                 rewritten++;
             }
         }
         return rewritten;
+    }
+
+    /**
+     * Non-destructive list-backed output rewrite for machines whose recipes are immutable value
+     * objects (e.g. IE, where {@code output} is a {@code final} field). Each recipe whose outputs
+     * changed is {@code rebuild} with the canonical entry and replaced <em>at its index</em>
+     * ({@code List.set}) — the entry count and order are preserved, so no recipe is ever removed
+     * (BB-3). No-op for {@code null} entries and always-safe for an empty list.
+     *
+     * @return number of recipes (list elements) actually replaced
+     */
+    static <R> int rewriteList(final List<R> recipes, final OutputView<R> view,
+        final UnaryOperator<ItemStack> resolveMain) {
+        int rewritten = 0;
+        for (int i = 0; i < recipes.size(); i++) {
+            final R recipe = recipes.get(i);
+            if (recipe == null) continue;
+            final List<ItemStack> original = view.getItems(recipe);
+            final List<ItemStack> mapped = mapItems(original, resolveMain);
+            if (isChanged(original, mapped)) {
+                recipes.set(i, view.rebuild(recipe, mapped));
+                rewritten++;
+            }
+        }
+        return rewritten;
+    }
+
+    /** Maps every output stack through {@code resolveMain}, preserving order and size. */
+    private static List<ItemStack> mapItems(final List<ItemStack> original,
+        final UnaryOperator<ItemStack> resolveMain) {
+        final List<ItemStack> mapped = new ArrayList<>(original.size());
+        for (final ItemStack stack : original) mapped.add(resolveMain.apply(stack));
+        return mapped;
+    }
+
+    /** True if any output differs from its (by reference) main entry — i.e. a rewrite would matter. */
+    private static boolean isChanged(final List<ItemStack> original, final List<ItemStack> mapped) {
+        for (int i = 0; i < original.size(); i++) if (mapped.get(i) != original.get(i)) return true;
+        return false;
     }
 
     /** Adapts single-stack machine outputs (e.g. vanilla furnace) to the list-based core. */
