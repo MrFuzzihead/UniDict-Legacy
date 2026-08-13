@@ -49,6 +49,11 @@ dependencies {
     devOnlyNonPublishable("curse.maven:ImmersiveEngineering-231951:2299020")
     devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 
+    // IC2 on the test classpath (M6 T2): the IC2 machine-rewrite seam uses the real ic2.api.recipe
+    // RecipeOutput type (logic that touches the type but not statics — docs/PLAN.md §0 T2), mirroring
+    // how the Furnace T2 test uses MC Item/ItemStack types.
+    testImplementation("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

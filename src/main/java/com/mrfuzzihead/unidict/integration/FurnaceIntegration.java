@@ -30,7 +30,8 @@ final class FurnaceIntegration extends AbstractModuleThread {
     public String call() {
         try {
             final ResourceHandler resourceHandler = UniDict.resourceHandler;
-            if (resourceHandler != null && Config.furnace()) {
+            // Early-skip: with no unified resource the canonical lookup is a no-op, so skip the walk.
+            if (resourceHandler != null && !resourceHandler.resources.isEmpty() && Config.furnace()) {
                 final Map<ItemStack, ItemStack> smeltingList = FurnaceRecipes.smelting()
                     .getSmeltingList();
                 final int rewritten = rewriteOutputs(smeltingList, resourceHandler::getMainItemStack);
@@ -43,23 +44,8 @@ final class FurnaceIntegration extends AbstractModuleThread {
         return threadName + "Some things that you smelted appear to be different now.";
     }
 
-    /**
-     * Non-destructive output rewrite (T2 seam): maps every recipe's output through {@code resolveMain}
-     * (in production the resource handler's canonical lookup) without adding/removing any recipe.
-     *
-     * @return number of outputs that were actually changed
-     */
+    /** Furnace seam over the shared {@link OutputRewriter} core (single-stack outputs). */
     static int rewriteOutputs(final Map<ItemStack, ItemStack> recipes, final UnaryOperator<ItemStack> resolveMain) {
-        int rewritten = 0;
-        for (final Map.Entry<ItemStack, ItemStack> furnaceRecipe : recipes.entrySet()) {
-            final ItemStack output = furnaceRecipe.getValue();
-            if (output == null) continue;
-            final ItemStack main = resolveMain.apply(output);
-            if (main != null && main != output) {
-                furnaceRecipe.setValue(main);
-                rewritten++;
-            }
-        }
-        return rewritten;
+        return OutputRewriter.rewriteSingleOutputs(recipes, resolveMain);
     }
 }

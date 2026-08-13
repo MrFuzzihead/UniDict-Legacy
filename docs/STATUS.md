@@ -68,7 +68,8 @@ comparators.
 ## M5 — Crafting rewrite + recipe-key — DEFERRED (~)
 
 ## M6 — Machine rewrites (one PR each): AE2 · IC2 · IE · Chest(loot)  *(Furnace landed in M4)*
-- [ ] AE2 `…integration=AE2` · [ ] IC2 `…integration=IC2`
+- [ ] AE2 `…integration=AE2`
+- [x] IC2 `…integration=IC2` — **COMPLETE (2026-08-13, T3 gate).** Non-destructive (only rebuild/setValue `RecipeOutput` item-lists via `getMainItemStack`, never removes recipes / never mutates global registries — BB-3) across **10** `Recipes.*` machine maps (upstream's five — centrifuge, metalformerRolling, blastfurance, compressor, macerator — plus extractor, metalformerExtruding, metalformerCutting, blockcutter, oreWashing). Built on the shared **`OutputRewriter`** core (`rewriteOutputs(map, view, resolve)` + `rewriteSingleOutputs` convenience) that **Furnace also delegates to**; per-machine dev-verify lines + summary; early-skip + null-map guard. Tests: 3 `IC2IntegrationTest` + 4 `OutputRewriterTest` + 3 `FurnaceIntegrationTest` green; `./gradlew test build` + Spotless/Checkstyle green. **T3 gate (dev-verify-enabled run):** `[unidict-verify] summary: 158 passed, 0 failed`, 11 `PASS integration=ic2 …` lines (10 machines, rewritten 16+14+0+14+0+0+7+7+5+6 = **69**), 145 `PASS resource=…` lines (prior lines unchanged), `PASS spikeA oredict-bridge nameToId=52267`; runtime `IC2 Integration: rewrote outputs of 69 IC2 machine recipes`, no ERROR/NPE. **History:** run-1 NPE = `Recipes.recycler.getRecipes()` returns null (recycler is a randomizer; `RecyclerRecipeManager` = `aconst_null/areturn`, verified vs IC2 2.2.828) → removed recycler + defensive null-guard.
 - [ ] IE `…integration=IE` · [ ] Chest `…integration=Chest`
 
 ## M7 — Machine rewrites (accessor/mixin): EIO · Railcraft · TE (Forestry removed)
