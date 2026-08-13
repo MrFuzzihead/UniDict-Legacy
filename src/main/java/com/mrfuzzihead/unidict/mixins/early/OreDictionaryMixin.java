@@ -18,17 +18,22 @@ import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
 
 /**
  * M0 "Spike A": prove Sponge {@code @Accessor} works for {@link OreDictionary}'s five private
- * static fields, and copy them into {@link OreDictionaryBridge} so UniOreDictionary (M3) can read
- * them without reflection.
+ * static fields. The five accessors (e.g. {@link #getNameToId()}) are the proofed seam M3 reads
+ * through. This class also carries a short-lived {@code @Inject} into {@code rebakeMap} that copies
+ * the fields into {@link OreDictionaryBridge} as a spike.
  *
  * <p>
  * All targets use {@code remap = false}: these are Forge-*added* members (not vanilla), so the
  * Mixin refmap has no MCP→SRG mapping for them and their names are the same in dev and obfuscated.
  *
  * <p>
- * Verification: on `runClient`, the log line below must appear with non-zero sizes (see
- * docs/PLAN.md §M0). If it never fires at runtime, fall back to {@code @Shadow @Final} field
- * capture and update this spike note.
+ * <b>Hodgepodge conflict (see docs/PLAN.md §Interop decisions):</b> in a GTNH dev env,
+ * Hodgepodge's {@code SpeedupOreDictionaryTransformer} ASM-rewrites {@code OreDictionary.rebakeMap()}
+ * and strips injected callbacks, so the {@code @Inject} below does NOT fire there (the accessors
+ * still apply cleanly). Per our interop rule we defer to Hodgepodge — we do not disable it. The M3
+ * seam drops this one-time-capture approach in favour of <b>lazy reads</b>: {@code UniOreDictionary}
+ * / the bridge call the {@code @Accessor} getters on demand. This class's {@code capture()}/inject
+ * is a spike artifact to be retired in M3.
  */
 @Mixin(OreDictionary.class)
 public abstract class OreDictionaryMixin {

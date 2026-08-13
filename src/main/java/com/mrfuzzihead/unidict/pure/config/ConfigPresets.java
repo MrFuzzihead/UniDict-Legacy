@@ -1,0 +1,134 @@
+package com.mrfuzzihead.unidict.pure.config;
+
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * BB-2 config presets — deterministic, user-facing default surfaces. A preset is just a
+ * {@link ConfigData} used as the fallback in {@link ConfigReader}, so "presets pick defaults;
+ * explicit keys still override" (docs/PLAN.md §BB-2) falls out naturally: any key present in the
+ * raw source wins over the preset's value.
+ *
+ * <p>
+ * Three documented presets:
+ * <ul>
+ * <li>{@link #minimal()} — minimal metal set, only the two vanilla-safe integrations (furnace, chest).</li>
+ * <li>{@link #standard()} — the default {@link #defaults()}: all 8 kept integrations, full metal list.</li>
+ * <li>{@link #maxCompat()} — standard plus aggressive features (input replacement + keep-one-entry).</li>
+ * </ul>
+ */
+public final class ConfigPresets {
+
+    private static final List<String> DEFAULT_OWNERS = Arrays
+        .asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
+
+    private static final List<String> DEFAULT_METALS = Arrays.asList(
+        "Iron",
+        "Gold",
+        "Copper",
+        "Tin",
+        "Silver",
+        "Lead",
+        "Nickel",
+        "Platinum",
+        "Aluminum",
+        "Aluminium",
+        "Ardite",
+        "Cobalt",
+        "Osmium",
+        "Mithril",
+        "Zinc",
+        "Invar",
+        "Steel",
+        "Bronze",
+        "Electrum",
+        "Brass");
+
+    private static final List<String> DEFAULT_CHILDREN = Arrays
+        .asList("ore", "dustTiny", "chunk", "dust", "nugget", "ingot", "block", "plate", "gear");
+
+    private ConfigPresets() {}
+
+    /** The standard defaults every {@link ConfigReader} and the runtime {@code Config} start from. */
+    public static ConfigData defaults() {
+        return standard();
+    }
+
+    /** Minimal: smallest safe surface — vanilla furnace + chest, a few metals. */
+    public static ConfigData minimal() {
+        return ConfigData.builder()
+            .metalsToUnify(new LinkedHashSet<>(Arrays.asList("Iron", "Gold", "Copper", "Tin")))
+            .childrenOfMetals(new LinkedHashSet<>(Arrays.asList("ingot", "ore", "dust", "nugget")))
+            .resourceBlackList(Arrays.asList("Aluminium"))
+            .ownerPriorities(DEFAULT_OWNERS)
+            .ownerOfKind(new LinkedHashMap<>())
+            .integrationModuleEnabled(true)
+            .furnaceIntegration(true)
+            .chestIntegration(true)
+            .ae2Integration(false)
+            .ic2Integration(false)
+            .ieIntegration(false)
+            .enderIOIntegration(false)
+            .railcraftIntegration(false)
+            .thermalExpansionIntegration(false)
+            .build();
+    }
+
+    /** Standard: the default surface — all 8 kept integrations, full metal list. */
+    public static ConfigData standard() {
+        return ConfigData.builder()
+            .keepOneEntry(false)
+            .inputReplacement(false)
+            .autoHideInNEI(true)
+            .kindDebugMode(false)
+            .keepOneEntryModBlackSet(new LinkedHashSet<>())
+            .hideInNEIBlackSet(new LinkedHashSet<>(Arrays.asList("ore")))
+            .metalsToUnify(new LinkedHashSet<>(DEFAULT_METALS))
+            .childrenOfMetals(new LinkedHashSet<>(DEFAULT_CHILDREN))
+            .resourceBlackList(Arrays.asList("Aluminium"))
+            .ownerPriorities(DEFAULT_OWNERS)
+            .ownerOfKind(new LinkedHashMap<>())
+            .integrationModuleEnabled(true)
+            .furnaceIntegration(true)
+            .ae2Integration(true)
+            .ic2Integration(true)
+            .ieIntegration(true)
+            .chestIntegration(true)
+            .enderIOIntegration(true)
+            .railcraftIntegration(true)
+            .thermalExpansionIntegration(true)
+            .build();
+    }
+
+    /** Max-compat: standard plus the aggressive unification features. */
+    public static ConfigData maxCompat() {
+        final ConfigData standard = standard();
+        final Map<String, List<String>> maxOwners = new LinkedHashMap<>();
+        standard.ownerOfKind.forEach(maxOwners::put);
+        return ConfigData.builder()
+            .keepOneEntry(true)
+            .inputReplacement(true)
+            .autoHideInNEI(true)
+            .kindDebugMode(true)
+            .keepOneEntryModBlackSet(standard.keepOneEntryModBlackSet)
+            .hideInNEIBlackSet(standard.hideInNEIBlackSet)
+            .metalsToUnify(standard.metalsToUnify)
+            .childrenOfMetals(standard.childrenOfMetals)
+            .resourceBlackList(standard.resourceBlackList)
+            .ownerPriorities(standard.ownerPriorities)
+            .ownerOfKind(maxOwners)
+            .integrationModuleEnabled(true)
+            .furnaceIntegration(true)
+            .ae2Integration(true)
+            .ic2Integration(true)
+            .ieIntegration(true)
+            .chestIntegration(true)
+            .enderIOIntegration(true)
+            .railcraftIntegration(true)
+            .thermalExpansionIntegration(true)
+            .build();
+    }
+}

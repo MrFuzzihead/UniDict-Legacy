@@ -8,9 +8,8 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
 public class CommonProxy {
 
     public void preInit(FMLPreInitializationEvent event) {
-        Config.synchronizeConfiguration(event.getSuggestedConfigurationFile());
+        Config.load(event.getSuggestedConfigurationFile());
 
-        UniDict.LOG.info(Config.greeting);
         UniDict.LOG.info("I am UniDict at version " + Tags.VERSION);
     }
 

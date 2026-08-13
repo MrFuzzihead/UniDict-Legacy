@@ -206,6 +206,7 @@ Tests (T1/T2): `Config` fixture round-trip; `Manager`/`LoadStage` — registrati
 **Files:** `mixins.early/OreDictionaryMixin.java`, `IOreDictionaryAccessor.java`, rewritten `UniOreDictionary.java`, `src/test/.../FakeOreDictionaryAccessor.java`.
 
 - Define `IOreDictionaryAccessor` (the 5 maps); the mixin implements it, the fake lives in test sources.
+- **Spike-A carry-over (Hodgepodge):** do NOT capture via `@Inject` into `OreDictionary.rebakeMap()` — Hodgepodge's `SpeedupOreDictionaryTransformer` strips it. Read the maps **lazily**: `oreDictBridge`/`UniOreDictionary` call the mixin's `@Accessor` getters on demand. See §Interop decisions.
 - Rewrite `UniOreDictionary` to read all maps through the interface. Public methods keep signatures for API compat (`get`, `getUn`, `getId`, `getThoseThatMatches`, `removeFromElsewhere`, `getFirstEntry`, …). `removeFromElsewhere` keeps public `OreDictionary.getOreIDs` + direct list manipulation via the accessor.
 - Delete every `Util.getField`/`setField` call site here — the last reflection in core (v1 step 13).
 
@@ -331,9 +332,23 @@ Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mix
 
 ---
 
+## Interop decisions — defer to Hodgepodge (hard rule)
+
+**Rule:** UniDict must work with **every GTNH environment mod at its default settings**. We never
+disable, override, or work around a Hodgepodge (or GTNHLib, or any pack-infra) feature to make our
+code work; if a target is being transformed by such a mod, we adopt the approach that coexists with
+that transformation. Document each conflict here.
+
+- **Hodgepodge `SpeedupOreDictionaryTransformer` (`com.mitchej123.hodgepodge…mc.SpeedupOreDictionaryTransformer`)** — ASM-rewrites `OreDictionary.rebakeMap()`, `getOreID`, `getOres`, `registerOreImpl`, … as a speedup, **stripping injected callbacks**. Effect on us: our M0 spike captured the bridge via `@Inject(at = @At("TAIL"))` into `rebakeMap`, which **never fires** under Hodgepodge (the mixin applies cleanly — the 5 `@Accessor`s are proofed — but the injector is dropped). Decision: **do not disable the transformer.** The M3 seam reads the maps **lazily** — expose the `@Accessor` getters and read the current field values on demand whenever `UniOreDictionary`/`OreDictionaryBridge` queries them, instead of relying on a one-time `capture()`. The fields remain populated under Hodgepodge (it optimizes, not removes); lazy reads coexist with it. Green line becomes `[unidict-verify] PASS spikeA oredict-bridge`.
+  - Bottom line for M3: **`@Accessor` getters yes; side-effecting `@Inject` into transform-targeted methods no.**
+  - See `docs/TestPlan.md` rule 8 and `docs/STATUS.md` (M0 Spike A is `[~]` for this reason).
+
+---
+
 ## Key risks / watch items (updated)
 
-- **`@Accessor` on static fields** — demoted from "single biggest could go wrong" to **M0 Spike A**. On failure, the `@Inject`-based accessor fallback is adopted on day one, before M3 depends on it.
+- **`@Accessor` on static fields** — demoted from "single biggest could go wrong" to **M0 Spike A**. **Resolved:** accessors apply cleanly, but the capture hook conflicts with Hodgepodge's `SpeedupOreDictionaryTransformer` (see §Interop decisions) → M3 uses a **lazy-read** bridge, never a `rebakeMap` `@Inject`.
+- **GTNH environment transformers (Hodgepodge et al.)** — **NEW RISK.** Any `@Inject` into a method a pack coremod ASM-rewrites is silently dropped (observed with `SpeedupOreDictionaryTransformer`/`rebakeMap`). Hard rule: defer to Hodgepodge, never disable it; prefer `@Accessor`/`@Invoker`/vanilla-safe hooks over `@Inject` into transformed methods. Enforced on a per-case basis in §Interop decisions.
 - **`@Invoker` on constructors** — **M0 Spike B**; the 3 TE AT entries are the pre-written fallback.
 - **Recipe key rework** changes dedup behavior — isolated to M5 commit 2, protected by T1 regression tests and before/after verify dumps.
 - **Forestry crate runtime item registration** remains the most fragile kept feature; ported as-is, flagged `// TODO: rework crate registration`.

@@ -13,8 +13,8 @@ Progress tracker matching `PLAN.md`. Check a box off in the same PR that satisfi
 - [x] Demo T1 test green: `TEST-…SmokeTest.xml` = `tests=2 failures=0 errors=0`
 - [x] `./gradlew test build` compiles main + test, Spotless/Checkstyle clean
 - [x] `docs/TestPlan.md` + `docs/STATUS.md` created
-- [ ] Verify harness `[unidict-verify]` writer scaffolded (dev-gated)
-- [x] **Spike A:** static `@Accessor` on OreDictionary's private statics **CONFIRMED in-game** — log shows `unidict.accessor OK: nameToId=75904 idToName=75904 idToStack=75904 idToStackUn=75904 stackToId=21740` (all non-zero).
+- [x] Verify harness `[unidict-verify]` writer scaffolded (dev-gated; enabled via `-PunidictDevVerify` **or** the `UNIDICT_DEV_VERIFY` environment variable)
+- [~] **Spike A:** static `@Accessor` on OreDictionary's private statics — the accessors apply cleanly, but capturing via `@Inject` into `OreDictionary.rebakeMap()` **conflicts with Hodgepodge's `SpeedupOreDictionaryTransformer`** (it ASM-rewrites `rebakeMap`, stripping injected callbacks). **Defer to Hodgepodge — never disable it.** The M3 seam will use a **lazy-read** bridge (call the `@Accessor` getters on demand) instead of a one-time `rebakeMap` capture. Until M3, the verify harness emits `FAIL spikeA oredict-bridge` (see §M3 + §Interop decisions).
 - [x] **Spike B:** 3 TE `@Invoker("<init>")` mixins **CONFIRMED in-game** — `fml-client-latest.log` DEBUG shows `Recipe{Furnace,Pulverizer,Smelter}Invoker` each mixed into its TE `Recipe*` class and the `@Invoker unidict$new(…)` renamed to `new$unidict_$md$…` (invoker wired), **no MixinApplyError**. (Actually *constructing* a recipe through them is exercised in M7.)
 - [x] M0 gate: full `runClient` boots without a mixin/NEI error (both spikes observed mid-load)
 
@@ -35,16 +35,20 @@ comparators.
 - [x] `Util` trimmed to `getModName` (reflection `getField`/`setField` deleted); `FixedSizeList` not used
 - [x] `UniDict` wires the sequential `ModuleHandler` at FML POST_INIT + LOAD_COMPLETE
 - [x] **Determinism guard** (`DeterminismGuardTest`): greps `src/main` for thread pools / reflection / deleted DI types; fails build if reintroduced
-- [ ] `runClient` boots with all integrations off (T3 — needs a live launch; mechanism unit-verified above)
+- [x] `runClient` boots cleanly with all integrations off (T3 — confirmed 2026-08-13; config written, no UniDict errors). Verify harness now runs (via env var) and emits one known `FAIL spikeA oredict-bridge` — a **Hodgepodge interop conflict**, resolved in M3 (see §M3).
 
-### Commit 2 — config + presets (BB-2) (OPEN)
-- [ ] `Config` port + grouped categories + presets (minimal / standard / max-compat); sample-`.cfg` T1 tests
-- [ ] Legacy-key aliases accepted-but-ignored (no config-file deletion on version mismatch — fixes upstream settings wipe)
-- [ ] `SpecificKindItemStackComparator` + `Util.itemStackComparatorByModName` ported (they depend on the owner-of-kind maps from the new `Config`; deferred here for a clean commit boundary)
-- [ ] `Config` fixture round-trip covers every kept key; preset resolution tested
+### Commit 2 — config + presets (BB-2) (DONE)
+- [x] `ConfigData` value object (pure, grouped: general / resources-owners / integrations) + `ConfigReader` (map→config, last-write-wins) + `ConfigPresets` (minimal / standard / max-compat), T1 tests: ConfigReaderTest 5, ConfigPresetsTest 4
+- [x] `OwnerOrder` pure owner model (dedupes `enableSpecificKindSort`/`ownerOfEveryThing`/`ownerOfEvery<Kind>`): per-kind override else global; T1 OwnerOrderTest 5
+- [x] Runtime `Config` reworked to load via thin `ForgeConfigIO` adapter into `ConfigData`; legacy keys accepted-but-ignored; **no config-file deletion on version mismatch** (upstream fix)
+- [x] Legacy aliases: `ownerOfEveryThing`→`ownerPriorities`, `ownerOfEvery<Kind>`→`ownerOfKind.<Kind>`; removed-mod/deferred keys collected for INFO (never fatal)
+- [x] `SpecificKindItemStackComparator` + `Util.itemStackComparatorByModName()` ported, driven by `OwnerOrder` (keep-one-entry black set accumulated for M4)
+- [x] Config `.cfg` round-trip covered at the pure layer (fixture); forge `Configuration` glue is T3-only (rule 7 in TestPlan.md — needs `FMLInjectionData`)
+- [x] `./gradlew build` green: 40 tests, Spotless/Checkstyle clean
 
 ## M3 — UniOreDictionary seam — KEEP, TRIMMED to read-only accessor (+ `getFirstEntry` for IE)
-- [ ] `IOreDictionaryAccessor` + mixin + `FakeOreDictionaryAccessor`
+- [ ] `IOreDictionaryAccessor` + mixin + `FakeOreDictionaryAccessor`; `UniOreDictionary` reads all maps through the interface
+- [ ] **Spike-A carry-over:** bridge must be **lazy-read** (call the `@Accessor` getters on demand) — **not** a one-time `@Inject` into `OreDictionary.rebakeMap()`, which Hodgepodge's `SpeedupOreDictionaryTransformer` rewrites. Defer to Hodgepodge (never disable). Green line = `[unidict-verify] PASS spikeA oredict-bridge`.
 - [ ] Mutation methods (`removeFromElsewhere`/`keepOneEntry` collapse) NOT ported now (deferred)
 
 ## M4 — Vertical slice (reframed): selection + vanilla furnace + report prototype — NO NEI hiding

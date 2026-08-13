@@ -27,15 +27,21 @@ public final class VerifyHarness {
 
     private static final Logger LOG = LogManager.getLogger("UniDict");
     private static final String SYS_PROP = "unidict.devVerify";
+    private static final String ENV_VAR = "UNIDICT_DEV_VERIFY";
 
     private static int passed;
     private static int failed;
 
     private VerifyHarness() {}
 
-    /** True only when the dev verify switch is on. Never guards non-dev runs/builds. */
+    /**
+     * True only when the dev verify switch is on. Never guards non-dev runs/builds. Enabled by either
+     * the JVM system property {@code unidict.devVerify} (forwarded from the Gradle
+     * {@code -PunidictDevVerify} in {@code addon.gradle.kts}) or the {@code UNIDICT_DEV_VERIFY}
+     * environment variable — so it works regardless of how the client is launched.
+     */
     public static boolean isEnabled() {
-        return Boolean.parseBoolean(System.getProperty(SYS_PROP));
+        return Boolean.parseBoolean(System.getProperty(SYS_PROP)) || Boolean.parseBoolean(System.getenv(ENV_VAR));
     }
 
     /** Log one PASS/FAIL verify line and update the counters. */
