@@ -10,6 +10,9 @@ public enum Mixins implements IMixins {
     ORE_DICTIONARY(new MixinBuilder().setPhase(Phase.EARLY)
         .addCommonMixins("OreDictionaryMixin")),
 
+    CHEST_GEN(new MixinBuilder().setPhase(Phase.EARLY)
+        .addCommonMixins("ChestGenHooksMixin", "WeightedRandomChestContentMixin")),
+
     THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
         .addCommonMixins("RecipeFurnaceInvoker", "RecipePulverizerInvoker", "RecipeSmelterInvoker")
         .addRequiredMod(TargetMods.THERMAL_EXPANSION));
