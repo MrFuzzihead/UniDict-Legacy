@@ -8,6 +8,11 @@ import java.util.List;
  * {@code enableSpecificKindSort} boolean to pick between them. Here there is no boolean: a per-kind
  * override in {@link ConfigData#ownerOfKind} applies when present, otherwise
  * {@link ConfigData#ownerPriorities} is the fallback — deterministic and testable (T1).
+ *
+ * <p>
+ * Mods absent from the effective owner order all share the {@link #NOT_LISTED} sentinel. To keep the
+ * canonical (main) entry stable even when no listed mod holds a resource, equal ranks are broken
+ * deterministically by a lexical comparison of the two mod names (see {@link #tiebreak}).
  */
 public final class OwnerOrder {
 
@@ -36,12 +41,40 @@ public final class OwnerOrder {
         return (perKind != null && !perKind.isEmpty()) ? perKind : config.ownerPriorities;
     }
 
-    /** Compares two mod names by their effective owner index for a kind. */
+    /**
+     * Compares two mod names by their effective owner index for a kind (lowest index = highest
+     * priority). When both are absent from the owner order ({@link #NOT_LISTED}), the tie is broken
+     * deterministically by the lexical {@link #tiebreak} so the canonical entry does not vary
+     * run-to-run (docs/PLAN.md §BB-1 "stable + diffable report").
+     */
     public static int compare(final ConfigData config, final String kindName, final String modNameA,
         final String modNameB) {
         final long a = indexOf(config, kindName, modNameA);
         final long b = indexOf(config, kindName, modNameB);
-        return Long.compare(a, b);
+        if (a != b) return Long.compare(a, b);
+        return tiebreak(modNameA, modNameB);
+    }
+
+    /**
+     * Compares two mod names by their <em>global</em> owner index (the non-per-kind path used by
+     * {@code Util.itemStackComparatorByModName()}). Identical semantics to {@link #compare} — a
+     * lexical {@link #tiebreak} resolves the equal-{@link #NOT_LISTED} case deterministically.
+     */
+    public static int compareGlobal(final ConfigData config, final String modNameA, final String modNameB) {
+        final long a = globalIndexOf(config, modNameA);
+        final long b = globalIndexOf(config, modNameB);
+        if (a != b) return Long.compare(a, b);
+        return tiebreak(modNameA, modNameB);
+    }
+
+    /**
+     * Deterministic tiebreak for two mods with the same owner rank (both {@link #NOT_LISTED}): a
+     * case-sensitive lexical comparison of the mod names, null-safe ({@code null} sorts first).
+     */
+    private static int tiebreak(final String modNameA, final String modNameB) {
+        if (modNameA == null) return (modNameB == null) ? 0 : -1;
+        if (modNameB == null) return 1;
+        return modNameA.compareTo(modNameB);
     }
 
     private static long indexIn(final List<String> owners, final String modName) {

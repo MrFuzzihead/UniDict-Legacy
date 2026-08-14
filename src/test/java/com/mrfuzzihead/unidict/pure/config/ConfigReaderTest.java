@@ -119,6 +119,27 @@ class ConfigReaderTest {
         assertEquals(listOf("TE", "vanilla"), c.ownerPriorities);
     }
 
+    @Test
+    void presetKeyIsRecognizedAndNotReportedIgnored() {
+        final Map<String, String> raw = new LinkedHashMap<>();
+        raw.put("preset", "max-compat"); // consumed by the loader (BB-2), not a ConfigData field
+        final ConfigReader.Result result = ConfigReader.parse(ConfigPresets.standard(), raw);
+        assertTrue(result.ignored.isEmpty());
+    }
+
+    @Test
+    void nonStandardPresetSuppliesTheDefaultSurface() {
+        final Map<String, String> raw = new LinkedHashMap<>();
+        raw.put("furnaceIntegration", "false"); // explicit key still wins
+        // minimal base: only vanilla-safe integrations on, small metal set.
+        final ConfigData c = ConfigReader.parse(ConfigPresets.minimal(), raw).config;
+        assertFalse(c.furnaceIntegration); // explicit override
+        assertTrue(c.chestIntegration); // minimal default preserved
+        assertFalse(c.ae2Integration); // minimal default (off)
+        assertFalse(c.keepOneEntry); // minimal default
+        assertEquals(setOf("Iron", "Gold", "Copper", "Tin"), c.metalsToUnify); // minimal metal set
+    }
+
     private static java.util.List<String> listOf(final String... values) {
         return java.util.Arrays.asList(values);
     }

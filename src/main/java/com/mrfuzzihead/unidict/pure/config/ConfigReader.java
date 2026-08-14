@@ -29,6 +29,8 @@ public final class ConfigReader {
     private static final String KEY_AUTO_HIDE_NEI = "autoHideInNEI";
     private static final String KEY_HIDE_NEI_BLACK = "autoHideInNEIBlackList";
     private static final String KEY_KIND_DEBUG = "kindDebugMode";
+    /** Consumed by the loader ({@code Config}) to select the default surface — not part of {@link ConfigData}. */
+    private static final String KEY_PRESET = "preset";
 
     // resources / owners
     private static final String KEY_METALS = "metalsToUnify";
@@ -129,6 +131,9 @@ public final class ConfigReader {
                 return;
             case KEY_KIND_DEBUG:
                 b.kindDebugMode(bool(value, defaults.kindDebugMode));
+                return;
+            case KEY_PRESET:
+                // Not a ConfigData field: the loader selects the default surface with it (BB-2).
                 return;
             case KEY_KEEP_ONE_ENTRY_BLACK:
                 b.keepOneEntryModBlackSet(set(value));

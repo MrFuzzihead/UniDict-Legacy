@@ -111,7 +111,32 @@ comparators.
     formatting (docs/TestPlan.md rule 2). `./gradlew build` green incl. Spotless + Checkstyle.
   - **T3 gate — VERIFIED (2026-08-14, `fml-client-latest.log`):** `[unidict-verify] PASS report resource=… main=… variants=… owners=…` × **105** (e.g. `ingotCopper main=ThermalFoundation:material variants=7 owners=Forestry,IC2,ImmersiveEngineering,Railcraft,TConstruct,ThermalFoundation,etfuturum`); `PASS report rewrite=…` × 16 (furnace=64, ae2=61, chest=38, eio alloy+sag=0, ic2 ×10 incl. macerator=16/centrifuge=20/compressor=14/metalformerRolling=7/blockcutter=7/blastfurance=5/oreWashing=6, railcraft=0); `PASS report summary=resources=105 rewrites=16`; harness **`summary: 246 passed, 0 failed`**, 0 `unidict-verify] FAIL` matches.
   - **T3 ordering fix (2026-08-14):** first dev run showed the LOAD_COMPLETE-stage **TE** integration (`machines=3 rewritten=253`) recording its journal entries *after* the report was already emitted — because `UniDict.loadComplete()` ran `proxy.loadComplete()` (verify/report) before `moduleHandler.startModules(LOAD_COMPLETE)` (TE). Reordered so LOAD_COMPLETE modules run before the verify pass; TE now appears in the report. (`ImmersiveEngineering` was loaded in that run but produced no `integration=ie` lines because `Config.ie()` was off in the run's config — correct, nothing to rewrite.)
-- [ ] **BB-2 Config presets** — grouped categories; minimal / standard / max-compat
+- [x] **BB-2 Config presets** — grouped categories; minimal / standard / max-compat
+  - The pure substrate landed in **M2 commit 2** (grouped `ConfigData`, `ConfigPresets`, `ConfigReader`
+    last-write-wins, `OwnerOrder`, legacy aliases; T1 tests green). This BB-2 milestone adds the last
+    missing piece — a **user-facing runtime preset selector** so the presets are actually reachable:
+    - `ConfigPresets.byName(...)` resolver (case-insensitive `minimal` / `standard` / `max-compat`,
+      unknown/blank → `standard` so a typo never yields an empty surface) + `DEFAULT_NAME` constant.
+    - `ForgeConfigIO.readPreset(cfg)` + the `preset` key registered in the `.cfg`'s *general* category;
+      `ConfigReader` recognises the key (consumed by the loader, never reported "ignored").
+    - `Config.load()` now reads the selected preset **first**, then registers defaults **and** parses
+      against that preset's `ConfigData` — so *"presets pick defaults; explicit keys still override"*
+      holds at runtime, not just at the pure layer.
+  - **Tests:** ConfigPresetsTest (now 5) adds `byName` resolution; ConfigReaderTest (now 7) adds
+    preset-key-not-ignored + non-standard-preset-as-default-surface (explicit key still wins);
+    OwnerOrderTest (now 7) adds the unlisted-tie tiebreak coverage.
+  - **Owner tiebreak (2026-08-14):** unlisted mods all share `OwnerOrder.NOT_LISTED`, so when no listed
+    mod holds a resource the canonical entry was previously chosen by sort instability. `OwnerOrder`
+    now breaks equal-`NOT_LISTED` ranks **deterministically** via a lexical (null-safe) mod-name
+    comparison — added to **both** `compare` (per-kind path) and the new `compareGlobal` (the default
+    global path), which `Util.itemStackComparatorByModName()` now delegates to. This keeps the BB-1
+    report's `main=…` value stable + diffable run-to-run even for resources owned only by unlisted mods.
+  - `./gradlew test build` green (91 tests, 0 failures); Spotless/Checkstyle clean.
+  - **Caveat (documented in the config comment):** loading is additive — the `.cfg` keeps any keys the
+    mod previously wrote, and a present file value is treated as an explicit override. So switching the
+    `preset` line on an *existing* config applies to keys that don't already carry a value in the file;
+    a fresh (or regenerated) config surface is fully preset-driven. This preserves the M2 "never wipe
+    user settings" guarantee.
 - [ ] **BB-3 Non-destructive rewriting** — outputs-only rewrites; grep guard; fabricated-map T2 test
 - [ ] **BB-4 Broader equivalence** — ≥1 non-OD equivalence class implemented, tested, reported
   - **Scope decision (2026-08-13):** fuels/coke is the first non-metal equivalence class — **deferred but prioritized (next build-better milestone, not M6/M7).** Motivated by the pack genuinely wanting single stackable coal coke (Railcraft + IE both emit `fuelCoke`). Engine is already resource-agnostic (`getMainItemStack`), so this needs (1) a new kind for the fuel/coke form in the M1 taxonomy (within the 64-kind guard), (2) a config surface (resurrect the deferred `customUnifiedResources` / a "fuels" preset toggle), and (3) a **fuel-equivalence classifier** that preserves per-item burn time / exact-item-check semantics — NOT naive OD tag-equality (metals are near-interchangeable; fuels are not). Prior to implementation, verify in the live GTNH pack that Railcraft/IE coke actually share a tag and what each fuel value is. Add a verify/report line + T3 gate (BB-4 gate: "≥1 non-OD equivalence class implemented, tested, reported").

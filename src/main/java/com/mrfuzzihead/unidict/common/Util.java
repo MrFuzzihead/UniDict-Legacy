@@ -36,13 +36,12 @@ public final class Util {
 
     /**
      * Comparator that orders {@link ItemStack}s by the global owner-mod priority in the current
-     * {@link Config}. Upstream exposed this as a {@code static final} built at class-load; because
-     * config loads at FML pre-init, it is a method that resolves against the live config so ordering
-     * is never captured before config is ready.
+     * {@link Config}, with a deterministic lexical tiebreak for mods absent from the list (via
+     * {@link OwnerOrder#compareGlobal}). Upstream exposed this as a {@code static final} built at
+     * class-load; because config loads at FML pre-init, it is a method that resolves against the live
+     * config so ordering is never captured before config is ready.
      */
     public static Comparator<ItemStack> itemStackComparatorByModName() {
-        return (stack1, stack2) -> Long.compare(
-            OwnerOrder.globalIndexOf(Config.get(), getModName(stack1)),
-            OwnerOrder.globalIndexOf(Config.get(), getModName(stack2)));
+        return (stack1, stack2) -> OwnerOrder.compareGlobal(Config.get(), getModName(stack1), getModName(stack2));
     }
 }

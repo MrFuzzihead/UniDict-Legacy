@@ -1,5 +1,6 @@
 package com.mrfuzzihead.unidict.pure.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,5 +70,22 @@ class ConfigPresetsTest {
         // Deterministic across calls: same values, same order.
         final ConfigData again = ConfigPresets.standard();
         assertTrue(c.ownerPriorities.equals(again.ownerPriorities));
+    }
+
+    @Test
+    void byNameResolvesEachPresetAndFallsBackToStandard() {
+        // Exact names.
+        assertFalse(ConfigPresets.byName("minimal").ae2Integration);
+        assertTrue(ConfigPresets.byName("standard").ae2Integration);
+        assertTrue(ConfigPresets.byName("max-compat").keepOneEntry);
+        // Case-insensitive.
+        assertTrue(ConfigPresets.byName("MAX-COMPAT").keepOneEntry);
+        assertFalse(ConfigPresets.byName("MINIMAL").ae2Integration);
+        // Unknown / blank / null fall back to the safe standard surface (never empty).
+        assertFalse(ConfigPresets.byName("bogus").keepOneEntry);
+        assertFalse(ConfigPresets.byName("").keepOneEntry);
+        assertFalse(ConfigPresets.byName(null).keepOneEntry);
+        // Default name matches the fallback.
+        assertEquals(ConfigPresets.DEFAULT_NAME, "standard");
     }
 }

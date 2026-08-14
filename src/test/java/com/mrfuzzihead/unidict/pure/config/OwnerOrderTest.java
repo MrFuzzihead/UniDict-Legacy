@@ -55,6 +55,30 @@ class OwnerOrderTest {
     }
 
     @Test
+    void compareBreaksUnlistedTieDeterministically() {
+        final ConfigData c = config(new LinkedHashMap<>());
+        // Both absent -> both NOT_LISTED; the lexical tiebreak decides, not sort instability.
+        assertTrue(OwnerOrder.compare(c, "INGOT", "aaa", "zzz") < 0);
+        assertTrue(OwnerOrder.compare(c, "INGOT", "zzz", "aaa") > 0);
+        assertEquals(0, OwnerOrder.compare(c, "INGOT", "sameMod", "sameMod"));
+        // A listed mod always beats an unlisted one, regardless of how the names sort.
+        assertTrue(OwnerOrder.compare(c, "INGOT", "ThermalFoundation", "aaa") < 0);
+        assertTrue(OwnerOrder.compare(c, "INGOT", "aaa", "ThermalFoundation") > 0);
+    }
+
+    @Test
+    void compareGlobalBreaksUnlistedTieDeterministically() {
+        final ConfigData c = config(new LinkedHashMap<>());
+        // The non-per-kind path uses compareGlobal; absent mods still tiebreak lexically.
+        assertTrue(OwnerOrder.compareGlobal(c, "aaa", "zzz") < 0);
+        assertTrue(OwnerOrder.compareGlobal(c, "zzz", "aaa") > 0);
+        assertEquals(0, OwnerOrder.compareGlobal(c, "sameMod", "sameMod"));
+        // Listed beats unlisted here too, independent of name ordering.
+        assertTrue(OwnerOrder.compareGlobal(c, "ThermalFoundation", "zzz") < 0);
+        assertTrue(OwnerOrder.compareGlobal(c, "zzz", "ThermalFoundation") > 0);
+    }
+
+    @Test
     void globalIndexOfUsesTheGlobalOrderIgnoringKind() {
         final Map<String, java.util.List<String>> perKind = new LinkedHashMap<>();
         perKind.put("INGOT", Arrays.asList("minecraft", "IC2"));

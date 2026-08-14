@@ -33,10 +33,14 @@ public class Config {
         final Configuration configuration = new Configuration(configFile);
         configuration.load();
         try {
+            // Resolve the user-selected preset first (defaults to standard) so the base defaults used
+            // for both default-registration and parsing follow the chosen preset (BB-2). Explicit
+            // keys present in the file still override (last-write-wins).
+            final ConfigData base = ConfigPresets.byName(ForgeConfigIO.readPreset(configuration));
             // Register every known key so absent keys are written (first run yields a full .cfg);
             // existing values are preserved by the forge getters.
-            ForgeConfigIO.registerDefaults(configuration, ConfigPresets.standard());
-            data = ForgeConfigIO.load(configuration, ConfigPresets.standard());
+            ForgeConfigIO.registerDefaults(configuration, base);
+            data = ForgeConfigIO.load(configuration, base);
         } finally {
             ForgeConfigIO.saveIfChanged(configuration);
         }

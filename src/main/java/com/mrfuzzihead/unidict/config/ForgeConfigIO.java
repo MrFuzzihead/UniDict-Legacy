@@ -9,6 +9,7 @@ import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
 import com.mrfuzzihead.unidict.pure.config.ConfigData;
+import com.mrfuzzihead.unidict.pure.config.ConfigPresets;
 import com.mrfuzzihead.unidict.pure.config.ConfigReader;
 import com.mrfuzzihead.unidict.pure.config.ConfigReader.Result;
 
@@ -29,12 +30,23 @@ public final class ForgeConfigIO {
 
     private static final String CATEGORY_RESOURCES = "resources";
     private static final String CATEGORY_INTEGRATIONS = "integrations";
+    private static final String KEY_PRESET = "preset";
 
     private ForgeConfigIO() {}
 
     /** Registers every known key with its effective default so absent keys are written on save. */
     public static void registerDefaults(final Configuration cfg, final ConfigData defaults) {
         final String general = Configuration.CATEGORY_GENERAL;
+        cfg.getString(
+            KEY_PRESET,
+            general,
+            ConfigPresets.DEFAULT_NAME,
+            "Configuration preset that picks the default surface: minimal | standard | max-compat "
+                + "(BB-2). Presets pick defaults; the explicit keys below still override. "
+                + "minimal = vanilla-safe only (furnace + chest); max-compat = standard plus the "
+                + "aggressive unification features (input replacement + keep-one-entry). Changing the "
+                + "preset on an existing config applies to keys that don't already carry an explicit "
+                + "value in the file.");
         booleanProp(
             cfg,
             general,
@@ -143,6 +155,20 @@ public final class ForgeConfigIO {
             "thermalExpansion",
             defaults.thermalExpansionIntegration,
             "Thermal Expansion machines.");
+    }
+
+    /**
+     * Reads the {@code preset} key (case-preserving raw string) from the config. Registers the key
+     * with the default name when absent so it is written on save. The caller resolves it to a
+     * {@link ConfigData} via {@link ConfigPresets#byName(String)} before registering/parsing the
+     * rest of the surface (BB-2).
+     */
+    public static String readPreset(final Configuration cfg) {
+        return cfg.getString(
+            KEY_PRESET,
+            Configuration.CATEGORY_GENERAL,
+            ConfigPresets.DEFAULT_NAME,
+            "Configuration preset: minimal | standard | max-compat.");
     }
 
     /** Reads the configuration and parses it against {@code defaults}. Call {@link #registerDefaults} first. */

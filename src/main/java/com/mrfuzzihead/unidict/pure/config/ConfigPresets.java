@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -50,11 +51,38 @@ public final class ConfigPresets {
     private static final List<String> DEFAULT_CHILDREN = Arrays
         .asList("ore", "dustTiny", "chunk", "dust", "nugget", "ingot", "block", "plate", "gear");
 
+    /** Default preset name used when the config file carries no {@code preset} key (BB-2). */
+    public static final String DEFAULT_NAME = "standard";
+
     private ConfigPresets() {}
 
     /** The standard defaults every {@link ConfigReader} and the runtime {@code Config} start from. */
     public static ConfigData defaults() {
         return standard();
+    }
+
+    /**
+     * Resolves a preset name to its deterministic {@link ConfigData} (BB-2). Accepts
+     * case-insensitive {@code minimal} / {@code standard} / {@code max-compat}; unknown or blank
+     * names fall back to {@link #standard()} so a typo never yields an empty default surface
+     * (docs/PLAN.md §BB-2 gate). Pure and T1-testable — the runtime config front-end ({@code Config})
+     * calls this after reading the {@code preset} key from the forge {@code .cfg}.
+     */
+    public static ConfigData byName(final String name) {
+        if (name == null || name.trim()
+            .isEmpty()) {
+            return standard();
+        }
+        switch (name.trim()
+            .toLowerCase(Locale.ROOT)) {
+            case "minimal":
+                return minimal();
+            case "max-compat":
+                return maxCompat();
+            case "standard":
+            default:
+                return standard();
+        }
     }
 
     /** Minimal: smallest safe surface — vanilla furnace + chest, a few metals. */
