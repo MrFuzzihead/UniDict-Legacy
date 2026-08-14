@@ -180,6 +180,67 @@ write + validate AT entries only if runtime `@Invoker` fails in-game.
 **Gate:** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe (M4
 main-thread rule still enforced).
 
+## Environment gotchas & dev-tooling notes
+
+Hard-won lessons about running the dev client and about what the code must tolerate. Read before
+changing `dependencies.gradle` or adding an integration.
+
+### 1. Guard every optional integration against its mod being absent
+
+An integration for an optional mod must **never crash the game just because that mod isn't loaded**
+on the running classpath (dev-light, or a user's own lighter pack). There are two guarded seams:
+
+- **Integration classes** (`AE2Integration`, `IC2Integration`, `IEIntegration`, …) hold the target
+  mod's types (e.g. `appeng.api.AEApi`, `blusunrize.immersiveengineering.api.*`, `ic2.api.*`). They
+  are registered in `IntegrationModule.init()` **only when** `Config.<mod>() && Loader.isModLoaded("<modid>")`
+  — vanilla targets (furnace, chest) need no guard. Without this, a kept integration's `call()` at
+  POST_INIT throws `NoClassDefFoundError` (hit for real: AE2 off runtime → `NoClassDefFoundError:
+  appeng/api/AEApi`).
+- **Accessor/invoker mixins that reference a mod's classes** (e.g. the M7 TE
+  `*RecipeInvoker`s targeting `cofh.thermalexpansion.*`) are gated in the **`Mixins` enum** with
+  `.addRequiredMod(TargetMods.X)`. gtnhmixins then skips the bundle (the mixin classes are never
+  loaded) when the mod is absent — the native, quieter mechanism for mixins. Don't register an
+  un-gated mixin whose `@Mixin(...)`/`@Invoker` signature names a mod class.
+
+Every `src/main` reference to a non-vanilla type must land behind exactly one of these two gates.
+M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integration
+`Loader.isModLoaded`).
+
+### 2. CoFH Core ASM crash — `HooksCore` / `World.collidingBoundingBoxes` (PARKED)
+
+- **Symptom:** `java.lang.IllegalAccessError: tried to access field net.minecraft.world.World
+  .collidingBoundingBoxes from class cofh.asmhooks.HooksCore` on the **first item-entity tick**
+  (`EntityItem.onUpdate` → `Entity.moveEntity`). The client then "crashes" with
+  `io.netty.channel.ChannelException: connection refused` — that's just the integrated server thread
+  having already died. **Not a UniDict bug** (no UniDict frame in the stack).
+- **Mechanism:** CoFH Core ASM-injects a collision hook into `Entity.moveEntity` that reads the
+  *private* `World.collidingBoundingBoxes`. It only links if some other transformer widened that
+  field. **GregTech (GT5-Unofficial) was doing that**, which is why earlier GT-full runs booted;
+  removing GT exposed the frailty. CoFH/GT are **not required** (our own pack runs without them).
+- **Messy fact:** **no GTNH-maintained CoFH Core exists** to swap in for the stale curse one. A real
+  fix means widening the field (e.g. a UniDict AT whose only entry is an MC class — `applyJST`
+  allows MC-class entries, rejects non-MC). **Parked**; revisit only before a full-stack `runClient`
+  (TE at runtime).
+- **While parked:** keep CoFH off the runtime classpath when not testing TE (see #3).
+
+### 3. "dev-LIGHT" classpath — heavy mods are `compileOnly`, not `devOnly`
+
+- The heavy GTNH mods (**TE, TF, EnderIO, EnderCore, Forestry, Railcraft, Mantle, TiC, IE, AE2**)
+  transitively drag **CoFH Core** onto the runtime classpath. To test a focused integration (IC2)
+  free of CoFH/GT, they're declared `compileOnly` (still on the compile classpath — every
+  integration and the TE invoker mixins still compile) while **IC2, NEI, CodeChickenCore, Et Futurum**
+  stay `devOnlyNonPublishable`/`runtimeOnlyNonPublishable` at runtime.
+- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH —
+  it's why AE2 had to drop to `compileOnly` too.
+- Flip a mod back to `devOnlyNonPublishable` only for a full-stack M7/M9 regression run (and then
+  #2's CoFH issue must be solved first).
+
+### 4. Galacticraft → GregTech (transitive)
+
+`Galacticraft` (deferred stub) transitively drags in **`GT5-Unofficial`** (GregTech 5), which
+replaces IC2 machine behavior (incl. the macerator) and confounds IC2 testing. Kept off the
+classpath (commented in `dependencies.gradle`) until the GC stub is actually worked on.
+
 ---
 
 ## Deferred / not-yet-started (from the 2026-08-12 scope rework)
