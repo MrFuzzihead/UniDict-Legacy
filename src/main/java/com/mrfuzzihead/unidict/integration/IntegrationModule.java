@@ -1,5 +1,7 @@
 package com.mrfuzzihead.unidict.integration;
 
+import cpw.mods.fml.common.Loader;
+
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.module.AbstractModule;
 
@@ -35,13 +37,20 @@ public final class IntegrationModule extends AbstractModule {
 
     @Override
     protected void init() {
-        // M6/M7: add more integrations here with explicit `new`, one line each, gated on their config
-        // toggle. Landed: M4 vanilla furnace, M6 IC2 + AE2 + IE + Chest; M7 the mixin-accessor
-        // pairs (EIO, Railcraft, TE).
-        if (Config.integrationModule() && Config.furnace()) executor.add(new FurnaceIntegration());
-        if (Config.integrationModule() && Config.ic2()) executor.add(new IC2Integration());
-        if (Config.integrationModule() && Config.ae2()) executor.add(new AE2Integration());
-        if (Config.integrationModule() && Config.ie()) executor.add(new IEIntegration());
-        if (Config.integrationModule() && Config.chest()) executor.add(new ChestIntegration());
+        // M6/M7: add more integrations here with explicit `new`, one line each, gated on both the
+        // config toggle AND `Loader.isModLoaded(<modid>)` for mod integrations. The mod-loaded guard
+        // is essential: an optional integration's class references its target mod's types (e.g.
+        // AE2Integration -> appeng.api.AEApi, IEIntegration -> blusunrize.immersiveengineering...),
+        // so if that mod is absent at runtime (e.g. a focused "dev-light" classpath, or a user's own
+        // lighter pack), running the integration throws NoClassDefFoundError and crashes the game.
+        // Vanilla targets (furnace, chest) need no guard.
+        if (Config.integrationModule()) {
+            if (Config.furnace()) executor.add(new FurnaceIntegration()); // vanilla, always present
+            if (Config.ic2() && Loader.isModLoaded("IC2")) executor.add(new IC2Integration());
+            if (Config.ae2() && Loader.isModLoaded("appliedenergistics2")) executor.add(new AE2Integration());
+            if (Config.ie() && Loader.isModLoaded("immersiveengineering")) executor.add(new IEIntegration());
+            if (Config.chest()) executor.add(new ChestIntegration());      // vanilla, always present
+            // M7 (accessor/mixin): EIO, Railcraft, TE — add their Loader.isModLoaded guards too.
+        }
     }
 }

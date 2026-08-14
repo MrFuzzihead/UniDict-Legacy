@@ -1,6 +1,7 @@
 # UniDict — implementation status (M0–M9 + Build-better track)
 
 Progress tracker matching `PLAN.md`. Check a box off in the same PR that satisfies it.
+**Per-integration detail (pattern, seams, verify lines, M7 plan) lives in [`INTEGRATIONS.md`](INTEGRATIONS.md).**
 **Scope rework 2026-08-12:** full rework, not a faithful port — see the top of `PLAN.md`.
 
 - T1 = JVM unit test · T2 = seam/fake test · T3 = in-game `[unidict-verify]` line.
