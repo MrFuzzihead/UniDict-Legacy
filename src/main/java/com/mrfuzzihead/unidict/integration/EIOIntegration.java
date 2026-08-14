@@ -31,6 +31,7 @@ import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.enderio.IOreDictionaryPreferencesAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import crazypants.enderio.machine.alloy.AlloyRecipeManager;
@@ -134,6 +135,7 @@ final class EIOIntegration extends AbstractModuleThread {
         final List<IManyToOneRecipe> recipes = AlloyRecipeManager.getInstance()
             .getRecipes();
         final int n = rewriteRecipes(recipes, ALLOY_VIEW.get(), resolveMain);
+        RewriteJournal.record("eio", "alloySmelter", n);
         if (VerifyHarness.isEnabled())
             VerifyHarness.record(true, "integration=EIO", "machine=alloySmelter", "rewritten=" + n);
         return n;
@@ -143,6 +145,7 @@ final class EIOIntegration extends AbstractModuleThread {
         final List<Recipe> recipes = CrusherRecipeManager.getInstance()
             .getRecipes();
         final int n = rewriteRecipes(recipes, SAG_VIEW.get(), resolveMain);
+        RewriteJournal.record("eio", "sagMill", n);
         if (VerifyHarness.isEnabled())
             VerifyHarness.record(true, "integration=EIO", "machine=sagMill", "rewritten=" + n);
         return n;

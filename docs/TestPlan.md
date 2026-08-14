@@ -28,6 +28,9 @@ Register new checks in the dev verify routine when you add a feature.
 Examples once features land:
 
 - `[unidict-verify] PASS resource=ingotIron main=ThermalExpansion:ingotIron variants=4`  (M4 report prototype — per unified resource; "variants=" since M4 has no NEI hiding)
+- `[unidict-verify] PASS report resource=ingotIron main=ThermalFoundation:ingotIron variants=3 owners=IC2,ThermalFoundation,minecraft`  (BB-1 transparency report — per-resource canonical + variants + owner mods)
+- `[unidict-verify] PASS report rewrite=ic2 macerator rewritten=16`  (BB-1 — every kept rewrite has a matching line)
+- `[unidict-verify] PASS report summary=resources=105 rewrites=19`  (BB-1 — report summary)
 - `[unidict-verify] PASS resource=ingotIron main=ThermalExpansion:ingotIron hidden=4`  (old default format with NEI hiding)
 - `[unidict-verify] PASS integration=AE2Grinder`
 - `[unidict-verify] INFO oredict.accessor nameToId.size=12345`  (Spike A)

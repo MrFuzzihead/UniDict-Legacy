@@ -36,6 +36,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import ic2.api.recipe.IRecipeInput;
@@ -100,6 +101,7 @@ final class IC2Integration extends AbstractModuleThread {
                     }
                     final int n = rewriteOutputs(machine.recipes, resourceHandler::getMainItemStack);
                     rewritten += n;
+                    RewriteJournal.record("ic2", machine.name, n);
                     // Per-machine line (BB-1) — fixed iteration order keeps the dump diffable.
                     if (VerifyHarness.isEnabled()) {
                         VerifyHarness.record(true, "integration=ic2", "machine=" + machine.name, "rewritten=" + n);

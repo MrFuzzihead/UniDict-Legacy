@@ -30,6 +30,7 @@ import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.chest.IChestGenHooksAccessor;
 import com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 final class ChestIntegration extends AbstractModuleThread {
@@ -54,6 +55,7 @@ final class ChestIntegration extends AbstractModuleThread {
                     }
                 }
                 UniDict.LOG.info(threadName + "rewrote " + rewritten + " chest loot entries to their canonical items.");
+                RewriteJournal.record("chest", "loot", rewritten);
                 if (VerifyHarness.isEnabled()) {
                     VerifyHarness.record(true, "integration=Chest", "rewritten=" + rewritten);
                 }

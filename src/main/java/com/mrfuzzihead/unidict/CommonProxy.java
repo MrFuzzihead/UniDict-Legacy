@@ -1,5 +1,7 @@
 package com.mrfuzzihead.unidict;
 
+import com.mrfuzzihead.unidict.command.CommandUniDict;
+
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLLoadCompleteEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -25,5 +27,8 @@ public class CommonProxy {
         if (VerifyHarness.isEnabled()) VerifyHarness.runChecks();
     }
 
-    public void serverStarting(FMLServerStartingEvent event) {}
+    /** BB-1: register the {@code /unidict} command (transparency report) on every server start. */
+    public void serverStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandUniDict());
+    }
 }

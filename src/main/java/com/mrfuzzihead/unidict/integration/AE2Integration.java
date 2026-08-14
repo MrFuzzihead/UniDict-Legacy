@@ -29,6 +29,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import appeng.api.AEApi;
@@ -120,6 +121,7 @@ final class AE2Integration extends AbstractModuleThread {
                     threadName + "rewrote outputs of "
                         + rewritten
                         + " AE2 grinder recipes to their canonical entries.");
+                RewriteJournal.record("ae2", "grinder", rewritten);
                 if (VerifyHarness.isEnabled()) {
                     VerifyHarness.record(true, "integration=ae2", "rewritten=" + rewritten);
                 }

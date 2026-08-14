@@ -31,6 +31,7 @@ import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.te.IFurnaceManagerAccessor;
 import com.mrfuzzihead.unidict.te.IPulverizerManagerAccessor;
@@ -136,6 +137,7 @@ final class TEIntegration extends AbstractModuleThread {
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, FURNACE_VIEW, resolveMain);
+        RewriteJournal.record("te", "redstoneFurnace", n);
         if (VerifyHarness.isEnabled())
             VerifyHarness.record(true, "integration=TE", "machine=redstoneFurnace", "rewritten=" + n);
         return n;
@@ -147,6 +149,7 @@ final class TEIntegration extends AbstractModuleThread {
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, PULVERIZER_VIEW, resolveMain);
+        RewriteJournal.record("te", "pulverizer", n);
         if (VerifyHarness.isEnabled())
             VerifyHarness.record(true, "integration=TE", "machine=pulverizer", "rewritten=" + n);
         return n;
@@ -158,6 +161,7 @@ final class TEIntegration extends AbstractModuleThread {
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, SMELTER_VIEW, resolveMain);
+        RewriteJournal.record("te", "inductionSmelter", n);
         if (VerifyHarness.isEnabled())
             VerifyHarness.record(true, "integration=TE", "machine=inductionSmelter", "rewritten=" + n);
         return n;

@@ -94,7 +94,22 @@ comparators.
 - [x] `git log --oneline` reads as the milestone list: `… M0→M2→M4→M6→M7 complete` (M3/M5 landed within those commits)
 
 ## Build-better track (`PLAN.md` has detail + gates)
-- [ ] **BB-1 Transparency** — `/unidict report`: per-resource canonical entry, variants, owners, what got rewritten
+- [x] **BB-1 Transparency** — `/unidict report`: per-resource canonical entry, variants, owners, what got rewritten
+  - Implemented as a **dev + user-facing** feature (docs/PLAN.md §BB-1). Ships: a **`/unidict report`** command
+    (`CommandUniDict`, registered at `FMLServerStartingEvent` in `CommonProxy`) and the productionized
+    `[unidict-verify] report …` lines from the M4 seed.
+  - **Model:** pure `report` package (`ReportEntry` + `ReportFormatter` + `RewriteRecord`, zero
+    `net.minecraft*`) computes/renders the report; MC-thin `UniDictReport` resolves `ItemStack`s to
+    qualified names; runtime **`RewriteJournal`** captures "what got rewritten" per integration/machine
+    (integrations record on every run, independent of the dev verify switch, so the user command works
+    in a normal build). Lines are sorted so the dump is stable + diffable run-to-run.
+  - **Every kept rewrite has a matching `report rewrite=<source> <machine> rewritten=<n>` line:** furnace,
+    ae2 grinder, chest loot, each IC2 machine, each IE machine, EIO alloy/sag, Railcraft blast furnace,
+    each TE machine — each records into the journal.
+  - **Tests:** T1 `ReportFormatterTest` (4 tests) on pure entry sorting/owner-derivation + line/summary
+    formatting (docs/TestPlan.md rule 2). `./gradlew build` green incl. Spotless + Checkstyle.
+  - **T3 gate — VERIFIED (2026-08-14, `fml-client-latest.log`):** `[unidict-verify] PASS report resource=… main=… variants=… owners=…` × **105** (e.g. `ingotCopper main=ThermalFoundation:material variants=7 owners=Forestry,IC2,ImmersiveEngineering,Railcraft,TConstruct,ThermalFoundation,etfuturum`); `PASS report rewrite=…` × 16 (furnace=64, ae2=61, chest=38, eio alloy+sag=0, ic2 ×10 incl. macerator=16/centrifuge=20/compressor=14/metalformerRolling=7/blockcutter=7/blastfurance=5/oreWashing=6, railcraft=0); `PASS report summary=resources=105 rewrites=16`; harness **`summary: 246 passed, 0 failed`**, 0 `unidict-verify] FAIL` matches.
+  - **T3 ordering fix (2026-08-14):** first dev run showed the LOAD_COMPLETE-stage **TE** integration (`machines=3 rewritten=253`) recording its journal entries *after* the report was already emitted — because `UniDict.loadComplete()` ran `proxy.loadComplete()` (verify/report) before `moduleHandler.startModules(LOAD_COMPLETE)` (TE). Reordered so LOAD_COMPLETE modules run before the verify pass; TE now appears in the report. (`ImmersiveEngineering` was loaded in that run but produced no `integration=ie` lines because `Config.ie()` was off in the run's config — correct, nothing to rewrite.)
 - [ ] **BB-2 Config presets** — grouped categories; minimal / standard / max-compat
 - [ ] **BB-3 Non-destructive rewriting** — outputs-only rewrites; grep guard; fabricated-map T2 test
 - [ ] **BB-4 Broader equivalence** — ≥1 non-OD equivalence class implemented, tested, reported

@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
+import com.mrfuzzihead.unidict.report.UniDictReport;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceContainer;
@@ -73,6 +74,7 @@ public final class VerifyHarness {
         LOG.info("[unidict-verify] harness enabled — running self-checks");
         checkOreDictionaryBridge();
         runResourceReport();
+        runTransparencyReport();
         LOG.info("[unidict-verify] summary: {} passed, {} failed", passed, failed);
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
     }
@@ -109,6 +111,15 @@ public final class VerifyHarness {
         Collections.sort(lines);
         for (final String line : lines) record(true, line);
         record(!lines.isEmpty(), "resource report", "resources=" + lines.size());
+    }
+
+    /** BB-1 transparency report (docs/PLAN.md §BB-1): one PASS line per unified resource + per rewrite. */
+    private static void runTransparencyReport() {
+        final ResourceHandler resourceHandler = UniDict.resourceHandler;
+        if (resourceHandler == null) return; // already reported the missing-handler condition above
+        final List<String> lines = UniDictReport.lines(resourceHandler);
+        for (final String line : lines) record(true, line);
+        if (lines.isEmpty()) record(false, "report", "empty report — no unified resources");
     }
 
     private static String describe(final ItemStack stack) {

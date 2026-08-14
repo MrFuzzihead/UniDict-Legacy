@@ -25,6 +25,7 @@ import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.railcraft.IBlastFurnaceCraftingManagerAccessor;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import mods.railcraft.api.crafting.IBlastFurnaceCraftingManager;
@@ -68,6 +69,7 @@ final class RailcraftIntegration extends AbstractModuleThread {
                     .getRecipes();
                 if (recipes != null) {
                     final int rewritten = rewriteRecipes(recipes, BLAST_VIEW, resourceHandler::getMainItemStack);
+                    RewriteJournal.record("railcraft", "blastFurnace", rewritten);
                     UniDict.LOG.info(
                         threadName + "rewrote outputs of "
                             + rewritten

@@ -18,6 +18,7 @@ import net.minecraft.item.crafting.FurnaceRecipes;
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 final class FurnaceIntegration extends AbstractModuleThread {
@@ -35,6 +36,7 @@ final class FurnaceIntegration extends AbstractModuleThread {
                 final Map<ItemStack, ItemStack> smeltingList = FurnaceRecipes.smelting()
                     .getSmeltingList();
                 final int rewritten = rewriteOutputs(smeltingList, resourceHandler::getMainItemStack);
+                RewriteJournal.record("furnace", "furnace", rewritten);
                 UniDict.LOG.info(
                     threadName + "rewrote outputs of " + rewritten + " furnace recipes to their canonical entries.");
             }

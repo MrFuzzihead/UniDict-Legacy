@@ -55,8 +55,11 @@ public class UniDict {
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
-        proxy.loadComplete(event);
+        // BB-1: run LOAD_COMPLETE-stage modules (e.g. the TE integration, @SpecifiedLoadStage) BEFORE
+        // the verify/report pass, so the transparency report and [unidict-verify] summary capture every
+        // kept rewrite (docs/PLAN.md §BB-1 gate: every kept rewrite has a matching report line).
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        proxy.loadComplete(event);
         // M2 commit 2 ports the comparator cache lifecycle (SpecificKindItemStackComparator.nullify()).
     }
 

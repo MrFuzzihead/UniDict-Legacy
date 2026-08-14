@@ -27,6 +27,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import blusunrize.immersiveengineering.api.ComparableItemStack;
@@ -154,6 +155,7 @@ final class IEIntegration extends AbstractModuleThread {
     private static int rewriteArc(final ResourceHandler resourceHandler) {
         final int n = OutputRewriter
             .rewriteList(ArcFurnaceRecipe.recipeList, ARC_VIEW, resourceHandler::getMainItemStack);
+        RewriteJournal.record("ie", "arcFurnace", n);
         if (VerifyHarness.isEnabled()) {
             VerifyHarness.record(true, "integration=ie", "machine=arcFurnace", "rewritten=" + n);
         }
@@ -163,6 +165,7 @@ final class IEIntegration extends AbstractModuleThread {
     private static int rewriteBlast(final ResourceHandler resourceHandler) {
         final int n = OutputRewriter
             .rewriteList(BlastFurnaceRecipe.recipeList, BLAST_VIEW, resourceHandler::getMainItemStack);
+        RewriteJournal.record("ie", "blastFurnace", n);
         if (VerifyHarness.isEnabled()) {
             VerifyHarness.record(true, "integration=ie", "machine=blastFurnace", "rewritten=" + n);
         }
@@ -172,6 +175,7 @@ final class IEIntegration extends AbstractModuleThread {
     private static int rewriteCrusher(final ResourceHandler resourceHandler) {
         final int n = OutputRewriter
             .rewriteList(CrusherRecipe.recipeList, CRUSHER_VIEW, resourceHandler::getMainItemStack);
+        RewriteJournal.record("ie", "crusher", n);
         if (VerifyHarness.isEnabled()) {
             VerifyHarness.record(true, "integration=ie", "machine=crusher", "rewritten=" + n);
         }
@@ -189,6 +193,7 @@ final class IEIntegration extends AbstractModuleThread {
             final List<MetalPressRecipe> moldRecipes = MetalPressRecipe.recipeList.get(mold);
             rewritten += OutputRewriter.rewriteList(moldRecipes, METAL_PRESS_VIEW, resourceHandler::getMainItemStack);
         }
+        RewriteJournal.record("ie", "metalPress", rewritten);
         if (VerifyHarness.isEnabled()) {
             VerifyHarness.record(true, "integration=ie", "machine=metalPress", "rewritten=" + rewritten);
         }
