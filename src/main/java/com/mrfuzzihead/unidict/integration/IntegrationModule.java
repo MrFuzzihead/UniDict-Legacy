@@ -1,9 +1,9 @@
 package com.mrfuzzihead.unidict.integration;
 
-import cpw.mods.fml.common.Loader;
-
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.module.AbstractModule;
+
+import cpw.mods.fml.common.Loader;
 
 /**
  * The integration module — an explicit, ordered registry of machine/loot integrations. This
@@ -49,8 +49,11 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.ic2() && Loader.isModLoaded("IC2")) executor.add(new IC2Integration());
             if (Config.ae2() && Loader.isModLoaded("appliedenergistics2")) executor.add(new AE2Integration());
             if (Config.ie() && Loader.isModLoaded("immersiveengineering")) executor.add(new IEIntegration());
-            if (Config.chest()) executor.add(new ChestIntegration());      // vanilla, always present
-            // M7 (accessor/mixin): EIO, Railcraft, TE — add their Loader.isModLoaded guards too.
+            if (Config.chest()) executor.add(new ChestIntegration()); // vanilla, always present
+            // M7 (accessor/mixin): EIO, Railcraft, TE — interface + fake seam per mod, mod-gated.
+            if (Config.enderIO() && Loader.isModLoaded("EnderIO")) executor.add(new EIOIntegration());
+            if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
+            if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
         }
     }
 }

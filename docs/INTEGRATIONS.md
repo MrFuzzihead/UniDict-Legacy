@@ -24,11 +24,11 @@ verify line each one is expected to emit.
 | **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
 | **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
 | **Chest** (loot)      | ✅ done      | M6     | accessor seam (`ChestGenHooks`, `WeightedRandomChestContent`) | POST_INIT     | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
-| **EnderIO**           | ⏳ next (M7) | —      | accessor (`OreDictionaryPreferences.preferences`)             | —             | planned                           | `…=EnderIO`                        |
-| **Railcraft**         | ⏳ next (M7) | —      | accessor (`BlastFurnaceCraftingManager.recipes`)              | —             | planned                           | `…=Railcraft`                      |
-| **Thermal Expansion** | ⏳ next (M7) | —      | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | planned                           | `…=ThermalExpansion`               |
+| **EnderIO**           | 🟡 impl + tests (T3 pending) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
+| **Railcraft**         | 🟡 impl + tests (T3 pending) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`)              | POST_INIT     | ✅ (`OutputRewriter`, `List.set`)      | `…=Railcraft`                      |
+| **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
 
-**Legend:** ✅ done · ⏳ next milestone · ~~struck~~ deferred/removed.
+**Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
 
 ---
 
@@ -159,15 +159,15 @@ new M7 integration must replicate:
 
 ---
 
-## Next up — M7 (mixin-accessor integrations): EIO · Railcraft · TE
+## M7 — mixin-accessor integrations: EIO · Railcraft · TE (implemented; T3 verify pending)
 
-Each is a **mechanical repeat** of the Chest / M3 pattern: interface + `@Mixin` impl in
-`mixins.early`/`…late` per target + fake; `TargetMods` gating where the mod must be loaded. `Forestry`
-was **removed** from M7 by the 2026-08-12 scope rework (see the plan's "Milestone impact").
+Each was a **mechanical repeat** of the Chest / M3 pattern: interface + `@Mixin` impl in `mixins.early`/
+`…late` per target + fake; `TargetMods` gating where the mod must be loaded. `Forestry` was **removed**
+from M7 by the 2026-08-12 scope rework (see the plan's "Milestone impact").
 
 | Target                | Mixin                                                                  | Seam                                                                                 | Notes                                                                                                                   |
 |-----------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| **EnderIO**           | `OreDictionaryPreferencesMixin`                                        | `IOreDictionaryPreferencesAccessor` (`preferences` map)                              | drop `FixedSizeList` usage if trivially `ArrayList`-able                                                                |
+| **EnderIO**           | `OreDictionaryPreferencesMixin`                                        | `IOreDictionaryPreferencesAccessor` (`preferences` map)                              | `FixedSizeList` dropped — `OutputRewriter.rewriteList`                                                                    |
 | **Railcraft**         | `BlastFurnaceCraftingManagerMixin`                                     | `IBlastFurnaceCraftingManagerAccessor` (`recipes` list, instance accessor)           |                                                                                                                         |
 | **Thermal Expansion** | `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` | `IFurnaceManagerAccessor` / `IPulverizerManagerAccessor` / `ISmelterManagerAccessor` | each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor; keep `@SpecifiedLoadStage(LOAD_COMPLETE)` |
 
@@ -177,8 +177,63 @@ all three TE constructor signatures — **use `@Invoker`**. The 3 AT-entry fallb
 is documented only, **no physical file** (a resource `*_at.cfg` would break the build under `applyJST`);
 write + validate AT entries only if runtime `@Invoker` fails in-game.
 
-**Gate:** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe (M4
-main-thread rule still enforced).
+### EnderIO — 🟡 impl + T2 tests (T3 pending)
+
+- **What it rewrites:** Alloy Smelter (`IManyToOneRecipe` list) + SAG Mill (`Recipe` list) outputs to
+  the canonical `getMainItemStack`, via `OutputRewriter.rewriteList` (`List.set`) — EIO recipes are
+  immutable, so each affected recipe is rebuilt and replaced **at its index** (count + order preserved,
+  never `Iterator.remove`, BB-3). Also **clears Ender IO's `OreDictionaryPreferences.preferences`**
+  through the accessor seam so EIO yields the canonical ore-dict entry rather than a player preference.
+- **Tests:** `EIOIntegration.rewriteRecipes` is a package-private generic seam over
+  `OutputRewriter.rewriteList`; tests drive it with a neutral `Holder` view + assert
+  `fixOreDictPreferences` via `FakeOreDictionaryPreferencesAccessor`. (4 T2 tests green; no EIO types on
+  the test classpath — see the `Supplier` note below.)
+- **Design note — lazy `OutputView`s:** EIO's `ALLOY_VIEW`/`SAG_VIEW` are declared as
+  `Supplier<OutputView<…>>`, not eager static finals. An eager field's anonymous class forces
+  `EIOIntegration.<clinit>` to resolve `IManyToOneRecipe` (a `checkcast` operand), which throws
+  `NoClassDefFoundError` on a test classpath without Ender IO. The `Supplier` defers construction to
+  `call()` (in-game, where Ender IO exists), so `<clinit>` stays Ender IO-free and the pure seams are
+  T2-reachable.
+- **T3 gate (pending):** expected `[unidict-verify] PASS integration=EIO machines=2 …`. **Config:**
+  `Config.enderIO()`. Registered `Mixins.ENDER_IO`.
+
+### Railcraft — 🟡 impl + T2 tests (T3 pending)
+
+- **What it rewrites:** every blast-furnace recipe OUTPUT to the canonical entry. Recipes are immutable
+  (`BlastFurnaceRecipe`), so each is rebuilt and replaced **at its index** via
+  `OutputRewriter.rewriteList` (`List.set`, BB-3). The `private final recipes` list is reached through
+  `IBlastFurnaceCraftingManagerAccessor` (raw `List` — element type not on the JUnit classpath),
+  replacing upstream's `Util.getField` reflection.
+- **Tests:** `RailcraftIntegrationTest` drives the generic seam through `FakeBlastFurnaceCraftingManagerAccessor`
+  (2 T2 green).
+- **T3 gate (pending):** expected `[unidict-verify] PASS integration=Railcraft …`. **Config:**
+  `Config.railcraft()`. Registered `Mixins.RAILCRAFT`.
+
+### Thermal Expansion — 🟡 impl + T2 tests (T3 pending)
+
+- **What it rewrites:** Redstone Furnace / Pulverizer / Induction Smelter recipe OUTPUTS to the canonical
+  entry. Recipes are immutable with **package-private constructors**, rebuilt via the M0-Spike-B
+  `@Invoker`s surfaced through the `IRecipeFurnaceFactory`/`IRecipePulverizerFactory`/`IRecipeSmelterFactory`
+  interface seams, and replaced by `Map.setValue` (`OutputRewriter.rewriteOutputs`) — never a removal,
+  never a global-registry mutation (BB-3). The per-manager `private static recipeMap` fields are read
+  through the 3 accessor seams (raw `Map`). Runs at `@SpecifiedLoadStage(LOAD_COMPLETE)`.
+- **Tests:** `TEIntegrationTest` drives the generic seam through `FakeFurnaceManagerAccessor` /
+  `FakePulverizerManagerAccessor` / `FakeSmelterManagerAccessor` (2 T2 green).
+- **Toolchain lesson — @Invoker surfaces via an interface, not a wrapper in the mixin package.** An
+  earlier `TERecipeFactory` helper lived in `com.mrfuzzihead.unidict.mixins.late` so it could call the
+  `@Invoker`s, and `TEIntegration` referenced it — but mixin packages are **closed**: any class in a
+  `mixins.*.json`-owned package throws `IllegalClassLoadError … cannot be referenced directly` from a
+  non-mixin caller, producing a fatal `LoaderException: NoClassDefFoundError` at `serverAboutToStart`
+  (no `integration=TE` verify line). Fix: each `@Invoker` mixin **implements a plain factory interface**
+  in `com.mrfuzzihead.unidict.te` (non-mixin), and `TEIntegration` casts the recipe value object to it —
+  the `@Invoker` is invoked *inside* the mixin package (legal) and the rebuilt recipe is handed out via
+  the interface. Same rule as the accessors (interface + mixin impl + fake).
+- **T3 gate (pending reconfirm):** expected `[unidict-verify] PASS integration=TE machines=3 …`.
+  **Config:** `Config.thermalExpansion()`. Registered `Mixins.THERMAL_EXPANSION`.
+
+**Gate (open):** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe
+(M4 main-thread rule still enforced). The three integrations are currently verified only at T2 (JUnit);
+T3 verify lines are blocked on the dev-LIGHT → full-stack flip (see gotchas #2 & #3).
 
 ## Environment gotchas & dev-tooling notes
 

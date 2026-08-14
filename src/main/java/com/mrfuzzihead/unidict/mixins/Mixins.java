@@ -14,8 +14,22 @@ public enum Mixins implements IMixins {
         .addCommonMixins("ChestGenHooksMixin", "WeightedRandomChestContentMixin")),
 
     THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("RecipeFurnaceInvoker", "RecipePulverizerInvoker", "RecipeSmelterInvoker")
-        .addRequiredMod(TargetMods.THERMAL_EXPANSION));
+        .addCommonMixins(
+            "RecipeFurnaceInvoker",
+            "RecipePulverizerInvoker",
+            "RecipeSmelterInvoker",
+            "FurnaceManagerMixin",
+            "PulverizerManagerMixin",
+            "SmelterManagerMixin")
+        .addRequiredMod(TargetMods.THERMAL_EXPANSION)),
+
+    ENDER_IO(new MixinBuilder().setPhase(Phase.LATE)
+        .addCommonMixins("OreDictionaryPreferencesMixin")
+        .addRequiredMod(TargetMods.ENDER_IO)),
+
+    RAILCRAFT(new MixinBuilder().setPhase(Phase.LATE)
+        .addCommonMixins("BlastFurnaceCraftingManagerMixin")
+        .addRequiredMod(TargetMods.RAILCRAFT));
 
     private final MixinBuilder builder;
 

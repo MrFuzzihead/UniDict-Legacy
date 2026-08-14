@@ -7,7 +7,9 @@ import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 
 public enum TargetMods implements ITargetMod {
 
-    THERMAL_EXPANSION("ThermalExpansion");
+    THERMAL_EXPANSION("ThermalExpansion"),
+    ENDER_IO("EnderIO"),
+    RAILCRAFT("Railcraft");
 
     private final TargetModBuilder builder;
 
