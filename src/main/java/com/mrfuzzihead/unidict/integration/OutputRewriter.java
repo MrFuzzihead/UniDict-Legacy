@@ -15,9 +15,11 @@ package com.mrfuzzihead.unidict.integration;
  * ({@code List.set}), so the entry count and order are preserved — never a removal.
  */
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.ItemStack;
@@ -84,6 +86,37 @@ final class OutputRewriter {
             if (isChanged(original, mapped)) {
                 recipes.set(i, view.rebuild(recipe, mapped));
                 rewritten++;
+            }
+        }
+        return rewritten;
+    }
+
+    /**
+     * Non-destructive in-place rewrite for machines whose recipes expose their outputs as a
+     * {@code List<Map.Entry<ItemStack, Float>>} where each entry is an (output, chance) pair loaded
+     * only by index — e.g. Railcraft's Rock Crusher ({@code IRockCrusherRecipe#getOutputs()}). The
+     * entry list itself is a live, mutable view of the recipe; unlike {@link #rewriteList} we cannot
+     * rebuild/replace the recipe object (count + order must be preserved, and the outputs are final),
+     * so we replace each changed entry <em>in place</em> ({@code List.set} a new immutable entry with
+     * the mapped {@link ItemStack} and the same {@code Float} chance). Never removes a recipe or an
+     * output, never mutates a global registry (BB-3).
+     *
+     * @return number of output entries actually changed
+     */
+    static <R> int rewriteChanceOutputs(final List<? extends R> recipes,
+        final Function<R, List<Map.Entry<ItemStack, Float>>> outputsOf, final UnaryOperator<ItemStack> resolveMain) {
+        int rewritten = 0;
+        for (final R recipe : recipes) {
+            final List<Map.Entry<ItemStack, Float>> outputs = outputsOf.apply(recipe);
+            if (outputs == null) continue;
+            for (int i = 0; i < outputs.size(); i++) {
+                final Map.Entry<ItemStack, Float> entry = outputs.get(i);
+                if (entry == null) continue;
+                final ItemStack mapped = resolveMain.apply(entry.getKey());
+                if (mapped != entry.getKey()) {
+                    outputs.set(i, new AbstractMap.SimpleImmutableEntry<>(mapped, entry.getValue()));
+                    rewritten++;
+                }
             }
         }
         return rewritten;

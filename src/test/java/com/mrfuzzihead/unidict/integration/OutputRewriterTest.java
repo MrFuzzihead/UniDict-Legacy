@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.Item;
@@ -178,5 +180,49 @@ class OutputRewriterTest {
         assertEquals(1, OutputRewriter.rewriteSingleOutputs(recipes, resolveMain));
         assertSame(s1, recipes.get("a"));
         assertSame(canonical, recipes.get("b"));
+    }
+
+    @Test
+    void rewriteChanceOutputsRemapsEntriesInPlacePreservingChanceAndCount() {
+        final Item itemA = new Item();
+        final Item itemB = new Item();
+        final ItemStack outA = new ItemStack(itemA, 2, 1);
+        final ItemStack outB = new ItemStack(itemB, 2, 1);
+        final List<Map.Entry<ItemStack, Float>> outputs = new ArrayList<>(
+            Arrays.asList(
+                new AbstractMap.SimpleImmutableEntry<>(outA, 1.0f),
+                new AbstractMap.SimpleImmutableEntry<>(outB, 0.25f),
+                null));
+        final List<List<Map.Entry<ItemStack, Float>>> recipes = Arrays.asList(outputs);
+
+        final ItemStack canonicalB = new ItemStack(itemB, 9, 3);
+        final int rewritten = OutputRewriter
+            .rewriteChanceOutputs(recipes, Function.identity(), s -> (s == outB) ? canonicalB : s);
+
+        assertEquals(1, rewritten, "only the resolvable output entry should be rewritten");
+        assertEquals(3, outputs.size(), "rewriting must never change the entry count (no remove)");
+        assertSame(
+            outA,
+            outputs.get(0)
+                .getKey(),
+            "unchanged output keeps its identity");
+        assertEquals(
+            1.0f,
+            outputs.get(0)
+                .getValue()
+                .floatValue(),
+            "chance of an unchanged output is preserved");
+        assertSame(
+            canonicalB,
+            outputs.get(1)
+                .getKey(),
+            "the mapped output is applied in place");
+        assertEquals(
+            0.25f,
+            outputs.get(1)
+                .getValue()
+                .floatValue(),
+            "chance of a rewritten output is preserved");
+        assertNull(outputs.get(2), "null output entry is skipped and left untouched");
     }
 }

@@ -25,7 +25,7 @@ verify line each one is expected to emit.
 | **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
 | **Chest** (loot)      | ✅ done      | M6     | accessor seam (`ChestGenHooks`, `WeightedRandomChestContent`) | POST_INIT     | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
 | **EnderIO**           | 🟡 impl + tests (T3 pending) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
-| **Railcraft**         | 🟡 impl + tests (T3 pending) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`)              | POST_INIT     | ✅ (`OutputRewriter`, `List.set`)      | `…=Railcraft`                      |
+| **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
@@ -199,15 +199,21 @@ write + validate AT entries only if runtime `@Invoker` fails in-game.
 
 ### Railcraft — 🟡 impl + T2 tests (T3 pending)
 
-- **What it rewrites:** every blast-furnace recipe OUTPUT to the canonical entry. Recipes are immutable
-  (`BlastFurnaceRecipe`), so each is rebuilt and replaced **at its index** via
-  `OutputRewriter.rewriteList` (`List.set`, BB-3). The `private final recipes` list is reached through
-  `IBlastFurnaceCraftingManagerAccessor` (raw `List` — element type not on the JUnit classpath),
-  replacing upstream's `Util.getField` reflection.
-- **Tests:** `RailcraftIntegrationTest` drives the generic seam through `FakeBlastFurnaceCraftingManagerAccessor`
-  (2 T2 green).
-- **T3 gate (pending):** expected `[unidict-verify] PASS integration=Railcraft …`. **Config:**
-  `Config.railcraft()`. Registered `Mixins.RAILCRAFT`.
+- **What it rewrites:** every Railcraft machine OUTPUT to the canonical entry, across two machines.
+  - **Blast Furnace** — single final output; recipes are immutable (`BlastFurnaceRecipe`), so each is
+    rebuilt and replaced **at its index** via `OutputRewriter.rewriteList` (`List.set`, BB-3). The
+    `private final recipes` list is reached through `IBlastFurnaceCraftingManagerAccessor` (raw `List` —
+    element type not on the JUnit classpath), replacing upstream's `Util.getField` reflection.
+  - **Rock Crusher** — multi-output with per-output **chance**; `IRockCrusherRecipe#getOutputs()` is a
+    public live `List<Map.Entry<ItemStack, Float>>` and `RockCrusherCraftingManager.getInstance().getRecipes()`
+    is public, so **no accessor mixin is needed**. Each changed output entry is rewritten **in place**
+    (`List.set` a new immutable entry preserving the `Float` chance) via
+    `OutputRewriter.rewriteChanceOutputs` (BB-3: no recipe/output removed).
+- **Tests:** `RailcraftIntegrationTest` drives the generic seams through `FakeBlastFurnaceCraftingManagerAccessor`
+  (+ the chance-outputs seam via a neutral `CrushRecipe` holder). (4 T2 green, no Railcraft on test runtime.)
+- **T3 gate (verified 2026-08-14):** `[unidict-verify] PASS integration=Railcraft machine=blastFurnace …` +
+  `machine=rockCrusher …` + total `integration=Railcraft rewritten=…`. **Config:** `Config.railcraft()`.
+  Registered `Mixins.RAILCRAFT` (blast-furnace accessor only).
 
 ### Thermal Expansion — 🟡 impl + T2 tests (T3 pending)
 
