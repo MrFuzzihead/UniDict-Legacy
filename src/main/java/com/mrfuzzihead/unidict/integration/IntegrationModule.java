@@ -1,6 +1,7 @@
 package com.mrfuzzihead.unidict.integration;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.drops.UnifyDrops;
 import com.mrfuzzihead.unidict.module.AbstractModule;
 
 import cpw.mods.fml.common.Loader;
@@ -37,6 +38,12 @@ public final class IntegrationModule extends AbstractModule {
 
     @Override
     protected void init() {
+        // UnifyDrops: drop-time unification. Deliberately registered OUTSIDE the Config.integrationModule()
+        // master-switch gate — it is gated only on its own Config.unifyDrops() toggle, so the runtime
+        // drop listener is independent of the load-time machine-rewrite master switch (its pre-module
+        // behavior in CommonProxy). Running at POST_INIT means it is registered after the ResourceHandler
+        // pipeline has run (UniDict.postInit runs runResourcePipeline() before startModules).
+        if (Config.unifyDrops()) executor.add(new UnifyDrops());
         // M6/M7: add more integrations here with explicit `new`, one line each, gated on both the
         // config toggle AND `Loader.isModLoaded(<modid>)` for mod integrations. The mod-loaded guard
         // is essential: an optional integration's class references its target mod's types (e.g.

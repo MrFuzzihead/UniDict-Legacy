@@ -62,6 +62,12 @@ public final class ForgeConfigIO {
         booleanProp(
             cfg,
             general,
+            "unifyDrops",
+            defaults.unifyDrops,
+            "Convert dropped (ground) item entities to the canonical entry of their unified resource.");
+        booleanProp(
+            cfg,
+            general,
             "autoHideInNEI",
             defaults.autoHideInNEI,
             "Auto-hide non-main variants (NEI gate). Only active when keepOneEntry is off.");

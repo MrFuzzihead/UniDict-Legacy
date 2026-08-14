@@ -20,6 +20,7 @@ class ConfigReaderTest {
         final Map<String, String> raw = new LinkedHashMap<>();
         raw.put("keepOneEntry", "true");
         raw.put("inputReplacement", "true");
+        raw.put("unifyDrops", "false");
         raw.put("autoHideInNEI", "true");
         raw.put("kindDebugMode", "true");
         raw.put("keepOneEntryModBlackList", "SomeMod, OtherMod");
@@ -47,6 +48,7 @@ class ConfigReaderTest {
 
         assertTrue(c.keepOneEntry);
         assertTrue(c.inputReplacement);
+        assertFalse(c.unifyDrops);
         assertTrue(c.autoHideInNEI);
         assertTrue(c.kindDebugMode);
         assertEquals(setOf("SomeMod", "OtherMod"), c.keepOneEntryModBlackSet);
@@ -82,6 +84,7 @@ class ConfigReaderTest {
         assertTrue(c.ic2Integration);
         assertEquals(setOf("Zinc"), c.metalsToUnify);
         assertFalse(c.inputReplacement); // preset default false
+        assertTrue(c.unifyDrops); // preset default true (drops unification)
     }
 
     @Test

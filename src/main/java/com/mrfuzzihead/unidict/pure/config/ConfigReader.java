@@ -25,6 +25,7 @@ public final class ConfigReader {
     // general
     private static final String KEY_KEEP_ONE_ENTRY = "keepOneEntry";
     private static final String KEY_INPUT_REPLACEMENT = "inputReplacement";
+    private static final String KEY_UNIFY_DROPS = "unifyDrops";
     private static final String KEY_KEEP_ONE_ENTRY_BLACK = "keepOneEntryModBlackList";
     private static final String KEY_AUTO_HIDE_NEI = "autoHideInNEI";
     private static final String KEY_HIDE_NEI_BLACK = "autoHideInNEIBlackList";
@@ -71,6 +72,7 @@ public final class ConfigReader {
         final ConfigData.Builder b = ConfigData.builder()
             .keepOneEntry(defaults.keepOneEntry)
             .inputReplacement(defaults.inputReplacement)
+            .unifyDrops(defaults.unifyDrops)
             .autoHideInNEI(defaults.autoHideInNEI)
             .kindDebugMode(defaults.kindDebugMode)
             .keepOneEntryModBlackSet(defaults.keepOneEntryModBlackSet)
@@ -125,6 +127,9 @@ public final class ConfigReader {
                 return;
             case KEY_INPUT_REPLACEMENT:
                 b.inputReplacement(bool(value, defaults.inputReplacement));
+                return;
+            case KEY_UNIFY_DROPS:
+                b.unifyDrops(bool(value, defaults.unifyDrops));
                 return;
             case KEY_AUTO_HIDE_NEI:
                 b.autoHideInNEI(bool(value, defaults.autoHideInNEI));

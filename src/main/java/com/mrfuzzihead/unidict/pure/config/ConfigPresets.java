@@ -88,6 +88,7 @@ public final class ConfigPresets {
     /** Minimal: smallest safe surface — vanilla furnace + chest, a few metals. */
     public static ConfigData minimal() {
         return ConfigData.builder()
+            .unifyDrops(true)
             .metalsToUnify(new LinkedHashSet<>(Arrays.asList("Iron", "Gold", "Copper", "Tin")))
             .childrenOfMetals(new LinkedHashSet<>(Arrays.asList("ingot", "ore", "dust", "nugget")))
             .resourceBlackList(Arrays.asList("Aluminium"))
@@ -110,6 +111,7 @@ public final class ConfigPresets {
         return ConfigData.builder()
             .keepOneEntry(false)
             .inputReplacement(false)
+            .unifyDrops(true)
             .autoHideInNEI(true)
             .kindDebugMode(false)
             .keepOneEntryModBlackSet(new LinkedHashSet<>())
@@ -139,6 +141,7 @@ public final class ConfigPresets {
         return ConfigData.builder()
             .keepOneEntry(true)
             .inputReplacement(true)
+            .unifyDrops(true)
             .autoHideInNEI(true)
             .kindDebugMode(true)
             .keepOneEntryModBlackSet(standard.keepOneEntryModBlackSet)

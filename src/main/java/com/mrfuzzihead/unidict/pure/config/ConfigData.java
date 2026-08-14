@@ -37,6 +37,8 @@ public final class ConfigData {
     public final boolean keepOneEntry;
     /** Replace non-standard machine inputs (machine-only, M6/M7). */
     public final boolean inputReplacement;
+    /** Convert dropped (ground) item entities to the canonical entry of their unified resource. */
+    public final boolean unifyDrops;
     /** Auto-hide non-main variants (NEI gate — only when keepOneEntry is off, M4). */
     public final boolean autoHideInNEI;
     /** Log kind information for the transparency report (BB-1). */
@@ -68,6 +70,7 @@ public final class ConfigData {
     private ConfigData(final Builder b) {
         this.keepOneEntry = b.keepOneEntry;
         this.inputReplacement = b.inputReplacement;
+        this.unifyDrops = b.unifyDrops;
         this.autoHideInNEI = b.autoHideInNEI;
         this.kindDebugMode = b.kindDebugMode;
         this.keepOneEntryModBlackSet = Collections.unmodifiableSet(new LinkedHashSet<>(b.keepOneEntryModBlackSet));
@@ -108,6 +111,7 @@ public final class ConfigData {
 
         private boolean keepOneEntry = false;
         private boolean inputReplacement = false;
+        private boolean unifyDrops = true;
         private boolean autoHideInNEI = true;
         private boolean kindDebugMode = false;
         private final Set<String> keepOneEntryModBlackSet = new LinkedHashSet<>();
@@ -136,6 +140,11 @@ public final class ConfigData {
 
         public Builder inputReplacement(final boolean value) {
             this.inputReplacement = value;
+            return this;
+        }
+
+        public Builder unifyDrops(final boolean value) {
+            this.unifyDrops = value;
             return this;
         }
 
@@ -244,6 +253,8 @@ public final class ConfigData {
     @Override
     public String toString() {
         return "ConfigData{keepOneEntry=" + keepOneEntry
+            + ", unifyDrops="
+            + unifyDrops
             + ", ownerPriorities="
             + ownerPriorities
             + ", ownerOfKind="

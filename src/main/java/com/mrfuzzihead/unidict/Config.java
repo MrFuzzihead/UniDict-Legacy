@@ -60,6 +60,10 @@ public class Config {
         return data.inputReplacement;
     }
 
+    public static boolean unifyDrops() {
+        return data.unifyDrops;
+    }
+
     public static boolean integrationModule() {
         return data.integrationModuleEnabled;
     }

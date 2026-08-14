@@ -28,6 +28,7 @@ class ConfigPresetsTest {
         assertFalse(c.thermalExpansionIntegration);
         assertFalse(c.keepOneEntry);
         assertFalse(c.inputReplacement);
+        assertTrue(c.unifyDrops); // drops unification is default-on (safe, non-destructive)
     }
 
     @Test
@@ -42,6 +43,7 @@ class ConfigPresetsTest {
         assertTrue(c.enderIOIntegration);
         assertTrue(c.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration);
+        assertTrue(c.unifyDrops);
     }
 
     @Test
@@ -49,6 +51,7 @@ class ConfigPresetsTest {
         final ConfigData c = ConfigPresets.maxCompat();
         assertTrue(c.keepOneEntry);
         assertTrue(c.inputReplacement);
+        assertTrue(c.unifyDrops);
         assertTrue(c.kindDebugMode);
         // Every standard integration stays enabled.
         final ConfigData standard = ConfigPresets.standard();
