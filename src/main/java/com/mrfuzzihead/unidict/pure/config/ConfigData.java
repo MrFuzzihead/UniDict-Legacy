@@ -19,8 +19,8 @@ import java.util.Set;
  * is collapsed into {@link #ownerPriorities} (global default order) + {@link #ownerOfKind} (per-kind
  * override). A per-kind override simply applies when present; there is no boolean to toggle the
  * feature on/off.</li>
- * <li><b>Only kept integrations.</b> Toggles exist for the 8 kept integrations; the removed mods
- * and Forestry are gone.</li>
+ * <li><b>Only kept integrations.</b> Toggles exist for the 9 kept integrations; the removed mods
+ * are gone.</li>
  * <li><b>Preset-friendly.</b> {@link ConfigPresets} supplies deterministic defaults and
  * {@link ConfigReader} overlays explicit keys (last-write-wins), so a preset is just a default
  * surface explicit keys override.</li>
@@ -64,6 +64,11 @@ public final class ConfigData {
     public final boolean ieIntegration;
     public final boolean chestIntegration;
     public final boolean enderIOIntegration;
+    /**
+     * Forestry machines: carpenter grid-recipe outputs + squeezer container-recipe remnants
+     * (non-destructive, in place — never the crate registration, never fluid outputs).
+     */
+    public final boolean forestryIntegration;
     /** Crafting table recipe output rewrite (M5). */
     public final boolean craftingIntegration;
     public final boolean railcraftIntegration;
@@ -91,6 +96,7 @@ public final class ConfigData {
         this.ieIntegration = b.ieIntegration;
         this.chestIntegration = b.chestIntegration;
         this.enderIOIntegration = b.enderIOIntegration;
+        this.forestryIntegration = b.forestryIntegration;
         this.craftingIntegration = b.craftingIntegration;
         this.railcraftIntegration = b.railcraftIntegration;
         this.thermalExpansionIntegration = b.thermalExpansionIntegration;
@@ -133,6 +139,7 @@ public final class ConfigData {
         private boolean ieIntegration = true;
         private boolean chestIntegration = true;
         private boolean enderIOIntegration = true;
+        private boolean forestryIntegration = true;
         private boolean craftingIntegration = true;
         private boolean railcraftIntegration = true;
         private boolean thermalExpansionIntegration = true;
@@ -239,6 +246,11 @@ public final class ConfigData {
             return this;
         }
 
+        public Builder forestryIntegration(final boolean value) {
+            this.forestryIntegration = value;
+            return this;
+        }
+
         public Builder craftingIntegration(final boolean value) {
             this.craftingIntegration = value;
             return this;
@@ -280,6 +292,8 @@ public final class ConfigData {
             + chestIntegration
             + ", enderIO="
             + enderIOIntegration
+            + ", forestry="
+            + forestryIntegration
             + ", crafting="
             + craftingIntegration
             + ", railcraft="

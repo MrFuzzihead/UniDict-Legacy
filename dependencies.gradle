@@ -52,7 +52,7 @@ dependencies {
     compileOnly("com.github.GTNewHorizons:Mantle:0.5.4:dev")
     compileOnly("com.github.GTNewHorizons:Railcraft:9.17.31:dev")
     compileOnly("com.github.GTNewHorizons:TinkersConstruct:1.14.97-GTNH:dev")
-    compileOnly("com.github.GTNewHorizons:ForestryMC:4.11.35:dev")
+    devOnlyNonPublishable("com.github.GTNewHorizons:ForestryMC:4.11.35:dev")
     compileOnly("com.github.GTNewHorizons:EnderCore:0.5.14:dev")
     compileOnly("com.github.GTNewHorizons:EnderIO:2.10.39:dev")
     devOnlyNonPublishable("curse.maven:ThermalExpansion-69163:2388759")

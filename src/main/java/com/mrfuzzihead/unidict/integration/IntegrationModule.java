@@ -26,7 +26,9 @@ import cpw.mods.fml.common.Loader;
  * if (Config.ic2()) executor.add(new IC2Integration());
  * if (Config.ie()) executor.add(new IEIntegration());
  * if (Config.chest()) executor.add(new ChestIntegration());
- * // M7 (accessor/mixin): EIO, Railcraft, TE.
+ * if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
+ * if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+ * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants).
  * // TODO: Galacticraft integration (deferred stub).
  * </pre>
  */
@@ -63,6 +65,7 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.enderIO() && Loader.isModLoaded("EnderIO")) executor.add(new EIOIntegration());
             if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
             if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
+            if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
         }
     }
 }

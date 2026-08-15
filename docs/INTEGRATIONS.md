@@ -27,6 +27,7 @@ verify line each one is expected to emit.
 | **EnderIO**           | 🟡 impl + tests (T3 pending) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
 | **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
+| **Forestry**           | ✅ impl + T2 tests (T3 pending) | M7     | accessor on Forge `ShapedOreRecipe.output` (early) + public `SqueezerRecipeManager.containerRecipes` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue`)  | `…=Forestry`                       |
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
 
@@ -159,23 +160,57 @@ new M7 integration must replicate:
 
 ---
 
-## M7 — mixin-accessor integrations: EIO · Railcraft · TE (implemented; T3 verify pending)
+## M7 — mixin-accessor integrations: EIO · Railcraft · TE · Forestry (implemented; T3 verify pending)
 
 Each was a **mechanical repeat** of the Chest / M3 pattern: interface + `@Mixin` impl in `mixins.early`/
-`…late` per target + fake; `TargetMods` gating where the mod must be loaded. `Forestry` was **removed**
-from M7 by the 2026-08-12 scope rework (see the plan's "Milestone impact").
+`…late` per target + fake; `TargetMods` gating where the mod must be loaded. `Forestry` is included as a non-destructive sliver (carpenter grid outputs + squeezer container
+remnants) — see its section below.
 
 | Target                | Mixin                                                                  | Seam                                                                                 | Notes                                                                                                                   |
 |-----------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | **EnderIO**           | `OreDictionaryPreferencesMixin`                                        | `IOreDictionaryPreferencesAccessor` (`preferences` map)                              | `FixedSizeList` dropped — `OutputRewriter.rewriteList`                                                                    |
 | **Railcraft**         | `BlastFurnaceCraftingManagerMixin`                                     | `IBlastFurnaceCraftingManagerAccessor` (`recipes` list, instance accessor)           |                                                                                                                         |
 | **Thermal Expansion** | `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` | `IFurnaceManagerAccessor` / `IPulverizerManagerAccessor` / `ISmelterManagerAccessor` | each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor; keep `@SpecifiedLoadStage(LOAD_COMPLETE)` |
+| **Forestry**          | `ShapedOreRecipeMixin` (early)                                        | `IShapedOreRecipeAccessor` (`ShapedOreRecipe.output`)                                | squeezer needs **no** mixin — public `SqueezerRecipeManager.containerRecipes` (`Map.Entry.setValue`) |
 
 TE invoker note (Spike B outcome, 2026-08-12): `@Invoker("<init>")` compiles and applies cleanly for
 all three TE constructor signatures — **use `@Invoker`**. The 3 AT-entry fallback
 (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`)
 is documented only, **no physical file** (a resource `*_at.cfg` would break the build under `applyJST`);
 write + validate AT entries only if runtime `@Invoker` fails in-game.
+
+### Forestry — ✅ impl + T2 tests (T3 pending)
+
+A deliberately scoped, **non-destructive (BB-3)** sliver — upstream's destructive carpenter/crate work is
+not reproduced. Two rewrite surfaces:
+
+- **Carpenter grid outputs (in place).** Source: `RecipeManagers.carpenterManager.recipes()` — a live but
+  *unmodifiable* collection, iterated only, never mutated. Forestry's `ICarpenterRecipe.getCraftingGridRecipe()`
+  is a `ShapedRecipeCustom extends ShapedOreRecipe`, so rewriting its output is just writing the private
+  `ShapedOreRecipe.output` field — reached through the early `ShapedOreRecipeMixin` `@Accessor`
+  (`IShapedOreRecipeAccessor` seam, `remap=false`: Forge-added field). No recipe is removed or rebuilt.
+- **Squeezer container-recipe remnants (in place).** Source: Forestry's **public static**
+  `SqueezerRecipeManager.containerRecipes` (`ItemStackMap`) — no mixin. Each value's materials byproduct is
+  canonicalised by replacing the value under the **same** key (`Map.Entry.setValue`), preserving entry
+  count and the empty-container key. Containers with no byproduct (`null` remnants) are skipped.
+
+Both rewrite only *outputs*; inputs, fluids and the crate system are untouched (inputs = M5-deferred;
+fluids/crates/centrifuge = see the deferred section). Runs at POST_INIT (default), early-skips on an
+empty resource model.
+
+- **Tests:** `ForestryIntegrationTest` (6 T2) — `rewriteCarpenterOutputs` (via
+  `FakeShapedOreRecipeAccessor`), `rewriteContainerRecipes` (via a neutral `Holder` map + `ContainerRecipeView`)
+  assert BB-3; **no Forestry types on the test classpath** (the container view is a lazy `Supplier`, the
+  carpenter seam is generic over our own accessor interface).
+- **Config:** `Config.forestry()` (`forestry` key). Registered with `Loader.isModLoaded("Forestry")` in
+  `IntegrationModule`; the accessor mixin is `Mixins.FORESTRY` (early, no `TargetMods` — `ShapedOreRecipe`
+  is a Forge class, harmless with or without Forestry).
+- **Verify lines:** `[unidict-verify] PASS integration=Forestry machine=carpenter rewritten=N`,
+  `machine=squeezer rewritten=N`, `machines=2 rewritten=<sum>`; journal `forestry.carpenter` / `forestry.squeezer`.
+- **Why not centrifuge:** `CentrifugeRecipe.getAllProducts()` returns an `ImmutableMap` copy and the
+  recipes have no setter, so rewriting them requires remove+add against the unmodifiable manager set —
+  a destructive mutation this rework never does.
+
 
 ### EnderIO — 🟡 impl + T2 tests (T3 pending)
 
@@ -313,8 +348,10 @@ the top of `PLAN.md`.
   in-place rewriting.
 - **`keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation** — the historical crash
   source; revisit only if a clear need arises.
-- **Forestry** (carpenter outputs + crate runtime `ItemCrated` registration) — fragile, low value;
-  removed from M7. Crate rework marked `// TODO: rework crate registration` if revisited.
+- **Forestry** (crate system + fluid outputs + centrifuge) — the done carpenter/squeezer sliver is
+  non-destructive; these stay deferred: **crates** (runtime `ItemCrated` registration, fragile — marked
+  `// TODO: rework crate registration`), **fluid outputs** (no 1.7.10 fluid-equivalence model, BB-4),
+  **centrifuge** (immutable `ImmutableMap` outputs behind an unmodifiable set → would need remove+add).
 - **Fuel / coke equivalence (BB-4)** — the first non-OD equivalence class, deferred until *after*
   M6/M7 but prioritized as the next build-better milestone.
 - **NEI hiding** beyond what kept rewrites require; **`customUnifiedResources`**; **Galacticraft**

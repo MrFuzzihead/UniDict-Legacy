@@ -160,6 +160,7 @@ public final class ForgeConfigIO {
             defaults.craftingIntegration,
             "Crafting table recipe output rewrite (M5).");
         booleanProp(cfg, CATEGORY_INTEGRATIONS, "enderIO", defaults.enderIOIntegration, "Ender IO machines.");
+        booleanProp(cfg, CATEGORY_INTEGRATIONS, "forestry", defaults.forestryIntegration, "Forestry machines.");
         booleanProp(cfg, CATEGORY_INTEGRATIONS, "railcraft", defaults.railcraftIntegration, "Railcraft machines.");
         booleanProp(
             cfg,

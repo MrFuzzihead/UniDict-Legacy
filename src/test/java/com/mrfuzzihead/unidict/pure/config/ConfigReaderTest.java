@@ -37,6 +37,7 @@ class ConfigReaderTest {
         raw.put("immersiveEngineering", "false");
         raw.put("chestIntegration", "true");
         raw.put("enderIO", "false");
+        raw.put("forestry", "false");
         raw.put("railcraft", "false");
         raw.put("thermalExpansion", "false");
         return raw;
@@ -65,6 +66,7 @@ class ConfigReaderTest {
         assertFalse(c.ieIntegration);
         assertTrue(c.chestIntegration);
         assertFalse(c.enderIOIntegration);
+        assertFalse(c.forestryIntegration);
         assertFalse(c.railcraftIntegration);
         assertFalse(c.thermalExpansionIntegration);
     }
@@ -104,12 +106,10 @@ class ConfigReaderTest {
         raw.put("enableSpecificKindSort", "true"); // subsumed by the owner model
         raw.put("customUnifiedResources", "Obsidian:dust|dust"); // deferred
         raw.put("mekanism", "true"); // removed mod
-        raw.put("forestry", "true"); // removed integration
         final ConfigReader.Result result = ConfigReader.parse(ConfigPresets.standard(), raw);
 
-        assertEquals(4, result.ignored.size());
+        assertEquals(3, result.ignored.size());
         assertTrue(result.ignored.contains("mekanism"));
-        assertTrue(result.ignored.contains("forestry"));
         assertTrue(result.ignored.contains("customUnifiedResources"));
         assertTrue(result.ignored.contains("enableSpecificKindSort"));
     }

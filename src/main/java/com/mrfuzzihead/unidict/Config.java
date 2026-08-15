@@ -92,6 +92,10 @@ public class Config {
         return data.enderIOIntegration;
     }
 
+    public static boolean forestry() {
+        return data.forestryIntegration;
+    }
+
     public static boolean crafting() {
         return data.craftingIntegration;
     }

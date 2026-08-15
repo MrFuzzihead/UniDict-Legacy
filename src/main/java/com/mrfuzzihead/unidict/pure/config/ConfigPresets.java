@@ -17,7 +17,7 @@ import java.util.Map;
  * Three documented presets:
  * <ul>
  * <li>{@link #minimal()} — minimal metal set, only the two vanilla-safe integrations (furnace, chest).</li>
- * <li>{@link #standard()} — the default {@link #defaults()}: all 8 kept integrations, full metal list.</li>
+ * <li>{@link #standard()} — the default {@link #defaults()}: all 9 kept integrations, full metal list.</li>
  * <li>{@link #maxCompat()} — standard plus aggressive features (input replacement + keep-one-entry).</li>
  * </ul>
  */
@@ -101,13 +101,14 @@ public final class ConfigPresets {
             .ic2Integration(false)
             .ieIntegration(false)
             .enderIOIntegration(false)
+            .forestryIntegration(false)
             .craftingIntegration(false)
             .railcraftIntegration(false)
             .thermalExpansionIntegration(false)
             .build();
     }
 
-    /** Standard: the default surface — all 8 kept integrations, full metal list. */
+    /** Standard: the default surface — all 9 kept integrations, full metal list. */
     public static ConfigData standard() {
         return ConfigData.builder()
             .keepOneEntry(false)
@@ -129,6 +130,7 @@ public final class ConfigPresets {
             .ieIntegration(true)
             .chestIntegration(true)
             .enderIOIntegration(true)
+            .forestryIntegration(true)
             .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
@@ -160,6 +162,7 @@ public final class ConfigPresets {
             .ieIntegration(true)
             .chestIntegration(true)
             .enderIOIntegration(true)
+            .forestryIntegration(true)
             .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)

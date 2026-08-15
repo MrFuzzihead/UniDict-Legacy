@@ -13,6 +13,9 @@ public enum Mixins implements IMixins {
     CHEST_GEN(new MixinBuilder().setPhase(Phase.EARLY)
         .addCommonMixins("ChestGenHooksMixin", "WeightedRandomChestContentMixin")),
 
+    FORESTRY(new MixinBuilder().setPhase(Phase.EARLY)
+        .addCommonMixins("ShapedOreRecipeMixin")),
+
     THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
         .addCommonMixins(
             "RecipeFurnaceInvoker",

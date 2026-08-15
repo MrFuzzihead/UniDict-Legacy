@@ -26,6 +26,7 @@ class ConfigPresetsTest {
         assertFalse(c.enderIOIntegration);
         assertFalse(c.railcraftIntegration);
         assertFalse(c.thermalExpansionIntegration);
+        assertFalse(c.forestryIntegration);
         assertFalse(c.keepOneEntry);
         assertFalse(c.inputReplacement);
         assertTrue(c.unifyDrops); // drops unification is default-on (safe, non-destructive)
@@ -43,6 +44,7 @@ class ConfigPresetsTest {
         assertTrue(c.enderIOIntegration);
         assertTrue(c.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration);
+        assertTrue(c.forestryIntegration);
         assertTrue(c.unifyDrops);
     }
 
@@ -61,6 +63,7 @@ class ConfigPresetsTest {
         assertTrue(c.ieIntegration == standard.ieIntegration);
         assertTrue(c.chestIntegration == standard.chestIntegration);
         assertTrue(c.enderIOIntegration == standard.enderIOIntegration);
+        assertTrue(c.forestryIntegration == standard.forestryIntegration);
         assertTrue(c.railcraftIntegration == standard.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration == standard.thermalExpansionIntegration);
     }

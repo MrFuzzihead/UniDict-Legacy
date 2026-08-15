@@ -52,6 +52,7 @@ public final class ConfigReader {
     private static final String KEY_CHEST = "chestIntegration";
     private static final String KEY_CRAFTING = "craftingIntegration";
     private static final String KEY_EIO = "enderIO";
+    private static final String KEY_FORESTRY = "forestry";
     private static final String KEY_RAILCRAFT = "railcraft";
     private static final String KEY_THERMAL = "thermalExpansion";
 
@@ -182,6 +183,9 @@ public final class ConfigReader {
                 return;
             case KEY_EIO:
                 b.enderIOIntegration(bool(value, defaults.enderIOIntegration));
+                return;
+            case KEY_FORESTRY:
+                b.forestryIntegration(bool(value, defaults.forestryIntegration));
                 return;
             case KEY_RAILCRAFT:
                 b.railcraftIntegration(bool(value, defaults.railcraftIntegration));
