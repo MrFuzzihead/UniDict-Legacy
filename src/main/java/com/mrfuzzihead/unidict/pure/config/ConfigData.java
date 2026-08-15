@@ -64,6 +64,8 @@ public final class ConfigData {
     public final boolean ieIntegration;
     public final boolean chestIntegration;
     public final boolean enderIOIntegration;
+    /** Crafting table recipe output rewrite (M5). */
+    public final boolean craftingIntegration;
     public final boolean railcraftIntegration;
     public final boolean thermalExpansionIntegration;
 
@@ -89,6 +91,7 @@ public final class ConfigData {
         this.ieIntegration = b.ieIntegration;
         this.chestIntegration = b.chestIntegration;
         this.enderIOIntegration = b.enderIOIntegration;
+        this.craftingIntegration = b.craftingIntegration;
         this.railcraftIntegration = b.railcraftIntegration;
         this.thermalExpansionIntegration = b.thermalExpansionIntegration;
     }
@@ -130,6 +133,7 @@ public final class ConfigData {
         private boolean ieIntegration = true;
         private boolean chestIntegration = true;
         private boolean enderIOIntegration = true;
+        private boolean craftingIntegration = true;
         private boolean railcraftIntegration = true;
         private boolean thermalExpansionIntegration = true;
 
@@ -235,6 +239,11 @@ public final class ConfigData {
             return this;
         }
 
+        public Builder craftingIntegration(final boolean value) {
+            this.craftingIntegration = value;
+            return this;
+        }
+
         public Builder railcraftIntegration(final boolean value) {
             this.railcraftIntegration = value;
             return this;
@@ -271,6 +280,8 @@ public final class ConfigData {
             + chestIntegration
             + ", enderIO="
             + enderIOIntegration
+            + ", crafting="
+            + craftingIntegration
             + ", railcraft="
             + railcraftIntegration
             + ", thermalExpansion="

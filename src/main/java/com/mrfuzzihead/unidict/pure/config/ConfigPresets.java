@@ -101,6 +101,7 @@ public final class ConfigPresets {
             .ic2Integration(false)
             .ieIntegration(false)
             .enderIOIntegration(false)
+            .craftingIntegration(false)
             .railcraftIntegration(false)
             .thermalExpansionIntegration(false)
             .build();
@@ -128,6 +129,7 @@ public final class ConfigPresets {
             .ieIntegration(true)
             .chestIntegration(true)
             .enderIOIntegration(true)
+            .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
             .build();
@@ -158,6 +160,7 @@ public final class ConfigPresets {
             .ieIntegration(true)
             .chestIntegration(true)
             .enderIOIntegration(true)
+            .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
             .build();

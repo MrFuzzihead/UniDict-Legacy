@@ -92,6 +92,10 @@ public class Config {
         return data.enderIOIntegration;
     }
 
+    public static boolean crafting() {
+        return data.craftingIntegration;
+    }
+
     public static boolean railcraft() {
         return data.railcraftIntegration;
     }

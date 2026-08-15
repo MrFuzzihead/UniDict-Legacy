@@ -52,6 +52,8 @@ public final class IntegrationModule extends AbstractModule {
         // lighter pack), running the integration throws NoClassDefFoundError and crashes the game.
         // Vanilla targets (furnace, chest) need no guard.
         if (Config.integrationModule()) {
+            if (Config.crafting()) executor.add(new CraftingIntegration()); // crafting table, always present (vanilla
+                                                                            // types)
             if (Config.furnace()) executor.add(new FurnaceIntegration()); // vanilla, always present
             if (Config.ic2() && Loader.isModLoaded("IC2")) executor.add(new IC2Integration());
             if (Config.ae2() && Loader.isModLoaded("appliedenergistics2")) executor.add(new AE2Integration());

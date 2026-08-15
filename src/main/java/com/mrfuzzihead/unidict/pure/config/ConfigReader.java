@@ -50,6 +50,7 @@ public final class ConfigReader {
     private static final String KEY_IC2 = "industrialCraft2";
     private static final String KEY_IE = "immersiveEngineering";
     private static final String KEY_CHEST = "chestIntegration";
+    private static final String KEY_CRAFTING = "craftingIntegration";
     private static final String KEY_EIO = "enderIO";
     private static final String KEY_RAILCRAFT = "railcraft";
     private static final String KEY_THERMAL = "thermalExpansion";
@@ -175,6 +176,9 @@ public final class ConfigReader {
                 return;
             case KEY_CHEST:
                 b.chestIntegration(bool(value, defaults.chestIntegration));
+                return;
+            case KEY_CRAFTING:
+                b.craftingIntegration(bool(value, defaults.craftingIntegration));
                 return;
             case KEY_EIO:
                 b.enderIOIntegration(bool(value, defaults.enderIOIntegration));

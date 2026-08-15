@@ -153,6 +153,12 @@ public final class ForgeConfigIO {
             "chestIntegration",
             defaults.chestIntegration,
             "Chest / loot integration.");
+        booleanProp(
+            cfg,
+            CATEGORY_INTEGRATIONS,
+            "craftingIntegration",
+            defaults.craftingIntegration,
+            "Crafting table recipe output rewrite (M5).");
         booleanProp(cfg, CATEGORY_INTEGRATIONS, "enderIO", defaults.enderIOIntegration, "Ender IO machines.");
         booleanProp(cfg, CATEGORY_INTEGRATIONS, "railcraft", defaults.railcraftIntegration, "Railcraft machines.");
         booleanProp(
