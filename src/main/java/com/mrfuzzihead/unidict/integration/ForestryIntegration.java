@@ -19,11 +19,29 @@ package com.mrfuzzihead.unidict.integration;
  * the original map, so rewriting its contents is all it takes; the recipe is never removed (BB-3). This
  * is what unifies a bee-comb → metal output when a pack adds such a recipe.</li>
  * </ul>
+ * Two small <em>additive</em> complements are implemented here (upstream's {@code bronzeThings()} and
+ * crate-recipe wiring, ported through Forestry's <em>supported</em> {@code
+ * RecipeManagers.carpenterManager.addRecipe} — never the reflective {@code Set.add} upstream used):
+ * <ul>
+ * <li><b>Bronze-tool recycling</b> — when a unified {@code ingotBronze} container exists, an
+ * {@code addSingleRecipe} per registered broken Bronze tool (pickaxe → 2 × canonical ingot, shovel →
+ * 1 × canonical ingot) is added. Only ever additive (BB-3); the canonical output is baked in at add
+ * time, so no carpenter-output rewrite is needed for these two recipes.</li>
+ * <li><b>Crate wiring</b> — for every unified {@code ingot} resource whose <em>already-registered</em>
+ * Forestry crate item ({@code Forestry:crated&lt;Name&gt;}) resolves, the two reciprocal carpenter
+ * recipes (9 × ingot → crate via OreDictionary; crate → 9 × canonical ingot) are added through the
+ * public manager. Only <em>recipes</em> for crates Forestry already ships are wired; creating a new
+ * {@code ItemCrated} at POST_INIT is NOT attempted (see below).</li>
+ * </ul>
  * Deliberately NOT implemented here (see docs/INTEGRATIONS.md §Forestry):
  * <ul>
+ * <li><b>Crate-item creation</b> (runtime {@code ItemCrated} + {@code GameRegistry.registerItem} +
+ * {@code PluginStorage.registerCrate}) — deferred (fragile: item registration is post-lock at
+ * POST_INIT and Forestry's {@code createCrateRecipes()} drain has already run; BB-3). Only recipes
+ * for crates that exist are wired.</li>
  * <li><b>Fluid outputs</b> (squeezer/fermenter/still) — fluid equivalence has no OreDictionary-style
  * model in 1.7.10 (BB-4 territory, deferred).</li>
- * <li><b>Crate registration</b> (runtime {@code ItemCrated}) and NEI hiding — deferred (fragile).</li>
+ * <li><b>NEI hiding</b> — deferred (single guarded {@code NEIHelper} site, unused).</li>
  * </ul>
  */
 
@@ -35,22 +53,29 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.oredict.ShapedOreRecipe;
 
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.forestry.ICarpenterRecipeAdder;
 import com.mrfuzzihead.unidict.forestry.ICentrifugeRecipeAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
+import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
+import com.mrfuzzihead.unidict.resource.UniResourceContainer;
 
+import cpw.mods.fml.common.registry.GameData;
 import forestry.api.recipes.ICarpenterRecipe;
 import forestry.api.recipes.ICentrifugeRecipe;
 import forestry.api.recipes.IDescriptiveRecipe;
 import forestry.api.recipes.RecipeManagers;
+import forestry.core.fluids.Fluids;
 import forestry.factory.recipes.CentrifugeRecipe;
 import forestry.factory.recipes.ISqueezerContainerRecipe;
 import forestry.factory.recipes.SqueezerContainerRecipe;
@@ -104,6 +129,43 @@ final class ForestryIntegration extends AbstractModuleThread {
         V rebuild(V original, ItemStack canonicalRemnants);
     }
 
+    /**
+     * Lazy ({@link Supplier}) {@link ICarpenterRecipeAdder} bridging to Forestry's <em>supported</em>
+     * public {@code RecipeManagers.carpenterManager.addRecipe(...)} (never the reflective
+     * {@code Set.add} upstream used; see {@code ICarpenterRecipeAdder}). One-slot grids (tool recycling
+     * / uncrating) run dry (no liquid, no box); the 3×3 crating grid asks for 100 mB water like
+     * upstream's {@code ForestryUniHelper}. Lazy so {@code ForestryIntegration.<clinit>} never resolves
+     * Forestry's classes — {@code RecipeManagers} / {@code Fluids} are only reached when the adder is
+     * asked to add (mirrors {@link #CONTAINER_VIEW}).
+     */
+    private static final Supplier<ICarpenterRecipeAdder> CARPENTER_ADDER = () -> new ICarpenterRecipeAdder() {
+
+        @Override
+        public boolean addSingleRecipe(final ItemStack product, final Object ingredient) {
+            // Explicit casts disambiguate the three ICarpenterManager.addRecipe overloads (null could be
+            // box or liquid). Single-slot dry recipe: no liquid, no box.
+            RecipeManagers.carpenterManager
+                .addRecipe(5, (FluidStack) null, (ItemStack) null, product, "X  ", "   ", "   ", 'X', ingredient);
+            return true;
+        }
+
+        @Override
+        public boolean addGridRecipe(final ItemStack product, final Object ingredient) {
+            // 3×3 crating: 100 mB water, no box (matches upstream ForestryUniHelper).
+            RecipeManagers.carpenterManager.addRecipe(
+                5,
+                Fluids.WATER.getFluid(100),
+                (ItemStack) null,
+                product,
+                "III",
+                "III",
+                "III",
+                'I',
+                ingredient);
+            return true;
+        }
+    };
+
     ForestryIntegration() {
         super("Forestry", "Integration");
     }
@@ -117,11 +179,18 @@ final class ForestryIntegration extends AbstractModuleThread {
                 final UnaryOperator<ItemStack> resolveMain = resourceHandler::getMainItemStack;
                 final int rewritten = rewriteCarpenter(resolveMain) + rewriteSqueezer(resolveMain)
                     + rewriteCentrifuge(resolveMain);
+                // Additive complements (never a remove/rebuild, BB-3): recycle broken Bronze tools into
+                // canonical ingots, and wire reciprocal crating/uncrating recipes for already-registered
+                // Forestry crates. Each emits its own verify/journal line; the machines=3 line above and
+                // the rewrite diff remain unchanged.
+                final int added = registerBronzeRecipes(resourceHandler) + registerCrateRecipes(resourceHandler);
                 UniDict.LOG.info(
                     threadName + "rewrote outputs of "
                         + rewritten
                         + " Forestry machine recipes (carpenter grid outputs + squeezer container remnants"
-                        + " + centrifuge products) to their canonical entries.");
+                        + " + centrifuge products) to their canonical entries, and added "
+                        + added
+                        + " unification recipes (bronze tool recycling + crate wiring).");
                 if (VerifyHarness.isEnabled()) {
                     VerifyHarness.record(true, "integration=Forestry", "machines=3", "rewritten=" + rewritten);
                 }
@@ -283,5 +352,115 @@ final class ForestryIntegration extends AbstractModuleThread {
             }
         }
         return rewritten;
+    }
+
+    /**
+     * Production bronze-tool recycling wiring: when a unified {@code ingotBronze} container exists and
+     * Forestry's broken Bronze tool items are in the item registry, adds one single-slot carpenter
+     * recipe per tool via {@link #CARPENTER_ADDER}. Canonical output is baked at add time (pickaxe → 2,
+     * shovel → 1), so no carpenter-output rewrite is needed for these recipes. Additive only (BB-3).
+     *
+     * @return number of recipes added
+     */
+    private int registerBronzeRecipes(final ResourceHandler resourceHandler) {
+        if (RecipeManagers.carpenterManager == null) return 0;
+        final UniResourceContainer ingotBronze = resourceHandler.getContainer("ingotBronze");
+        if (ingotBronze == null) return 0; // no unified bronze ingot -> nothing canonical to recycle into
+        final Item brokenPickaxe = GameData.getItemRegistry()
+            .getRaw("Forestry:brokenBronzePickaxe");
+        final Item brokenShovel = GameData.getItemRegistry()
+            .getRaw("Forestry:brokenBronzeShovel");
+        final int n = addBronzeRecycling(
+            CARPENTER_ADDER.get(),
+            ingotBronze.getMainEntry(1),
+            brokenPickaxe == null ? null : new ItemStack(brokenPickaxe),
+            brokenShovel == null ? null : new ItemStack(brokenShovel));
+        RewriteJournal.record("forestry", "bronzeRecycling", n);
+        if (VerifyHarness.isEnabled()) {
+            VerifyHarness.record(true, "integration=Forestry", "module=bronzeRecycling", "added=" + n);
+        }
+        return n;
+    }
+
+    /**
+     * Production crate wiring: for every unified {@code ingot} resource whose Forestry crate item
+     * ({@code Forestry:crated<ResourceName>}) is <em>already registered</em>, adds the two reciprocal
+     * carpenter recipes through {@link #CARPENTER_ADDER} — crating ({@code ingot<Name>} OD → crate) and
+     * uncrating (crate → 9 × canonical ingot). A resource without a registered crate is skipped (logged
+     * deferred), never fabricated: crate <em>item</em> creation at POST_INIT is the fragile part this
+     * deliberately avoids (BB-3). Additive only.
+     *
+     * @return number of recipes added (crating + uncrating per wired crate)
+     */
+    private int registerCrateRecipes(final ResourceHandler resourceHandler) {
+        if (RecipeManagers.carpenterManager == null) return 0;
+        int added = 0;
+        for (final Resource<UniResourceContainer> resource : resourceHandler.resources) {
+            final UniResourceContainer ingot = resource.getChild("ingot");
+            if (ingot == null) continue; // not an ingot-kind resource -> nothing to crate
+            final Item crateItem = GameData.getItemRegistry()
+                .getRaw("Forestry:crated" + resource.name);
+            if (crateItem == null) {
+                UniDict.LOG.debug(
+                    threadName + "no registered Forestry crate for "
+                        + ingot.name
+                        + " — crate recipes skipped (item creation stays deferred).");
+                continue;
+            }
+            added += addCrateRecipes(
+                CARPENTER_ADDER.get(),
+                ingot.getMainEntry(1),
+                new ItemStack(crateItem),
+                ingot.name);
+        }
+        RewriteJournal.record("forestry", "crateRecipes", added);
+        if (VerifyHarness.isEnabled()) {
+            VerifyHarness.record(true, "integration=Forestry", "module=crateRecipes", "added=" + added);
+        }
+        return added;
+    }
+
+    /**
+     * Bronze-tool recycling seam (T2-testable, no Forestry types on the test classpath): adds, when the
+     * tool and the canonical ingot are present, a single-slot recipe per broken Bronze tool — pickaxe →
+     * 2 × {@code canonicalIngot} copy, shovel → 1 × copy. {@code null} tools / ingot are no-ops; never
+     * removes or rebuilds anything (BB-3).
+     *
+     * @return number of recipes added
+     */
+    static int addBronzeRecycling(final ICarpenterRecipeAdder adder, final ItemStack canonicalIngot,
+        final ItemStack brokenPickaxe, final ItemStack brokenShovel) {
+        if (adder == null || canonicalIngot == null) return 0;
+        int added = 0;
+        if (brokenPickaxe != null) {
+            final ItemStack two = canonicalIngot.copy();
+            two.stackSize = 2;
+            if (adder.addSingleRecipe(two, brokenPickaxe)) added++;
+        }
+        if (brokenShovel != null) {
+            final ItemStack one = canonicalIngot.copy();
+            one.stackSize = 1;
+            if (adder.addSingleRecipe(one, brokenShovel)) added++;
+        }
+        return added;
+    }
+
+    /**
+     * Crate-recipe seam (T2-testable, no Forestry types on the test classpath): adds the two reciprocal
+     * carpenter recipes for one already-registered crate — crating (a full 3×3 of {@code oredictName} →
+     * {@code crateStack}) and uncrating ({@code crateStack} → 9 × {@code canonicalIngot} copy). Any
+     * {@code null} input is a no-op; never removes or rebuilds anything (BB-3).
+     *
+     * @return number of recipes added (0, 1, or 2)
+     */
+    static int addCrateRecipes(final ICarpenterRecipeAdder adder, final ItemStack canonicalIngot,
+        final ItemStack crateStack, final String oredictName) {
+        if (adder == null || canonicalIngot == null || crateStack == null || oredictName == null) return 0;
+        int added = 0;
+        if (adder.addGridRecipe(crateStack, oredictName)) added++; // 9 × ingot -> crate
+        final ItemStack nine = canonicalIngot.copy();
+        nine.stackSize = 9;
+        if (adder.addSingleRecipe(nine, crateStack)) added++; // crate -> 9 × canonical ingot
+        return added;
     }
 }

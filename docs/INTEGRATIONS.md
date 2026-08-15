@@ -202,21 +202,39 @@ reproduced. Three rewrite surfaces:
   keys in place — never a recipe remove/rebuild (BB-3). This is what unifies a bee-comb → metal product
   when a pack adds such a recipe. An immutable product map (unusual) is skipped, not fatal.
 
-All three rewrite only *outputs*; inputs, fluids and the crate system are untouched (inputs = M5-deferred;
-fluids/crates = see the deferred section). Runs at POST_INIT (default), early-skips on an empty resource
-model.
+All three rewrite only *outputs*; inputs, fluids and crate-*item* creation are untouched (inputs = M5-deferred;
+fluids = no 1.7.10 fluid-equivalence model, BB-4; crate-item creation = fragile, deferred). Runs at POST_INIT
+(default), early-skips on an empty resource model.
+
+Two small **additive** complements (upstream's `bronzeThings()` + crate recipes, ported through Forestry's
+*supported* `RecipeManagers.carpenterManager.addRecipe` — never the reflective `Set.add` upstream used) are
+also here, driven by a neutral `ICarpenterRecipeAdder` seam (lazy `Supplier`, like the squeezer view). Only
+ever *added* recipes; nothing is removed, replaced, or registered globally (BB-3):
+
+- **Bronze-tool recycling.** When a unified `ingotBronze` container exists and Forestry's
+  `Forestry:brokenBronzePickaxe` / `brokenBronzeShovel` are in the item registry, one single-slot carpenter
+  recipe per tool is added (pickaxe → **2** × canonical ingot, shovel → **1** × canonical ingot). The canonical
+  main entry is baked in at add time, so no carpenter-output rewrite is needed for these two recipes.
+- **Crate wiring.** For every unified `ingot` resource whose Forestry crate item (`Forestry:crated<Name>`) is
+  *already registered*, the two reciprocal carpenter recipes are added — crating (9 × `ingot<Name>`
+  OreDictionary → crate) and uncrating (crate → 9 × canonical ingot). A resource without a registered crate is
+  skipped (logged debug), never fabricated: creating a new `ItemCrated` at POST_INIT is the fragile part this
+  deliberately avoids (post-lock item registration + Forestry's `createCrateRecipes()` drain has already run).
 
 **T3 (in-game, 2026-08-15):** `PASS integration=Forestry machine=carpenter rewritten=7`,
 `machine=squeezer rewritten=1`, `machine=centrifuge rewritten=0`, `machines=3 rewritten=8`; the report
-reflects all three (`report rewrite=forestry carpenter=7 / squeezer=1 / centrifuge=0`); `CentrifugeRecipeMixin`
-mixed cleanly into `forestry.factory.recipes.CentrifugeRecipe`; summary `212 passed, 0 failed`, no strict
-FAIL, no UniDict error. (The centrifuge rewrote **0** products here because Forestry 4.11.35's centrifuge
-recipes produce Forestry-unique bee output — the rewrite fires only when a pack/config adds a comb →
-metal product, which is exactly the latent case it exists to cover.)
+reflects the three rewrites (`report rewrite=forestry carpenter=7 / squeezer=1 / centrifuge=0`);
+`CentrifugeRecipeMixin` mixed cleanly into `forestry.factory.recipes.CentrifugeRecipe`; summary
+`212 passed, 0 failed`, no strict FAIL, no UniDict error. (The centrifuge rewrote **0** products here because
+Forestry 4.11.35's centrifuge recipes produce Forestry-unique bee output — the rewrite fires only when a
+pack/config adds a comb → metal product, which is exactly the latent case it exists to cover.) The
+bronze/crate *addition* lines (`module=bronzeRecycling` / `module=crateRecipes`) are emitted by the same
+verify hook and are additive to (never a replacement of) the three rewrite lines.
 
-- **Tests:** `ForestryIntegrationTest` (9 T2) — carpenter via `FakeShapedOreRecipeAccessor`, squeezer via
-  a neutral `Holder` map + `ContainerRecipeView`, centrifuge via the generic product-map seam; **no
-  Forestry types on the test classpath** (lazy `Supplier` view + our own accessor/interface seams).
+- **Tests:** `ForestryIntegrationTest` (15 T2) — the three original rewrites via `FakeShapedOreRecipeAccessor`,
+  a neutral `Holder` map + `ContainerRecipeView`, and the generic product-map seam; plus the bronze/crate
+  additions via `FakeCarpenterRecipeAdder` (`addBronzeRecycling` / `addCrateRecipes`). **No Forestry types on
+  the test classpath** (lazy `Supplier` views + our own accessor/adder interface seams).
 - **Config:** `Config.forestry()` (`forestry` key). Registered with `Loader.isModLoaded("Forestry")` in
   `IntegrationModule`. Mixins: `Mixins.FORESTRY` (early, no `TargetMods` — `ShapedOreRecipe` is a Forge
   class, harmless with or without Forestry) and `Mixins.FORESTRY_CENTRIFUGE` (late,
@@ -362,9 +380,11 @@ the top of `PLAN.md`.
   in-place rewriting.
 - **`keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation** — the historical crash
   source; revisit only if a clear need arises.
-- **Forestry crate registration + fluid outputs** — the carpenter/squeezer/centrifuge sliver is implemented
-  (all non-destructive). These stay deferred: **crates** (runtime `ItemCrated` registration, fragile — marked
-  `// TODO: rework crate registration`) and **fluid outputs** (no 1.7.10 fluid-equivalence model, BB-4).
+- **Forestry: crate-*item* creation + fluid outputs** — the carpenter/squeezer/centrifuge rewrites and the
+  bronze-tool recycling + crate-*recipe* wiring are implemented (all non-destructive/additive). These stay
+  deferred: creating a new runtime `ItemCrated` (fragile — post-lock item registration + Forestry's
+  `createCrateRecipes()` drain already run; marked `// TODO: rework crate registration`) and **fluid outputs**
+  (no 1.7.10 fluid-equivalence model, BB-4).
 - **Fuel / coke equivalence (BB-4)** — the first non-OD equivalence class, deferred until *after*
   M6/M7 but prioritized as the next build-better milestone.
 - **NEI hiding** beyond what kept rewrites require; **`customUnifiedResources`**; **Galacticraft**

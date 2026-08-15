@@ -18,6 +18,7 @@ import net.minecraft.item.ItemStack;
 
 import org.junit.jupiter.api.Test;
 
+import com.mrfuzzihead.unidict.forestry.FakeCarpenterRecipeAdder;
 import com.mrfuzzihead.unidict.forestry.FakeShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.integration.ForestryIntegration.ContainerRecipeView;
@@ -248,6 +249,168 @@ class ForestryIntegrationTest {
 
         assertEquals(0, changed);
         assertTrue(products.containsKey(null), "a null product entry is left as-is when nothing changes");
+    }
+    // ---- Bronze-tool recycling ---------------------------------------------
+
+    @Test
+    void addBronzeRecyclingAddsOneRecipePerRegisteredTool() {
+        final Item item = new Item();
+        final ItemStack canonicalIngot = new ItemStack(item, 1, 0);
+        final ItemStack pickaxe = new ItemStack(new Item(), 1, 0);
+        final ItemStack shovel = new ItemStack(new Item(), 1, 0);
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addBronzeRecycling(adder, canonicalIngot, pickaxe, shovel);
+
+        assertEquals(2, added, "both registered tools should recycle");
+        assertEquals(
+            2,
+            adder.singleProducts()
+                .size(),
+            "two single-slot recipes added");
+        assertEquals(
+            2,
+            adder.singleProducts()
+                .get(0).stackSize,
+            "pickaxe recycles into 2 canonical ingots");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .get(1).stackSize,
+            "shovel recycles into 1 canonical ingot");
+        assertSame(
+            pickaxe,
+            adder.singleIngredients()
+                .get(0),
+            "pickaxe is the ingredient of the first recipe");
+        assertSame(
+            shovel,
+            adder.singleIngredients()
+                .get(1),
+            "shovel is the ingredient of the second recipe");
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty(),
+            "recycling never uses a 3x3 grid recipe");
+    }
+
+    @Test
+    void addBronzeRecyclingEncountersOnlyTheMissingTool() {
+        final ItemStack canonicalIngot = new ItemStack(new Item(), 1, 0);
+        final ItemStack shovel = new ItemStack(new Item(), 1, 0);
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addBronzeRecycling(adder, canonicalIngot, null, shovel);
+
+        assertEquals(1, added, "only the present tool is recycled");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .size());
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .get(0).stackSize);
+        assertSame(
+            shovel,
+            adder.singleIngredients()
+                .get(0));
+    }
+
+    @Test
+    void addBronzeRecyclingIsNoOpWithoutCanonicalIngot() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addBronzeRecycling(adder, null, new ItemStack(new Item(), 1, 0), new ItemStack(new Item(), 1, 0));
+
+        assertEquals(0, added, "no canonical bronze ingot -> nothing to recycle into");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
+    }
+
+    // ---- Crate wiring ------------------------------------------------------
+
+    @Test
+    void addCrateRecipesAddsCratingAndUncrating() {
+        final Item item = new Item();
+        final ItemStack canonicalIngot = new ItemStack(item, 1, 0);
+        final ItemStack crateStack = new ItemStack(new Item(), 1, 0);
+        final String oredicted = "ingotCopper";
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addCrateRecipes(adder, canonicalIngot, crateStack, oredicted);
+
+        assertEquals(2, added, "crating and uncrating are both added");
+        assertEquals(
+            1,
+            adder.gridProducts()
+                .size(),
+            "one crating recipe");
+        assertTrue(
+            adder.gridProducts()
+                .get(0)
+                .isItemEqual(crateStack),
+            "crating outputs the crate");
+        assertEquals(
+            1,
+            adder.gridProducts()
+                .get(0).stackSize,
+            "crating outputs a crate stack");
+        assertEquals(
+            oredicted,
+            adder.gridIngredients()
+                .get(0),
+            "crating ingredient is the ingot OreDictionary name");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .size(),
+            "one uncrating recipe");
+        assertEquals(
+            9,
+            adder.singleProducts()
+                .get(0).stackSize,
+            "uncrating outputs 9 canonical ingots");
+        final ItemStack uncrated = (ItemStack) adder.singleIngredients()
+            .get(0);
+        assertSame(crateStack, uncrated, "uncrating ingredient is the crate stack");
+    }
+
+    @Test
+    void addCrateRecipesNoOpsWhenCrateIsMissing() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addCrateRecipes(adder, new ItemStack(new Item(), 1, 0), null, "ingotCopper");
+
+        assertEquals(0, added, "no registered crate -> nothing to wire");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
+    }
+
+    @Test
+    void addCrateRecipesNoOpsOnMissingOreDictName() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addCrateRecipes(adder, new ItemStack(new Item(), 1, 0), new ItemStack(new Item(), 1, 0), null);
+
+        assertEquals(0, added, "a null Oredict ingredient cannot be crated");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
     }
 
 }
