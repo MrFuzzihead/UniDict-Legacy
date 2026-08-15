@@ -27,7 +27,7 @@ verify line each one is expected to emit.
 | **EnderIO**           | 🟡 impl + tests (T3 pending) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
 | **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
-| **Forestry**           | ✅ impl + T2 tests (T3 pending) | M7     | accessor on Forge `ShapedOreRecipe.output` (early) + public `SqueezerRecipeManager.containerRecipes` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue`)  | `…=Forestry`                       |
+| **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
 
@@ -172,6 +172,7 @@ remnants) — see its section below.
 | **Railcraft**         | `BlastFurnaceCraftingManagerMixin`                                     | `IBlastFurnaceCraftingManagerAccessor` (`recipes` list, instance accessor)           |                                                                                                                         |
 | **Thermal Expansion** | `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` | `IFurnaceManagerAccessor` / `IPulverizerManagerAccessor` / `ISmelterManagerAccessor` | each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor; keep `@SpecifiedLoadStage(LOAD_COMPLETE)` |
 | **Forestry**          | `ShapedOreRecipeMixin` (early)                                        | `IShapedOreRecipeAccessor` (`ShapedOreRecipe.output`)                                | squeezer needs **no** mixin — public `SqueezerRecipeManager.containerRecipes` (`Map.Entry.setValue`) |
+| **Forestry (centrifuge)** | `CentrifugeRecipeMixin` (late, `TargetMods.FORESTRY`) | `ICentrifugeRecipeAccessor` (`CentrifugeRecipe.outputs`)                        | rewrite is a clear+putAll of the private product map (in place)                   |
 
 TE invoker note (Spike B outcome, 2026-08-12): `@Invoker("<init>")` compiles and applies cleanly for
 all three TE constructor signatures — **use `@Invoker`**. The 3 AT-entry fallback
@@ -179,10 +180,10 @@ all three TE constructor signatures — **use `@Invoker`**. The 3 AT-entry fallb
 is documented only, **no physical file** (a resource `*_at.cfg` would break the build under `applyJST`);
 write + validate AT entries only if runtime `@Invoker` fails in-game.
 
-### Forestry — ✅ impl + T2 tests (T3 pending)
+### Forestry — ✅ impl + T2 + T3 (in-game verified)
 
-A deliberately scoped, **non-destructive (BB-3)** sliver — upstream's destructive carpenter/crate work is
-not reproduced. Two rewrite surfaces:
+A deliberately scoped, **non-destructive (BB-3)** set — upstream's destructive crate/craft work is not
+reproduced. Three rewrite surfaces:
 
 - **Carpenter grid outputs (in place).** Source: `RecipeManagers.carpenterManager.recipes()` — a live but
   *unmodifiable* collection, iterated only, never mutated. Forestry's `ICarpenterRecipe.getCraftingGridRecipe()`
@@ -193,23 +194,36 @@ not reproduced. Two rewrite surfaces:
   `SqueezerRecipeManager.containerRecipes` (`ItemStackMap`) — no mixin. Each value's materials byproduct is
   canonicalised by replacing the value under the **same** key (`Map.Entry.setValue`), preserving entry
   count and the empty-container key. Containers with no byproduct (`null` remnants) are skipped.
+- **Centrifuge product keys (in place).** Source: `RecipeManagers.centrifugeManager.recipes()` —
+  unmodifiable, iterated only. Each recipe's product map is the private final
+  `CentrifugeRecipe.outputs` `Map<ItemStack, Float>`; `getAllProducts()` returns an `ImmutableMap`
+  <em>copy</em>, but `getProducts(Random)` — what the machine actually rolls — reads the original map, so
+  the late `CentrifugeRecipeMixin` `@Accessor("outputs")` exposes it and we clear + refill the canonical
+  keys in place — never a recipe remove/rebuild (BB-3). This is what unifies a bee-comb → metal product
+  when a pack adds such a recipe. An immutable product map (unusual) is skipped, not fatal.
 
-Both rewrite only *outputs*; inputs, fluids and the crate system are untouched (inputs = M5-deferred;
-fluids/crates/centrifuge = see the deferred section). Runs at POST_INIT (default), early-skips on an
-empty resource model.
+All three rewrite only *outputs*; inputs, fluids and the crate system are untouched (inputs = M5-deferred;
+fluids/crates = see the deferred section). Runs at POST_INIT (default), early-skips on an empty resource
+model.
 
-- **Tests:** `ForestryIntegrationTest` (6 T2) — `rewriteCarpenterOutputs` (via
-  `FakeShapedOreRecipeAccessor`), `rewriteContainerRecipes` (via a neutral `Holder` map + `ContainerRecipeView`)
-  assert BB-3; **no Forestry types on the test classpath** (the container view is a lazy `Supplier`, the
-  carpenter seam is generic over our own accessor interface).
+**T3 (in-game, 2026-08-15):** `PASS integration=Forestry machine=carpenter rewritten=7`,
+`machine=squeezer rewritten=1`, `machine=centrifuge rewritten=0`, `machines=3 rewritten=8`; the report
+reflects all three (`report rewrite=forestry carpenter=7 / squeezer=1 / centrifuge=0`); `CentrifugeRecipeMixin`
+mixed cleanly into `forestry.factory.recipes.CentrifugeRecipe`; summary `212 passed, 0 failed`, no strict
+FAIL, no UniDict error. (The centrifuge rewrote **0** products here because Forestry 4.11.35's centrifuge
+recipes produce Forestry-unique bee output — the rewrite fires only when a pack/config adds a comb →
+metal product, which is exactly the latent case it exists to cover.)
+
+- **Tests:** `ForestryIntegrationTest` (9 T2) — carpenter via `FakeShapedOreRecipeAccessor`, squeezer via
+  a neutral `Holder` map + `ContainerRecipeView`, centrifuge via the generic product-map seam; **no
+  Forestry types on the test classpath** (lazy `Supplier` view + our own accessor/interface seams).
 - **Config:** `Config.forestry()` (`forestry` key). Registered with `Loader.isModLoaded("Forestry")` in
-  `IntegrationModule`; the accessor mixin is `Mixins.FORESTRY` (early, no `TargetMods` — `ShapedOreRecipe`
-  is a Forge class, harmless with or without Forestry).
+  `IntegrationModule`. Mixins: `Mixins.FORESTRY` (early, no `TargetMods` — `ShapedOreRecipe` is a Forge
+  class, harmless with or without Forestry) and `Mixins.FORESTRY_CENTRIFUGE` (late,
+  `TargetMods.FORESTRY` required-mod — `CentrifugeRecipe` only exists when Forestry is loaded).
 - **Verify lines:** `[unidict-verify] PASS integration=Forestry machine=carpenter rewritten=N`,
-  `machine=squeezer rewritten=N`, `machines=2 rewritten=<sum>`; journal `forestry.carpenter` / `forestry.squeezer`.
-- **Why not centrifuge:** `CentrifugeRecipe.getAllProducts()` returns an `ImmutableMap` copy and the
-  recipes have no setter, so rewriting them requires remove+add against the unmodifiable manager set —
-  a destructive mutation this rework never does.
+  `machine=squeezer rewritten=N`, `machine=centrifuge rewritten=N`, `machines=3 rewritten=<sum>`;
+  journal `forestry.carpenter` / `forestry.squeezer` / `forestry.centrifuge`.
 
 
 ### EnderIO — 🟡 impl + T2 tests (T3 pending)
@@ -348,10 +362,9 @@ the top of `PLAN.md`.
   in-place rewriting.
 - **`keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation** — the historical crash
   source; revisit only if a clear need arises.
-- **Forestry** (crate system + fluid outputs + centrifuge) — the done carpenter/squeezer sliver is
-  non-destructive; these stay deferred: **crates** (runtime `ItemCrated` registration, fragile — marked
-  `// TODO: rework crate registration`), **fluid outputs** (no 1.7.10 fluid-equivalence model, BB-4),
-  **centrifuge** (immutable `ImmutableMap` outputs behind an unmodifiable set → would need remove+add).
+- **Forestry crate registration + fluid outputs** — the carpenter/squeezer/centrifuge sliver is implemented
+  (all non-destructive). These stay deferred: **crates** (runtime `ItemCrated` registration, fragile — marked
+  `// TODO: rework crate registration`) and **fluid outputs** (no 1.7.10 fluid-equivalence model, BB-4).
 - **Fuel / coke equivalence (BB-4)** — the first non-OD equivalence class, deferred until *after*
   M6/M7 but prioritized as the next build-better milestone.
 - **NEI hiding** beyond what kept rewrites require; **`customUnifiedResources`**; **Galacticraft**

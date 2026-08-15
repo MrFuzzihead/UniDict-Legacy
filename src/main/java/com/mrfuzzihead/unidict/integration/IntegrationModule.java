@@ -28,7 +28,8 @@ import cpw.mods.fml.common.Loader;
  * if (Config.chest()) executor.add(new ChestIntegration());
  * if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
  * if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
- * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants).
+ * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants + centrifuge product
+ * // keys).
  * // TODO: Galacticraft integration (deferred stub).
  * </pre>
  */

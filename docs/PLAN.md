@@ -37,9 +37,8 @@ with better code, and prioritize the features a mature "unify" mod should have h
 - `keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation — invasive; the
   historical crash source. Revisit only if a clear need arises.
 - NEI hiding / item hiding beyond what the chosen rewrites require.
-- Forestry **crate registration** (runtime `ItemCrated`), **centrifuge** (immutable `ImmutableMap` outputs
-  behind an unmodifiable set → would need remove+add) and **fluid outputs** (no 1.7.10 fluid-equivalence
-  model, BB-4) — the carpenter/squeezer sliver is implemented (M7, non-destructive).
+- Forestry **crate registration** (runtime `ItemCrated`) and **fluid outputs** (no 1.7.10 fluid-equivalence
+  model, BB-4) — the carpenter/squeezer/centrifuge sliver is implemented (M7, non-destructive).
 - API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — mostly deferred; keep
   only the minimal read surface a kept integration actually uses.
 - `customUnifiedResources`, Galacticraft stub.
@@ -300,7 +299,7 @@ Order builds the integration pattern (config toggle + sequential entry + verify 
 Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mixins.early` or `…late` per target + fake; `TargetMods` gating where the mod must be loaded.
 
 1. **`EnderIOIntegration` (22)** + `OreDictionaryPreferencesMixin` (`preferences` map). Drop `FixedSizeList` usage if trivially `ArrayList`-able (likely).
-2. **`ForestryIntegration` (23)** — scoped non-destructive, replaces the crater-having port: `ShapedOreRecipeMixin` (early `@Accessor` on the Forge `ShapedOreRecipe.output`) behind `IShapedOreRecipeAccessor` rewrites carpenter grid outputs **in place**; squeezer container-recipe remnants via `Map.Entry.setValue` on the public `SqueezerRecipeManager.containerRecipes` (no mixin). **Not ported:** crate registration (deferred), centrifuge (immutable `ImmutableMap` outputs → would need remove+add), fluid outputs (no 1.7.10 fluid-equivalence model).
+2. **`ForestryIntegration` (23)** — scoped, all non-destructive: `ShapedOreRecipeMixin` (early `@Accessor` on the Forge `ShapedOreRecipe.output`) behind `IShapedOreRecipeAccessor` rewrites carpenter grid outputs **in place**; squeezer container-recipe remnants via `Map.Entry.setValue` on the public `SqueezerRecipeManager.containerRecipes` (no mixin); `CentrifugeRecipeMixin` (late, `TargetMods.FORESTRY`) behind `ICentrifugeRecipeAccessor` rewrites each recipe's private product map **in place** (clear+putAll — the machine reads that exact map via `getProducts(Random)`, so bee-comb → metal outputs unify). **Not ported:** crate registration (deferred), fluid outputs (no 1.7.10 fluid-equivalence model).
 3. **`RailcraftIntegration` (26)** + `BlastFurnaceCraftingManagerMixin` (`recipes` list, instance accessor).
 4. **`TEIntegration` (27)** — `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` (each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor). Keep `@SpecifiedLoadStage(LOAD_COMPLETE)`. Prefer `@Invoker` per Spike B; on failure, flip the pre-written 3 AT entries and flag for review.
 
@@ -340,6 +339,7 @@ Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mix
 | `ChestGenHooksMixin`               | `ChestGenHooks`               | `@Accessor` x2                 | `IChestGenHooksAccessor`                                 | `ChestIntegration` reflection                          |
 | `WeightedRandomChestContentMixin`  | `WeightedRandomChestContent`  | `@Accessor` x2 (get+set)       | `IWeightedRandomChestContentAccessor`                    | `ChestIntegration` reflection (\*1.7.10 only)          |
 | `ShapedOreRecipeMixin`              | `ShapedOreRecipe` (Forge)     | `@Accessor` x2 (get+set, instance) | `IShapedOreRecipeAccessor` (+ `FakeShapedOreRecipeAccessor`) | `ForestryIntegration` carpenter output rewrite            |
+| `CentrifugeRecipeMixin`             | `CentrifugeRecipe` (Forestry) | `@Accessor` x1 (get, instance)    | `ICentrifugeRecipeAccessor` (+ generic product-map seam)     | `ForestryIntegration` centrifuge product-key rewrite (late, `TargetMods.FORESTRY`) |
 | `OreDictionaryPreferencesMixin`    | `OreDictionaryPreferences`    | `@Accessor` x1                 | `IOreDictionaryPreferencesAccessor`                      | `EnderIOIntegration` reflection                        |
 | `BlastFurnaceCraftingManagerMixin` | `BlastFurnaceCraftingManager` | `@Accessor` x1                 | `IBlastFurnaceCraftingManagerAccessor`                   | `RailcraftIntegration` reflection                      |
 | `FurnaceManagerMixin`              | `FurnaceManager`              | `@Accessor` x1 + `@Invoker` x1 | `IFurnaceManagerAccessor`                                | `TEIntegration` reflection                             |
@@ -434,7 +434,7 @@ From the original feature set (deferred, NOT ported now):
 - Crafting recipe rewrite + recipe-key rework (was M5).
 - `keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation.
 - NEI / item hiding beyond what the kept rewrites require.
-- Forestry crate registration (runtime `ItemCrated`), centrifuge, fluid outputs (see M7 / deferred).
+- Forestry crate registration (runtime `ItemCrated`) + fluid outputs (see M7 / deferred).
 - API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — keep only the minimal read surface kept integrations use.
 - `customUnifiedResources`, Galacticraft stub.
 

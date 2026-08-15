@@ -16,6 +16,10 @@ public enum Mixins implements IMixins {
     FORESTRY(new MixinBuilder().setPhase(Phase.EARLY)
         .addCommonMixins("ShapedOreRecipeMixin")),
 
+    FORESTRY_CENTRIFUGE(new MixinBuilder().setPhase(Phase.LATE)
+        .addCommonMixins("CentrifugeRecipeMixin")
+        .addRequiredMod(TargetMods.FORESTRY)),
+
     THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
         .addCommonMixins(
             "RecipeFurnaceInvoker",

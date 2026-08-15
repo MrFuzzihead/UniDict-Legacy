@@ -9,7 +9,8 @@ public enum TargetMods implements ITargetMod {
 
     THERMAL_EXPANSION("ThermalExpansion"),
     ENDER_IO("EnderIO"),
-    RAILCRAFT("Railcraft");
+    RAILCRAFT("Railcraft"),
+    FORESTRY("Forestry");
 
     private final TargetModBuilder builder;
 

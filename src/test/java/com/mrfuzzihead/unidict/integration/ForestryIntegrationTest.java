@@ -1,8 +1,10 @@
 package com.mrfuzzihead.unidict.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,7 +23,7 @@ import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.integration.ForestryIntegration.ContainerRecipeView;
 
 /**
- * T2 test for the Forestry integration (docs/PLAN.md §M7 #2). Two concerns:
+ * T2 test for the Forestry integration (docs/PLAN.md §M7 #2). Three concerns:
  *
  * <p>
  * <b>Carpenter grid-output rewrite</b> — {@link ForestryIntegration#rewriteCarpenterOutputs} maps
@@ -34,10 +36,16 @@ import com.mrfuzzihead.unidict.integration.ForestryIntegration.ContainerRecipeVi
  * rewrites each {@link Map.Entry}'s value remnants in place, asserting BB-3: only the remnants stack
  * changes, the entry count is preserved, and the map key is unchanged. Driven through a neutral
  * {@link Holder} map and a neutral view (no Forestry types on the test classpath).
+ *
+ * <p>
+ * <b>Centrifuge product-map rewrite</b> — {@link ForestryIntegration#rewriteCentrifugeProducts} maps
+ * each product key through the resolver and, only when something changed, clears + refills the SAME
+ * map in place, asserting BB-3: product entry count and chances are preserved, non-canonical keys are
+ * replaced with canonical ones, unchanged/unresolvable maps are left untouched.
  */
 class ForestryIntegrationTest {
 
-    // ---- Carpenter (grid-recipe output) ----------------------------------
+    // ---- Carpenter (grid-recipe output) --------------------------------------
 
     @Test
     void rewriteCarpenterOutputsMapsRecipesAndPreservesCount() {
@@ -94,8 +102,7 @@ class ForestryIntegrationTest {
         assertEquals(2, recipes.size(), "a null entry must not be removed");
         assertNull(recipes.get(1));
     }
-
-    // ---- Squeezer (container-recipe remnants) -----------------------------
+    // ---- Squeezer (container-recipe remnants) ---------------------------------
 
     /** Neutral container-recipe holder so the generic seam is testable with no Forestry classes. */
     private static final class Holder {
@@ -193,4 +200,54 @@ class ForestryIntegrationTest {
         assertEquals(0, rewritten, "a recipe with no remnants must be skipped");
         assertNull(containerRecipes.get(keyA).remnants, "null remnants must be left as-is");
     }
+
+    // ---- Centrifuge (product-map rewrite) ------------------------------------
+
+    @Test
+    void rewriteCentrifugeProductsMapsProductKeysInPlacePreservingChances() {
+        final Item itemA = new Item();
+        final ItemStack productA = new ItemStack(itemA, 1, 1);
+        final ItemStack productB = new ItemStack(itemA, 1, 2);
+        final ItemStack canonicalB = new ItemStack(itemA, 1, 5);
+
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(productA, 1.0f);
+        products.put(productB, 0.25f);
+
+        final int changed = ForestryIntegration
+            .rewriteCentrifugeProducts(products, s -> (s == productB) ? canonicalB : s);
+
+        assertEquals(1, changed, "only the resolvable product should be rewritten");
+        assertEquals(2, products.size(), "rewriting must never change the product count");
+        assertEquals(1.0f, products.get(productA), 0.001f, "unchanged product's chance is preserved");
+        assertEquals(0.25f, products.get(canonicalB), 0.001f, "rewritten product's chance is preserved");
+        assertTrue(products.containsKey(canonicalB), "the mapped product key is present");
+        assertFalse(products.containsKey(productB), "the non-canonical product key is replaced");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsLeavesUnchangedMapUntouched() {
+        final Item itemA = new Item();
+        final ItemStack productA = new ItemStack(itemA, 1, 1);
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(productA, 0.5f);
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, UnaryOperator.identity());
+
+        assertEquals(0, changed, "identity resolver must not rewrite anything");
+        assertEquals(1, products.size());
+        assertTrue(products.containsKey(productA), "an unchanged product map is not cleared/rebuilt");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsSkipsNullProductEntries() {
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(null, 0.5f); // a null product is impossible in a real recipe (ctor rejects it); guard anyway
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, UnaryOperator.identity());
+
+        assertEquals(0, changed);
+        assertTrue(products.containsKey(null), "a null product entry is left as-is when nothing changes");
+    }
+
 }

@@ -2,7 +2,7 @@ package com.mrfuzzihead.unidict.integration;
 
 /*
  * Rebuilt (and strictly scoped) from wanion.unidict.integration.ForestryIntegration (WanionCane, MPL-2.0)
- * as the M7 Forestry machine rewrite (docs/PLAN.md §M7 #2). Two non-destructive machine rewrites:
+ * as the M7 Forestry machine rewrite (docs/PLAN.md §M7 #2). Three non-destructive machine rewrites:
  * <ul>
  * <li><b>Carpenter</b> — each grid recipe's OUTPUT is canonicalised <em>in place</em>: Forestry's
  * {@code ShapedRecipeCustom} extends Forge's {@code ShapedOreRecipe}, so writing that private
@@ -12,12 +12,15 @@ package com.mrfuzzihead.unidict.integration;
  * {@code remnants} byproduct is canonicalised by replacing the value for the SAME key
  * ({@code Map.Entry.setValue}) — the key (empty container) and entry count are preserved (BB-3). The
  * container-recipe map is Forestry's public static {@code ItemStackMap}, so no mixin is needed.</li>
+ * <li><b>Centrifuge</b> — each recipe's product map ({@code CentrifugeRecipe.outputs}, a private final
+ * {@code Map<ItemStack, Float>}) is canonicalised <em>in place</em> (clear + putAll canonical keys) via
+ * the late {@code CentrifugeRecipeMixin} accessor. {@code getAllProducts()} returns an
+ * {@code ImmutableMap} <em>copy</em>, but {@code getProducts(Random)} — what the machine rolls — reads
+ * the original map, so rewriting its contents is all it takes; the recipe is never removed (BB-3). This
+ * is what unifies a bee-comb → metal output when a pack adds such a recipe.</li>
  * </ul>
  * Deliberately NOT implemented here (see docs/INTEGRATIONS.md §Forestry):
  * <ul>
- * <li><b>Centrifuge</b> — {@code CentrifugeRecipe#getAllProducts()} returns an {@code ImmutableMap}
- * and the recipes themselves are immutable, so output rewriting would require remove+add against the
- * unmodifiable manager set — a destructive mutation the rework never does.</li>
  * <li><b>Fluid outputs</b> (squeezer/fermenter/still) — fluid equivalence has no OreDictionary-style
  * model in 1.7.10 (BB-4 territory, deferred).</li>
  * <li><b>Crate registration</b> (runtime {@code ItemCrated}) and NEI hiding — deferred (fragile).</li>
@@ -26,6 +29,7 @@ package com.mrfuzzihead.unidict.integration;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -37,14 +41,17 @@ import net.minecraftforge.oredict.ShapedOreRecipe;
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.forestry.ICentrifugeRecipeAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import forestry.api.recipes.ICarpenterRecipe;
+import forestry.api.recipes.ICentrifugeRecipe;
 import forestry.api.recipes.IDescriptiveRecipe;
 import forestry.api.recipes.RecipeManagers;
+import forestry.factory.recipes.CentrifugeRecipe;
 import forestry.factory.recipes.ISqueezerContainerRecipe;
 import forestry.factory.recipes.SqueezerContainerRecipe;
 import forestry.factory.recipes.SqueezerRecipeManager;
@@ -108,14 +115,15 @@ final class ForestryIntegration extends AbstractModuleThread {
             // Early-skip: with no unified resource the canonical lookup is a no-op, so skip the walks.
             if (resourceHandler != null && !resourceHandler.resources.isEmpty() && Config.forestry()) {
                 final UnaryOperator<ItemStack> resolveMain = resourceHandler::getMainItemStack;
-                final int rewritten = rewriteCarpenter(resolveMain) + rewriteSqueezer(resolveMain);
+                final int rewritten = rewriteCarpenter(resolveMain) + rewriteSqueezer(resolveMain)
+                    + rewriteCentrifuge(resolveMain);
                 UniDict.LOG.info(
                     threadName + "rewrote outputs of "
                         + rewritten
-                        + " Forestry machine recipes (carpenter grid outputs + squeezer container remnants)"
-                        + " to their canonical entries.");
+                        + " Forestry machine recipes (carpenter grid outputs + squeezer container remnants"
+                        + " + centrifuge products) to their canonical entries.");
                 if (VerifyHarness.isEnabled()) {
-                    VerifyHarness.record(true, "integration=Forestry", "machines=2", "rewritten=" + rewritten);
+                    VerifyHarness.record(true, "integration=Forestry", "machines=3", "rewritten=" + rewritten);
                 }
             }
         } catch (final Exception e) {
@@ -168,6 +176,65 @@ final class ForestryIntegration extends AbstractModuleThread {
             VerifyHarness.record(true, "integration=Forestry", "machine=squeezer", "rewritten=" + n);
         }
         return n;
+    }
+
+    /**
+     * Centrifuge: canonicalises each recipe's product-map keys in place (BB-3). The product map is the
+     * private final {@code CentrifugeRecipe.outputs} field — reached via the late
+     * {@code CentrifugeRecipeMixin} accessor — and {@code getProducts(Random)} (what the machine rolls)
+     * reads exactly that map, so rewriting its <em>contents</em> is all it takes. The recipe object and
+     * the manager's unmodifiable set are untouched: never a remove, never a rebuild. A recipe whose
+     * product map is immutable (unusual for Forestry/GTNH) is skipped rather than aborting the module.
+     */
+    private int rewriteCentrifuge(final UnaryOperator<ItemStack> resolveMain) {
+        final Collection<ICentrifugeRecipe> recipes;
+        if (RecipeManagers.centrifugeManager == null) return 0;
+        recipes = RecipeManagers.centrifugeManager.recipes();
+        if (recipes == null) return 0;
+        int rewritten = 0;
+        for (final ICentrifugeRecipe recipe : recipes) {
+            if (recipe == null || !(recipe instanceof CentrifugeRecipe)) continue; // foreign impl: no accessor
+            final Map<ItemStack, Float> products = ((ICentrifugeRecipeAccessor) (Object) recipe).unidict$getProducts();
+            if (products == null) continue; // defensive: the field is set in the constructor
+            try {
+                rewritten += rewriteCentrifugeProducts(products, resolveMain);
+            } catch (final UnsupportedOperationException e) {
+                // An immutable product map can't be cleared/refilled in place; skip this recipe only.
+                UniDict.LOG.warn(threadName + "skipped an immutable centrifuge product map: " + e);
+            }
+        }
+        RewriteJournal.record("forestry", "centrifuge", rewritten);
+        if (VerifyHarness.isEnabled()) {
+            VerifyHarness.record(true, "integration=Forestry", "machine=centrifuge", "rewritten=" + rewritten);
+        }
+        return rewritten;
+    }
+
+    /**
+     * Centrifuge product-map rewrite seam (T2-testable, no Forestry types on the test classpath):
+     * maps each product key through the canonical resolver and, only when something actually changed,
+     * clears and refills the SAME map in place (LinkedHashMap canonical keys, original chances). The
+     * recipe's map reference (and therefore the recipe itself) is never swapped — only its contents,
+     * so {@code getProducts(Random)} yields the canonical entries (BB-3). Never removes a recipe.
+     *
+     * @return number of product entries whose key mapped to a different canonical entry
+     */
+    static int rewriteCentrifugeProducts(final Map<ItemStack, Float> products,
+        final UnaryOperator<ItemStack> resolveMain) {
+        final Map<ItemStack, Float> mapped = new LinkedHashMap<>();
+        int changed = 0;
+        for (final Map.Entry<ItemStack, Float> entry : products.entrySet()) {
+            final ItemStack product = entry.getKey();
+            if (product == null) continue;
+            final ItemStack canonical = resolveMain.apply(product);
+            if (canonical != product) changed++;
+            mapped.put(canonical, entry.getValue());
+        }
+        if (changed > 0) {
+            products.clear();
+            products.putAll(mapped);
+        }
+        return changed;
     }
 
     /**
