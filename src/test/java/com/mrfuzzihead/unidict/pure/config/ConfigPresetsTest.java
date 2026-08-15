@@ -53,7 +53,7 @@ class ConfigPresetsTest {
     @Test
     void maxCompatTurnsOnAggressiveFeaturesOnTopOfStandard() {
         final ConfigData c = ConfigPresets.maxCompat();
-        assertTrue(c.keepOneEntry);
+        assertFalse(c.keepOneEntry); // keepOneEntry deferred (TODO.md P0 #2) — max-compat keeps autoHideInNEI
         assertTrue(c.inputReplacement);
         assertTrue(c.unifyDrops);
         assertTrue(c.kindDebugMode);
@@ -87,9 +87,9 @@ class ConfigPresetsTest {
         // Exact names.
         assertFalse(ConfigPresets.byName("minimal").ae2Integration);
         assertTrue(ConfigPresets.byName("standard").ae2Integration);
-        assertTrue(ConfigPresets.byName("max-compat").keepOneEntry);
+        assertFalse(ConfigPresets.byName("max-compat").keepOneEntry); // keepOneEntry deferred
         // Case-insensitive.
-        assertTrue(ConfigPresets.byName("MAX-COMPAT").keepOneEntry);
+        assertFalse(ConfigPresets.byName("MAX-COMPAT").keepOneEntry);
         assertFalse(ConfigPresets.byName("MINIMAL").ae2Integration);
         // Unknown / blank / null fall back to the safe standard surface (never empty).
         assertFalse(ConfigPresets.byName("bogus").keepOneEntry);

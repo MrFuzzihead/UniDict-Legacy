@@ -33,17 +33,22 @@ import java.util.Set;
 public final class ConfigData {
 
     // ---- general ------------------------------------------------------
-    /** Keep only the "main" entry per unified resource (selection core, M4). */
+    /**
+     * Upstream-kept key: strict one-entry collapse. Deferred/stretch (TODO.md P0 #2); parsed for back-compat but not
+     * wired.
+     */
     public final boolean keepOneEntry;
     /** Replace non-standard machine inputs (machine-only, M6/M7). */
     public final boolean inputReplacement;
     /** Convert dropped (ground) item entities to the canonical entry of their unified resource. */
     public final boolean unifyDrops;
-    /** Auto-hide non-main variants (NEI gate — only when keepOneEntry is off, M4). */
+    /** Auto-hide non-main variants in NEI (the single NEI-hide mechanism; kind + mod blacklists below). */
     public final boolean autoHideInNEI;
     /** Log kind information for the transparency report (BB-1). */
     public final boolean kindDebugMode;
+    /** Mod-level NEI-hide exemption (per owner mod); keeps upstream's name for back-compat. */
     public final Set<String> keepOneEntryModBlackSet;
+    /** Kind-level NEI-hide exemption (e.g. {@code ore}). */
     public final Set<String> hideInNEIBlackSet;
 
     // ---- resources / owners ------------------------------------------

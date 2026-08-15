@@ -10,10 +10,8 @@ package com.mrfuzzihead.unidict.resource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -21,7 +19,9 @@ import javax.annotation.Nonnull;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.MetaItem;
+import com.mrfuzzihead.unidict.common.Util;
 
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
@@ -29,9 +29,20 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 @SuppressWarnings("unused")
 public final class ResourceHandler {
 
-    static final Set<ItemStack> keepOneEntryBlackSet = new HashSet<>();
-
     public final Collection<Resource<UniResourceContainer>> resources;
+
+    /**
+     * Whether a variant belongs to a mod blacklisted from NEI hiding: its owning mod is in
+     * {@code keepOneEntryModBlackSet}. This is the mod-level exemption fed into the NEI hide-set
+     * builder ({@code SelectionRules.hiddenIndices}) alongside the kind-level {@code hideInNEIBlackSet};
+     * such variants stay visible in NEI while {@code autoHideInNEI} collapses the rest. The config key
+     * keeps upstream's "keep-one-entry" name for back-compat, but the (deferred) keepOneEntry feature
+     * does not drive hiding — {@code autoHideInNEI} does (TODO.md P0 #1/#2).
+     */
+    public static boolean isKeepOneEntryBlacklisted(final ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        return Config.get().keepOneEntryModBlackSet.contains(Util.getModName(stack));
+    }
 
     private final TIntObjectMap<UniAttributes<UniResourceContainer>> individualStackAttributes = new TIntObjectHashMap<>();
     private final Map<String, UniResourceContainer> containerMap = new HashMap<>();
@@ -39,11 +50,6 @@ public final class ResourceHandler {
 
     ResourceHandler(@Nonnull final Map<String, Resource<UniResourceContainer>> resourceMap) {
         resources = (this.resourceMap = resourceMap).values();
-    }
-
-    /** Records an item that belongs to a keep-one-entry blacklisted mod (fed by the comparator). */
-    public static void addToKeepOneEntryModBlackSet(@Nonnull final ItemStack itemStack) {
-        keepOneEntryBlackSet.add(itemStack);
     }
 
     public boolean exists(final int thingId) {

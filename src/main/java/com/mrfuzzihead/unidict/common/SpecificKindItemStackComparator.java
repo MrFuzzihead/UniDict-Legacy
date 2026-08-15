@@ -3,9 +3,7 @@ package com.mrfuzzihead.unidict.common;
 import static com.mrfuzzihead.unidict.common.Util.getModName;
 
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nonnull;
@@ -23,14 +21,12 @@ import com.mrfuzzihead.unidict.pure.config.OwnerOrder;
  * instead of upstream's {@code Config.getOwnerOfEveryKindMap} reflection into the forge config.
  *
  * <p>
- * The keep-one-entry black-set side effect is preserved (upstream recorded blacklisted-mod items
- * into {@code ResourceHandler.keepOneEntryBlackSet}); here it accumulates into {@link #keepOneEntryBlackSet},
- * which M4's selection core reads once {@link Config#keepOneEntry} is active.
+ * The keep-one-entry black-set side effect upstream accumulated here is <b>not preserved</b>: the
+ * live NEI-hide decision reads the two exemption blacklists directly via
+ * {@link com.mrfuzzihead.unidict.resource.ResourceHandler#isKeepOneEntryBlacklisted} and the kind
+ * blacklist, so this comparator only orders (TODO.md P0 #1).
  */
 public final class SpecificKindItemStackComparator implements Comparator<ItemStack> {
-
-    /** Items that belonged to a keep-one-entry-blacklisted mod; handed to selection in M4. */
-    public static final Set<ItemStack> keepOneEntryBlackSet = new HashSet<>();
 
     private static final Map<String, SpecificKindItemStackComparator> CACHE = new ConcurrentHashMap<>();
 
@@ -54,9 +50,6 @@ public final class SpecificKindItemStackComparator implements Comparator<ItemSta
 
     @Override
     public int compare(@Nonnull final ItemStack itemStack1, @Nonnull final ItemStack itemStack2) {
-        final String stack1ModName = getModName(itemStack1);
-        if (Config.keepOneEntry() && config.keepOneEntryModBlackSet.contains(stack1ModName))
-            keepOneEntryBlackSet.add(itemStack1);
-        return OwnerOrder.compare(config, kindName, stack1ModName, getModName(itemStack2));
+        return OwnerOrder.compare(config, kindName, getModName(itemStack1), getModName(itemStack2));
     }
 }

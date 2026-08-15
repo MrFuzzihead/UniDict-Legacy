@@ -26,45 +26,59 @@ class SelectionRulesTest {
     }
 
     @Test
-    void keptIndicesKeepEverythingWhenNotKeepingOneEntry() {
-        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
-        final List<Integer> kept = SelectionRules.keptIndices(ordered, false, s -> false);
-        assertEquals(Arrays.asList(0, 1, 2, 3), kept);
-        assertEquals(4, SelectionRules.keptCount(ordered, false, s -> false));
-    }
-
-    @Test
-    void keptIndicesKeepOnlyMainWhenKeepingOneEntryAndNoBlacklist() {
-        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
-        final List<Integer> kept = SelectionRules.keptIndices(ordered, true, s -> false);
-        assertEquals(Arrays.asList(0), kept);
-        assertEquals(1, SelectionRules.keptCount(ordered, true, s -> false));
-    }
-
-    @Test
-    void keptIndicesRetainBlacklistedTailEntries() {
-        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
-        final List<Integer> kept = SelectionRules
-            .keptIndices(ordered, true, s -> s.equals("minecraft") || s.equals("TConstruct"));
-        assertEquals(Arrays.asList(0, 1, 3), kept);
-        assertEquals(3, SelectionRules.keptCount(ordered, true, s -> s.equals("minecraft") || s.equals("TConstruct")));
-    }
-
-    @Test
-    void shouldHideNonMainAlwaysWhenKeepingOneEntry() {
-        assertTrue(SelectionRules.shouldHideNonMain(true, false, 1L, new LinkedHashSet<>()));
-        assertTrue(SelectionRules.shouldHideNonMain(true, true, 1L, new LinkedHashSet<>(Arrays.asList(1L))));
-    }
-
-    @Test
     void shouldHideNonMainRequiresAutoHideAndNonBlacklistedKind() {
         final Set<Long> black = new LinkedHashSet<>(Arrays.asList(1L, 4L));
         // autoHide off -> never hide
-        assertFalse(SelectionRules.shouldHideNonMain(false, false, 2L, black));
+        assertFalse(SelectionRules.shouldHideNonMain(false, 2L, black));
         // blacklisted kind -> never hide
-        assertFalse(SelectionRules.shouldHideNonMain(false, true, 1L, black));
+        assertFalse(SelectionRules.shouldHideNonMain(true, 1L, black));
         // autoHide on + kind not blacklisted -> hide
-        assertTrue(SelectionRules.shouldHideNonMain(false, true, 2L, black));
+        assertTrue(SelectionRules.shouldHideNonMain(true, 2L, black));
+    }
+
+    @Test
+    void hiddenIndicesEmptyOrNullListHidesNothing() {
+        assertTrue(
+            SelectionRules.hiddenIndices(null, true, 1L, new LinkedHashSet<>(), s -> false)
+                .isEmpty());
+        assertTrue(
+            SelectionRules.hiddenIndices(Arrays.asList(), true, 1L, new LinkedHashSet<>(), s -> false)
+                .isEmpty());
+    }
+
+    @Test
+    void hiddenIndicesNothingWhenAutoHideOffOrKindBlacklisted() {
+        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2");
+        // autoHide off -> no hiding at all.
+        assertTrue(
+            SelectionRules.hiddenIndices(ordered, false, 2L, new LinkedHashSet<>(), s -> false)
+                .isEmpty());
+        // autoHide on but kind blacklisted -> no hiding for that kind.
+        assertTrue(
+            SelectionRules.hiddenIndices(ordered, true, 1L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false)
+                .isEmpty());
+    }
+
+    @Test
+    void hiddenIndicesAutoHideHidesNonMainWhenKindNotBlacklisted() {
+        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
+        final List<Integer> hidden = SelectionRules
+            .hiddenIndices(ordered, true, 2L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false);
+        assertEquals(Arrays.asList(1, 2, 3), hidden);
+    }
+
+    @Test
+    void hiddenIndicesModBlacklistExemptsSpecificEntries() {
+        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
+        // The mod blacklist exempts minecraft (index 1) and TConstruct (index 3) from hiding; the main
+        // entry (index 0) is always shown; IC2 (index 2) is collapsed.
+        final List<Integer> hidden = SelectionRules.hiddenIndices(
+            ordered,
+            true,
+            2L,
+            new LinkedHashSet<>(Arrays.asList(1L)),
+            s -> s.equals("minecraft") || s.equals("TConstruct"));
+        assertEquals(Arrays.asList(2), hidden);
     }
 
     @Test

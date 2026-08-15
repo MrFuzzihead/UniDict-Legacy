@@ -147,7 +147,8 @@ public final class ConfigPresets {
         final Map<String, List<String>> maxOwners = new LinkedHashMap<>();
         standard.ownerOfKind.forEach(maxOwners::put);
         return ConfigData.builder()
-            .keepOneEntry(true)
+            .keepOneEntry(false) // keepOneEntry is deferred (TODO.md P0 #2, stretch) — max-compat uses
+                                 // autoHideInNEI + both blacklists instead; the key is kept for back-compat.
             .inputReplacement(true)
             .unifyDrops(true)
             .autoHideInNEI(true)

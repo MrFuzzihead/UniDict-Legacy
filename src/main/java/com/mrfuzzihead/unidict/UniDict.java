@@ -5,9 +5,11 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.unidict.integration.IntegrationModule;
 import com.mrfuzzihead.unidict.module.ModuleHandler;
+import com.mrfuzzihead.unidict.nei.NEIHideModule;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -40,6 +42,11 @@ public class UniDict {
     public void preInit(FMLPreInitializationEvent event) {
         proxy.preInit(event);
         moduleHandler.addModule(new IntegrationModule());
+        // P0 #1+#2: NEI variant hiding + keepOneEntry via hiding. Client-only, and only when
+        // NotEnoughItems is actually present — so NEIHelper (which references codechicken.nei.api.API)
+        // is never loaded on a dedicated server or an NEI-less client.
+        if (event.getSide()
+            .isClient() && Loader.isModLoaded("NotEnoughItems")) moduleHandler.addModule(new NEIHideModule());
     }
 
     @Mod.EventHandler

@@ -3,6 +3,7 @@ package com.mrfuzzihead.unidict;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 
@@ -13,10 +14,12 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
+import com.mrfuzzihead.unidict.pure.SelectionRules;
 import com.mrfuzzihead.unidict.report.UniDictReport;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceContainer;
+import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 
 import cpw.mods.fml.common.registry.GameData;
 
@@ -99,14 +102,28 @@ public final class VerifyHarness {
             return;
         }
         final List<String> lines = new ArrayList<>();
+        final boolean autoHideInNEI = Config.get().autoHideInNEI;
+        final Set<Long> kindBlackSet = UniResourceHandler.getKindBlackSet();
         for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
-            for (final UniResourceContainer container : resource.getChildrenCollection()) lines.add(
-                "resource=" + container.name
-                    + " main="
-                    + describe(container.getMainEntry())
-                    + " variants="
-                    + container.getEntries()
-                        .size());
+            for (final UniResourceContainer container : resource.getChildrenCollection()) {
+                final List<ItemStack> entries = container.getEntries();
+                final int hidden = SelectionRules
+                    .hiddenIndices(
+                        entries,
+                        autoHideInNEI,
+                        container.kind,
+                        kindBlackSet,
+                        ResourceHandler::isKeepOneEntryBlacklisted)
+                    .size();
+                lines.add(
+                    "resource=" + container.name
+                        + " main="
+                        + describe(container.getMainEntry())
+                        + " variants="
+                        + entries.size()
+                        + " hidden="
+                        + hidden);
+            }
         // The underlying maps iterate in hash order; sort so the report is stable and diffable run-to-run.
         Collections.sort(lines);
         for (final String line : lines) record(true, line);

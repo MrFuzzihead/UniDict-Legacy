@@ -6,16 +6,21 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Pure (Minecraft-free) selection decisions for the unification core — the place where the
- * keep-one-entry semantics, the NEI-hide eligibility and the sort-trigger conditions live so they
- * are T1-testable with zero {@code net.minecraft*} imports (docs/PLAN.md §M4, docs/TestPlan.md
- * rule 2).
+ * Pure (Minecraft-free) selection decisions for the unification core — the place where the NEI-hide
+ * decision, the hide blacklists and the sort-trigger conditions live so they are T1-testable with
+ * zero {@code net.minecraft*} imports (docs/PLAN.md §M4, docs/TestPlan.md rule 2).
  *
  * <p>
  * These are <b>decisions only</b>. Applying a decision to a live list (e.g. collapsing forge's
  * global Ore Dictionary) is <b>deferred</b> by the 2026-08-12 scope rework (non-destructive
  * rewriting, BB-3 — never mutate a global registry). {@code UniResourceContainer} uses these to pick
  * and report the canonical entry against a private snapshot instead.
+ *
+ * <p>
+ * The only live selection feature today is NEI variant hiding, driven by {@code autoHideInNEI} with
+ * two exemption blacklists: {@code hideInNEIBlackSet} (per kind) and the mod blacklist (per owner
+ * mod, config key {@code keepOneEntryModBlackSet}). Upstream's separate {@code keepOneEntry}
+ * collapse is <b>deferred</b> as a stretch goal (TODO.md P0 #2) — it is not wired in.
  */
 public final class SelectionRules {
 
@@ -31,45 +36,37 @@ public final class SelectionRules {
     }
 
     /**
-     * Indices that survive a keep-one-entry pass over an already-ordered list. The main entry
-     * (index 0) is always kept; when {@code keepOneEntry} is on, the only other survivors are
-     * entries whose owning mod is blacklisted (matching upstream's
-     * {@code keepOneEntryModBlackSet} handling). When off, every entry survives.
-     *
-     * @param ordered         a list already ordered by selection priority
-     * @param keepOneEntry    whether to collapse to the main entry (+ blacklisted tail)
-     * @param keepBlacklisted predicate that is {@code true} for blacklisted (kept) entries
-     * @return the surviving indices, in ascending order
+     * Whether non-main variants should be hidden in NEI for a given kind — the kind-level hide gate
+     * fed by the NEI hide-set builder ({@link #hiddenIndices}). Hiding requires {@code autoHideInNEI}
+     * and the kind not being in {@code kindBlackSet} ({@code hideInNEIBlackSet}).
      */
-    public static <T> List<Integer> keptIndices(final List<T> ordered, final boolean keepOneEntry,
-        final Predicate<? super T> keepBlacklisted) {
-        final List<Integer> kept = new ArrayList<>();
-        if (ordered == null) return kept;
-        for (int i = 0; i < ordered.size(); i++) {
-            if (i == 0 || !keepOneEntry || (keepBlacklisted != null && keepBlacklisted.test(ordered.get(i))))
-                kept.add(i);
-        }
-        return kept;
-    }
-
-    /**
-     * Number of entries that survive keep-one-entry, mirroring {@link #keptIndices}.
-     */
-    public static <T> int keptCount(final List<T> ordered, final boolean keepOneEntry,
-        final Predicate<? super T> keepBlacklisted) {
-        return keptIndices(ordered, keepOneEntry, keepBlacklisted).size();
-    }
-
-    /**
-     * Whether non-main variants should be hidden in NEI. Decision only — actual hiding is deferred
-     * (docs/PLAN.md scope rework, "No NEI hiding"). When {@code keepOneEntry} is on every non-main
-     * variant is hidden; otherwise hiding requires {@code autoHideInNEI} and the kind not being
-     * blacklisted.
-     */
-    public static boolean shouldHideNonMain(final boolean keepOneEntry, final boolean autoHideInNEI, final long kind,
+    public static boolean shouldHideNonMain(final boolean autoHideInNEI, final long kind,
         final Set<Long> kindBlackSet) {
-        if (keepOneEntry) return true;
         return autoHideInNEI && (kindBlackSet == null || !kindBlackSet.contains(kind));
+    }
+
+    /**
+     * The NEI hide-set builder (TODO.md P0 #1): the indices of an already-ordered entry list that must
+     * be hidden so the player sees only the canonical entry. Driven solely by {@code autoHideInNEI},
+     * with two independent exemption blacklists:
+     *
+     * <ul>
+     * <li>{@code kindBlackSet} ({@code hideInNEIBlackSet}) — exempts a whole kind from hiding.</li>
+     * <li>{@code keepBlacklisted} (the {@code keepOneEntryModBlackSet} mod blacklist, applied per
+     * entry) — exempts a specific owner mod's variant from hiding.</li>
+     * </ul>
+     *
+     * The canonical entry (index 0) is always shown. Returns empty when auto-hide is off, the kind is
+     * blacklisted, or the list is empty.
+     */
+    public static <T> List<Integer> hiddenIndices(final List<T> ordered, final boolean autoHideInNEI, final long kind,
+        final Set<Long> kindBlackSet, final Predicate<? super T> keepBlacklisted) {
+        final List<Integer> hidden = new ArrayList<>();
+        if (ordered == null || ordered.isEmpty()) return hidden;
+        if (!shouldHideNonMain(autoHideInNEI, kind, kindBlackSet)) return hidden;
+        for (int i = 1; i < ordered.size(); i++)
+            if (keepBlacklisted == null || !keepBlacklisted.test(ordered.get(i))) hidden.add(i);
+        return hidden;
     }
 
     /**

@@ -24,12 +24,10 @@ import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
 
 import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
-import gnu.trove.set.TLongSet;
-import gnu.trove.set.hash.TLongHashSet;
 
 public final class UniResourceHandler {
 
-    private static final TLongSet kindBlackSet = new TLongHashSet();
+    private static final Set<Long> kindBlackSet = new LinkedHashSet<>();
     private static boolean hasInit;
 
     private final Map<String, Resource<UniResourceContainer>> resourceMap = new LinkedHashMap<>();
@@ -163,7 +161,8 @@ public final class UniResourceHandler {
         UniDict.resourceHandler = resourceHandler;
     }
 
-    static TLongSet getKindBlackSet() {
+    /** The {@link Resource} kinds blacklisted from NEI hiding (derived from {@code hideInNEIBlackSet}). */
+    public static Set<Long> getKindBlackSet() {
         if (kindBlackSet.isEmpty())
             Config.get().hideInNEIBlackSet.forEach(blackKind -> kindBlackSet.add(Resource.getKindOfName(blackKind)));
         return kindBlackSet;
