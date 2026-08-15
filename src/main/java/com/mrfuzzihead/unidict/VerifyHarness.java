@@ -113,7 +113,8 @@ public final class VerifyHarness {
                         autoHideInNEI,
                         container.kind,
                         kindBlackSet,
-                        ResourceHandler::isKeepOneEntryBlacklisted)
+                        ResourceHandler::isModBlacklisted,
+                        ResourceHandler::isProtected)
                     .size();
                 lines.add(
                     "resource=" + container.name

@@ -39,10 +39,10 @@ class SelectionRulesTest {
     @Test
     void hiddenIndicesEmptyOrNullListHidesNothing() {
         assertTrue(
-            SelectionRules.hiddenIndices(null, true, 1L, new LinkedHashSet<>(), s -> false)
+            SelectionRules.hiddenIndices(null, true, 1L, new LinkedHashSet<>(), s -> false, s -> false)
                 .isEmpty());
         assertTrue(
-            SelectionRules.hiddenIndices(Arrays.asList(), true, 1L, new LinkedHashSet<>(), s -> false)
+            SelectionRules.hiddenIndices(Arrays.asList(), true, 1L, new LinkedHashSet<>(), s -> false, s -> false)
                 .isEmpty());
     }
 
@@ -51,11 +51,12 @@ class SelectionRulesTest {
         final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2");
         // autoHide off -> no hiding at all.
         assertTrue(
-            SelectionRules.hiddenIndices(ordered, false, 2L, new LinkedHashSet<>(), s -> false)
+            SelectionRules.hiddenIndices(ordered, false, 2L, new LinkedHashSet<>(), s -> false, s -> false)
                 .isEmpty());
         // autoHide on but kind blacklisted -> no hiding for that kind.
         assertTrue(
-            SelectionRules.hiddenIndices(ordered, true, 1L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false)
+            SelectionRules
+                .hiddenIndices(ordered, true, 1L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false, s -> false)
                 .isEmpty());
     }
 
@@ -63,7 +64,7 @@ class SelectionRulesTest {
     void hiddenIndicesAutoHideHidesNonMainWhenKindNotBlacklisted() {
         final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
         final List<Integer> hidden = SelectionRules
-            .hiddenIndices(ordered, true, 2L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false);
+            .hiddenIndices(ordered, true, 2L, new LinkedHashSet<>(Arrays.asList(1L)), s -> false, s -> false);
         assertEquals(Arrays.asList(1, 2, 3), hidden);
     }
 
@@ -77,8 +78,23 @@ class SelectionRulesTest {
             true,
             2L,
             new LinkedHashSet<>(Arrays.asList(1L)),
-            s -> s.equals("minecraft") || s.equals("TConstruct"));
+            s -> s.equals("minecraft") || s.equals("TConstruct"),
+            s -> false);
         assertEquals(Arrays.asList(2), hidden);
+    }
+
+    @Test
+    void hiddenIndicesProtectedEntryStaysVisibleAlongsideCanonical() {
+        final List<String> ordered = Arrays.asList("ThermalFoundation", "minecraft", "IC2", "TConstruct");
+        // A protected entry (alwaysVisible, e.g. raw copper at index 3) coexists with the canonical.
+        final List<Integer> hidden = SelectionRules.hiddenIndices(
+            ordered,
+            true,
+            2L,
+            new LinkedHashSet<>(Arrays.asList(1L)),
+            s -> false,
+            s -> s.equals("TConstruct"));
+        assertEquals(Arrays.asList(1, 2), hidden);
     }
 
     @Test

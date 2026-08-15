@@ -26,9 +26,13 @@ public final class ConfigReader {
     private static final String KEY_KEEP_ONE_ENTRY = "keepOneEntry";
     private static final String KEY_INPUT_REPLACEMENT = "inputReplacement";
     private static final String KEY_UNIFY_DROPS = "unifyDrops";
-    private static final String KEY_KEEP_ONE_ENTRY_BLACK = "keepOneEntryModBlackList";
+    /** Canonical now-kept key: the per-mod NEI-hide exemption. */
+    private static final String KEY_AUTO_HIDE_MOD_BLACK = "autoHideInNEIModBlackList";
+    /** Legacy pre-P0 name for the same mod blacklist; still accepted (autoHide owns it now, keepOneEntry deferred). */
+    private static final String LEGACY_KEEP_ONE_MOD_BLACK = "keepOneEntryModBlackList";
     private static final String KEY_AUTO_HIDE_NEI = "autoHideInNEI";
     private static final String KEY_HIDE_NEI_BLACK = "autoHideInNEIBlackList";
+    private static final String KEY_PROTECTED_OD_NAMES = "protectedOreDictionaryNames";
     private static final String KEY_KIND_DEBUG = "kindDebugMode";
     /** Consumed by the loader ({@code Config}) to select the default surface — not part of {@link ConfigData}. */
     private static final String KEY_PRESET = "preset";
@@ -78,8 +82,9 @@ public final class ConfigReader {
             .unifyDrops(defaults.unifyDrops)
             .autoHideInNEI(defaults.autoHideInNEI)
             .kindDebugMode(defaults.kindDebugMode)
-            .keepOneEntryModBlackSet(defaults.keepOneEntryModBlackSet)
+            .autoHideInNEIModBlackSet(defaults.autoHideInNEIModBlackSet)
             .hideInNEIBlackSet(defaults.hideInNEIBlackSet)
+            .protectedOreDictionaryNames(defaults.protectedOreDictionaryNames)
             .metalsToUnify(defaults.metalsToUnify)
             .childrenOfMetals(defaults.childrenOfMetals)
             .resourceBlackList(defaults.resourceBlackList)
@@ -144,11 +149,15 @@ public final class ConfigReader {
             case KEY_PRESET:
                 // Not a ConfigData field: the loader selects the default surface with it (BB-2).
                 return;
-            case KEY_KEEP_ONE_ENTRY_BLACK:
-                b.keepOneEntryModBlackSet(set(value));
+            case LEGACY_KEEP_ONE_MOD_BLACK:
+            case KEY_AUTO_HIDE_MOD_BLACK:
+                b.autoHideInNEIModBlackSet(set(value));
                 return;
             case KEY_HIDE_NEI_BLACK:
                 b.hideInNEIBlackSet(set(value));
+                return;
+            case KEY_PROTECTED_OD_NAMES:
+                b.protectedOreDictionaryNames(set(value));
                 return;
             case KEY_METALS:
                 b.metalsToUnify(set(value));

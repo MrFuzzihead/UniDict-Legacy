@@ -46,10 +46,17 @@ public final class ConfigData {
     public final boolean autoHideInNEI;
     /** Log kind information for the transparency report (BB-1). */
     public final boolean kindDebugMode;
-    /** Mod-level NEI-hide exemption (per owner mod); keeps upstream's name for back-compat. */
-    public final Set<String> keepOneEntryModBlackSet;
+    /** Mod-level NEI-hide exemption (per owner mod). */
+    public final Set<String> autoHideInNEIModBlackSet;
     /** Kind-level NEI-hide exemption (e.g. {@code ore}). */
     public final Set<String> hideInNEIBlackSet;
+    /**
+     * OD-name substrings protecting an item from canonicalization and NEI hiding. An item that is a
+     * member of any OreDictionary entry whose name contains one of these is never collapsed to a
+     * canonical block etc. — e.g. default {@code "raw"} keeps EtF raw metals (tagged {@code rawCopper}/…)
+     * as the mined/processing form instead of morphing them into a mod's copper ore block.
+     */
+    public final Set<String> protectedOreDictionaryNames;
 
     // ---- resources / owners ------------------------------------------
     public final Set<String> metalsToUnify;
@@ -93,8 +100,10 @@ public final class ConfigData {
         this.unifyDrops = b.unifyDrops;
         this.autoHideInNEI = b.autoHideInNEI;
         this.kindDebugMode = b.kindDebugMode;
-        this.keepOneEntryModBlackSet = Collections.unmodifiableSet(new LinkedHashSet<>(b.keepOneEntryModBlackSet));
+        this.autoHideInNEIModBlackSet = Collections.unmodifiableSet(new LinkedHashSet<>(b.autoHideInNEIModBlackSet));
         this.hideInNEIBlackSet = Collections.unmodifiableSet(new LinkedHashSet<>(b.hideInNEIBlackSet));
+        this.protectedOreDictionaryNames = Collections
+            .unmodifiableSet(new LinkedHashSet<>(b.protectedOreDictionaryNames));
 
         this.metalsToUnify = Collections.unmodifiableSet(new LinkedHashSet<>(b.metalsToUnify));
         this.childrenOfMetals = Collections.unmodifiableSet(new LinkedHashSet<>(b.childrenOfMetals));
@@ -137,8 +146,9 @@ public final class ConfigData {
         private boolean unifyDrops = true;
         private boolean autoHideInNEI = true;
         private boolean kindDebugMode = false;
-        private final Set<String> keepOneEntryModBlackSet = new LinkedHashSet<>();
+        private final Set<String> autoHideInNEIModBlackSet = new LinkedHashSet<>();
         private final Set<String> hideInNEIBlackSet = new LinkedHashSet<>();
+        private final Set<String> protectedOreDictionaryNames = new LinkedHashSet<>();
 
         private final Set<String> metalsToUnify = new LinkedHashSet<>();
         private final Set<String> childrenOfMetals = new LinkedHashSet<>();
@@ -184,15 +194,21 @@ public final class ConfigData {
             return this;
         }
 
-        public Builder keepOneEntryModBlackSet(final Set<String> value) {
-            this.keepOneEntryModBlackSet.clear();
-            this.keepOneEntryModBlackSet.addAll(value);
+        public Builder autoHideInNEIModBlackSet(final Set<String> value) {
+            this.autoHideInNEIModBlackSet.clear();
+            this.autoHideInNEIModBlackSet.addAll(value);
             return this;
         }
 
         public Builder hideInNEIBlackSet(final Set<String> value) {
             this.hideInNEIBlackSet.clear();
             this.hideInNEIBlackSet.addAll(value);
+            return this;
+        }
+
+        public Builder protectedOreDictionaryNames(final Set<String> value) {
+            this.protectedOreDictionaryNames.clear();
+            this.protectedOreDictionaryNames.addAll(value);
             return this;
         }
 

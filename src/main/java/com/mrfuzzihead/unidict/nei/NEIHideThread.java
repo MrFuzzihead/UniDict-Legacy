@@ -21,13 +21,15 @@ import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 /**
  * The NEI variant-hiding pass (TODO.md P0 #1). After resource selection it walks each unified
  * resource's ordered snapshot and hides every non-kept, non-blacklisted variant via the single
- * guarded {@link NEIHelper#hide} site. Hiding is driven by {@code autoHideInNEI} with two exemption
- * blacklists (BB-3: entries are hidden, never removed from Forge's global OreDictionary):
+ * guarded {@link NEIHelper#hide} site. Hiding is driven by {@code autoHideInNEI} with three
+ * exemptions (BB-3: entries are hidden, never removed from Forge's global OreDictionary):
  *
  * <ul>
  * <li><b>{@code hideInNEIBlackSet}</b> (per kind) — exempts a whole kind (e.g. {@code ore}).</li>
- * <li><b>{@code keepOneEntryModBlackSet}</b> (per owner mod) — exempts a specific mod's variant from
- * hiding.</li>
+ * <li><b>{@code autoHideInNEIModBlackList}</b> (per owner mod) — exempts a specific mod's variants
+ * from hiding.</li>
+ * <li><b>{@code protectedOreDictionaryNames}</b> (e.g. {@code "raw"} for raw metals) — exempts
+ * specific variants from hiding so they coexist with the canonical entry.</li>
  * </ul>
  *
  * <p>
@@ -63,7 +65,8 @@ final class NEIHideThread extends AbstractModuleThread {
                         container.kind,
                         autoHideInNEI,
                         kindBlackSet,
-                        ResourceHandler::isKeepOneEntryBlacklisted);
+                        ResourceHandler::isModBlacklisted,
+                        ResourceHandler::isProtected);
                     for (final ItemStack stack : toHide) if (stack != null) NEIHelper.hide(stack);
                     hidden += toHide.size();
                 }
@@ -80,17 +83,20 @@ final class NEIHideThread extends AbstractModuleThread {
      * entry stacks that should be hidden, driven purely by {@link SelectionRules#hiddenIndices}. It
      * touches no MC statics, so a test can drive it with plain {@link ItemStack} fakes.
      *
-     * @param entries         the container's ordered snapshot (index 0 is the canonical entry)
-     * @param kind            the container's kind bit
-     * @param autoHideInNEI   {@code Config.autoHideInNEI}
-     * @param kindBlackSet    {@code hideInNEIBlackSet} as kind bits
-     * @param keepBlacklisted how to recognise an exempt {@code keepOneEntryModBlackSet} owner-mod entry
+     * @param entries        the container's ordered snapshot (index 0 is the canonical entry)
+     * @param kind           the container's kind bit
+     * @param autoHideInNEI  {@code Config.autoHideInNEI}
+     * @param kindBlackSet   {@code hideInNEIBlackSet} as kind bits
+     * @param modBlacklisted recognises an exempt {@code autoHideInNEIModBlackList} owner-mod entry
+     * @param alwaysVisible  recognises a protected entry (e.g. raw metal) that must stay visible
      */
     static List<ItemStack> stacksToHide(final List<ItemStack> entries, final long kind, final boolean autoHideInNEI,
-        final Set<Long> kindBlackSet, final Predicate<? super ItemStack> keepBlacklisted) {
+        final Set<Long> kindBlackSet, final Predicate<? super ItemStack> modBlacklisted,
+        final Predicate<? super ItemStack> alwaysVisible) {
         final List<ItemStack> toHide = new ArrayList<>();
         for (final int index : SelectionRules
-            .hiddenIndices(entries, autoHideInNEI, kind, kindBlackSet, keepBlacklisted)) toHide.add(entries.get(index));
+            .hiddenIndices(entries, autoHideInNEI, kind, kindBlackSet, modBlacklisted, alwaysVisible))
+            toHide.add(entries.get(index));
         return toHide;
     }
 }

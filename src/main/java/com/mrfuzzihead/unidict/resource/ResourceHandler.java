@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -33,15 +34,37 @@ public final class ResourceHandler {
 
     /**
      * Whether a variant belongs to a mod blacklisted from NEI hiding: its owning mod is in
-     * {@code keepOneEntryModBlackSet}. This is the mod-level exemption fed into the NEI hide-set
-     * builder ({@code SelectionRules.hiddenIndices}) alongside the kind-level {@code hideInNEIBlackSet};
-     * such variants stay visible in NEI while {@code autoHideInNEI} collapses the rest. The config key
-     * keeps upstream's "keep-one-entry" name for back-compat, but the (deferred) keepOneEntry feature
-     * does not drive hiding — {@code autoHideInNEI} does (TODO.md P0 #1/#2).
+     * {@code autoHideInNEIModBlackSet} ({@code autoHideInNEIModBlackList}). This is the mod-level
+     * exemption fed into the NEI hide-set builder ({@code SelectionRules.hiddenIndices}) alongside the
+     * kind-level {@code hideInNEIBlackSet}; such variants stay visible in NEI while
+     * {@code autoHideInNEI} collapses the rest. The legacy {@code keepOneEntryModBlackList} key maps to
+     * the same field (TODO.md P0 #1).
      */
-    public static boolean isKeepOneEntryBlacklisted(final ItemStack stack) {
+    public static boolean isModBlacklisted(final ItemStack stack) {
         if (stack == null || stack.getItem() == null) return false;
-        return Config.get().keepOneEntryModBlackSet.contains(Util.getModName(stack));
+        return Config.get().autoHideInNEIModBlackSet.contains(Util.getModName(stack));
+    }
+
+    /**
+     * Whether an item is "protected" from canonicalization and NEI hiding: it is a member of an
+     * OreDictionary entry whose name contains one of the configured {@code protectedOreDictionaryNames}
+     * substrings (default {@code "raw"}). Protected items are returned unchanged by
+     * {@link #getMainItemStack} — so an EtF raw-copper drop stays raw instead of morphing into a mod's
+     * copper ore block — and are exempt from NEI hiding (TODO.md P0 #1).
+     */
+    public static boolean isProtected(final ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        final Set<String> protectedNames = Config.get().protectedOreDictionaryNames;
+        if (protectedNames.isEmpty()) return false;
+        try {
+            for (final int oreId : OreDictionary.getOreIDs(stack)) {
+                final String name = OreDictionary.getOreName(oreId);
+                for (final String token : protectedNames) if (name.contains(token)) return true;
+            }
+        } catch (final Exception ignored) {
+            // Never let an OD membership lookup abort canonicalization.
+        }
+        return false;
     }
 
     private final TIntObjectMap<UniAttributes<UniResourceContainer>> individualStackAttributes = new TIntObjectHashMap<>();
@@ -113,6 +136,10 @@ public final class ResourceHandler {
      * </ol>
      */
     public ItemStack getMainItemStack(final ItemStack thing) {
+        // Protected items (e.g. EtF raw copper via the default "raw" OD-name substring) are never
+        // canonicalized — a mined raw-metal drop stays raw instead of becoming a mod's ore block
+        // (TODO.md P0 #1). This also shields protected items from machine input/output rewrites.
+        if (isProtected(thing)) return thing;
         final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
         if (attributesOfThing != null) return attributesOfThing.uniResourceContainer.getMainEntry(thing.stackSize);
         final UniResourceContainer byOreName = containerForOreName(thing);

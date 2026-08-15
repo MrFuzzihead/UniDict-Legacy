@@ -18,9 +18,10 @@ import java.util.function.Predicate;
  *
  * <p>
  * The only live selection feature today is NEI variant hiding, driven by {@code autoHideInNEI} with
- * two exemption blacklists: {@code hideInNEIBlackSet} (per kind) and the mod blacklist (per owner
- * mod, config key {@code keepOneEntryModBlackSet}). Upstream's separate {@code keepOneEntry}
- * collapse is <b>deferred</b> as a stretch goal (TODO.md P0 #2) — it is not wired in.
+ * three exemptions: {@code hideInNEIBlackSet} (per kind), the mod blacklist
+ * ({@code autoHideInNEIModBlackList}), and protected items ({@code protectedOreDictionaryNames}, e.g.
+ * {@code "raw"} for raw metals). Upstream's separate {@code keepOneEntry} collapse is <b>deferred</b>
+ * as a stretch goal (TODO.md P0 #2) — it is not wired in.
  */
 public final class SelectionRules {
 
@@ -47,25 +48,32 @@ public final class SelectionRules {
 
     /**
      * The NEI hide-set builder (TODO.md P0 #1): the indices of an already-ordered entry list that must
-     * be hidden so the player sees only the canonical entry. Driven solely by {@code autoHideInNEI},
-     * with two independent exemption blacklists:
+     * be hidden so the player sees only the canonical entry (plus exempted variants). Driven solely by
+     * {@code autoHideInNEI}, with independent exemptions:
      *
      * <ul>
      * <li>{@code kindBlackSet} ({@code hideInNEIBlackSet}) — exempts a whole kind from hiding.</li>
-     * <li>{@code keepBlacklisted} (the {@code keepOneEntryModBlackSet} mod blacklist, applied per
+     * <li>{@code modBlacklisted} (the {@code autoHideInNEIModBlackList} mod blacklist, applied per
      * entry) — exempts a specific owner mod's variant from hiding.</li>
+     * <li>{@code alwaysVisible} (protected items — e.g. raw metals, via {@code protectedOreDictionaryNames})
+     * — exempts specific variants from hiding so they coexist with the canonical entry.</li>
      * </ul>
      *
      * The canonical entry (index 0) is always shown. Returns empty when auto-hide is off, the kind is
      * blacklisted, or the list is empty.
      */
     public static <T> List<Integer> hiddenIndices(final List<T> ordered, final boolean autoHideInNEI, final long kind,
-        final Set<Long> kindBlackSet, final Predicate<? super T> keepBlacklisted) {
+        final Set<Long> kindBlackSet, final Predicate<? super T> modBlacklisted,
+        final Predicate<? super T> alwaysVisible) {
         final List<Integer> hidden = new ArrayList<>();
         if (ordered == null || ordered.isEmpty()) return hidden;
         if (!shouldHideNonMain(autoHideInNEI, kind, kindBlackSet)) return hidden;
-        for (int i = 1; i < ordered.size(); i++)
-            if (keepBlacklisted == null || !keepBlacklisted.test(ordered.get(i))) hidden.add(i);
+        for (int i = 1; i < ordered.size(); i++) {
+            final T entry = ordered.get(i);
+            final boolean exempt = (modBlacklisted != null && modBlacklisted.test(entry))
+                || (alwaysVisible != null && alwaysVisible.test(entry));
+            if (!exempt) hidden.add(i);
+        }
         return hidden;
     }
 

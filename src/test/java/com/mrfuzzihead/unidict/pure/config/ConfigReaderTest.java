@@ -23,8 +23,9 @@ class ConfigReaderTest {
         raw.put("unifyDrops", "false");
         raw.put("autoHideInNEI", "true");
         raw.put("kindDebugMode", "true");
-        raw.put("keepOneEntryModBlackList", "SomeMod, OtherMod");
+        raw.put("keepOneEntryModBlackList", "SomeMod, OtherMod"); // legacy alias for autoHideInNEIModBlackList
         raw.put("autoHideInNEIBlackList", "ore, ingot");
+        raw.put("protectedOreDictionaryNames", "raw, tiny");
         raw.put("metalsToUnify", "[Iron, Gold, Copper, Tin]");
         raw.put("childrenOfMetals", "ingot, nugget");
         raw.put("resourceBlackList", "Aluminium, Chrome");
@@ -53,8 +54,9 @@ class ConfigReaderTest {
         assertFalse(c.unifyDrops);
         assertTrue(c.autoHideInNEI);
         assertTrue(c.kindDebugMode);
-        assertEquals(setOf("SomeMod", "OtherMod"), c.keepOneEntryModBlackSet);
+        assertEquals(setOf("SomeMod", "OtherMod"), c.autoHideInNEIModBlackSet);
         assertEquals(setOf("ore", "ingot"), c.hideInNEIBlackSet);
+        assertEquals(setOf("raw", "tiny"), c.protectedOreDictionaryNames);
         assertEquals(setOf("Iron", "Gold", "Copper", "Tin"), c.metalsToUnify);
         assertEquals(setOf("ingot", "nugget"), c.childrenOfMetals);
         assertEquals(listOf("Aluminium", "Chrome"), c.resourceBlackList);
@@ -123,6 +125,14 @@ class ConfigReaderTest {
         raw.put("ownerOfEveryThing", "TE, vanilla"); // legacy alias for ownerPriorities
         final ConfigData c = ConfigReader.parse(ConfigPresets.standard(), raw).config;
         assertEquals(listOf("TE", "vanilla"), c.ownerPriorities);
+    }
+
+    @Test
+    void modBlacklistAliasAcceptsTheLegacyKeepOneName() {
+        final Map<String, String> raw = new LinkedHashMap<>();
+        raw.put("keepOneEntryModBlackList", "OldMod"); // legacy alias for autoHideInNEIModBlackList
+        final ConfigData c = ConfigReader.parse(ConfigPresets.standard(), raw).config;
+        assertEquals(setOf("OldMod"), c.autoHideInNEIModBlackSet);
     }
 
     @Test

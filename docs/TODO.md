@@ -16,7 +16,7 @@ Living backlog of everything **not yet done** for an initial release, as of `fea
 | **UnifyDrops** — drop-time canonicalisation                                                  | DONE (new, not in upstream)                      |
 | Config presets (minimal / standard / max-compat)                                             | DONE                                             |
 | `/unidict report` transparency + `RewriteJournal`                                            | DONE                                             |
-| **NEI variant hiding** (`autoHideInNEI`, kind + mod blacklists)                            | DONE (impl + T1/T2; T3 `hidden=N` to confirm)    |
+| **NEI variant hiding** (`autoHideInNEI`, kind + mod + protected OD names)                  | DONE (impl + T1/T2; T3 `hidden=N` to confirm)    |
 
 **Everything below this line is the remaining scope.** Prioritisation is P0 → P2; "dropped" items are deliberately out of scope.
 
@@ -35,14 +35,15 @@ These ship the other half of the mod's promise ("unify the *whole* view", not ju
 
 ### 1. NEI variant hiding (`autoHideInNEI`) — DONE (2026-08-15)
 - **What:** hide non-`main` variants of a unified resource in NEI so the player sees one copper ingot/plate/etc. instead of seven. This is the most visible "unify" feature a player notices.
-- **Current state:** **WIRED.** `nei.NEIHideThread` walks every resource at POST_INIT (client + NEI-present gated in `UniDict.preInit`) and calls the single guarded `NEIHelper.hide` for each non-kept variant. Hiding is driven **only** by `autoHideInNEI`, with **two exemption blacklists**: `hideInNEIBlackSet` (per kind) and `keepOneEntryModBlackSet` (per owner mod). `SelectionRules.hiddenIndices` is the pure hide-set builder; T1 tests cover the rule, the T2 seam `NEIHideThread.stacksToHide` covers the hide-set builder fed by `ItemStack` fakes, and `VerifyHarness` now emits `hidden=N`. The `NEIHelper` main-thread guard stays. (`keepOneEntry` is **deferred** — the mod-blacklist key is reused as the per-mod exemption here.)
+- **Current state:** **WIRED.** `nei.NEIHideThread` walks every resource at POST_INIT (client + NEI-present gated in `UniDict.preInit`) and calls the single guarded `NEIHelper.hide` for each non-kept variant. Hiding is driven **only** by `autoHideInNEI`, with **three exemptions**: `hideInNEIBlackSet` (per kind), `autoHideInNEIModBlackList` (per owner mod; legacy `keepOneEntryModBlackList` maps to it), and `protectedOreDictionaryNames` (default `"raw"`). `SelectionRules.hiddenIndices` is the pure hide-set builder; T1 tests cover the rule, the T2 seam `NEIHideThread.stacksToHide` covers the hide-set builder fed by `ItemStack` fakes, and `VerifyHarness` now emits `hidden=N`. The `NEIHelper` main-thread guard stays. (`keepOneEntry` is **deferred** — see #2.)
+- **Raw metals / EtF:** `ResourceHandler#getMainItemStack` returns protected items unchanged (the default `"raw"` OD-name substring matches `rawCopper`/…), so a mined EtF raw-copper drop **stays raw** instead of morphing into a mod's copper ore block, and it stays visible in NEI alongside the canonical block. Pair with EtF's `disableCopperOreAndIngotOnly` so TF is the sole canonical copper ore/ingot in world and only the raw form is carved out.
 - **Work (was):** after resource selection, walk variants and call `NEIHelper.hide(stack)` for every non-main, non-blacklisted variant; drive with `SelectionRules.shouldHideNonMain`; honour `hideInNEIBlackSet`. Keep `keepOneEntry == true → hide all non-main` semantics (see #2).
 - **Verify:** T1 on the "which to hide" rule; T2 on the hide decision fed by fakes; T3 `[unidict-verify] … hidden=N` line.
 - **Risks/notes:** `API.hideItem` must run on the client main thread (the historical crash was it running on worker threads — the `NEIHelper` guard already enforces this under the dev verify switch). Confirm it coexists with which NEI version the pack ships. T3 on the live GTNH pack still to do.
 
 ### 2. `keepOneEntry` (strict one-entry collapse) — DEFERRED (stretch goal, 2026-08-15)
 - **What:** upstream's strict collapse — surface only the canonical entry (+ `keepOneEntryModBlackSet` survivors) across the *whole* game view.
-- **Current state:** **DEFERRED / not wired.** The config key and `keepOneEntryModBlackSet` are still parsed for back-compat, and `autoHideInNEI` now reuses the mod blacklist as its per-mod NEI-hide exemption. But `keepOneEntry` itself no longer drives anything at runtime.
+- **Current state:** **DEFERRED / not wired.** The config key (`autoHideInNEIModBlackList` is the canonical per-mod NEI-hide exemption; legacy `keepOneEntryModBlackList` maps to it) is still parsed for back-compat. But `keepOneEntry` itself no longer drives anything at runtime.
 - **Why deferred:** in this fork, the only safe way to make "the player sees one entry" observable is NEI hiding — which `autoHideInNEI` already does with the same two blacklists. Keeping a second switch that maps to the identical NEI mechanism is redundant (the two previously overlapped). We will design a **safer / more efficient** implementation later if a genuinely different (e.g. functional, non-NEI) collapse is wanted.
 - **Risks/notes:** for the initial release this is **deliberately omitted**; the previous `removeFromElsewhere` / live-OD mutation crash is permanently out of scope (see "Dropped").
 

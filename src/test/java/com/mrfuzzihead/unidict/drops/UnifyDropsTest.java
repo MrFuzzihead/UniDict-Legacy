@@ -80,6 +80,17 @@ class UnifyDropsTest {
     }
 
     @Test
+    void protectedDropIsReturnedByIdentity() {
+        final Item item = new Item();
+        // ResourceHandler#getMainItemStack returns protected items (e.g. EtF raw copper, matched by
+        // the default "raw" OD-name substring in protectedOreDictionaryNames) unchanged, so unifyDrop
+        // sees an identity resolver and keeps the mined raw metal instead of morphing it into a mod's
+        // copper ore block.
+        final ItemStack rawCopper = new ItemStack(item, 1, 7);
+        assertSame(rawCopper, UnifyDrops.unifyDrop(rawCopper, s -> s));
+    }
+
+    @Test
     void nullStackReturnsNull() {
         assertNull(UnifyDrops.unifyDrop(null, UnaryOperator.identity()));
     }

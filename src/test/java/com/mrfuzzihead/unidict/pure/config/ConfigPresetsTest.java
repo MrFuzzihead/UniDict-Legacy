@@ -34,6 +34,15 @@ class ConfigPresetsTest {
     }
 
     @Test
+    void protectedRawOdNamesDefaultOnInEveryPreset() {
+        // Raw metals (e.g. EtF raw copper tagged rawCopper) default to "protected" so they are never
+        // canonicalized into a mod's ore block and stay visible in NEI.
+        assertTrue(ConfigPresets.standard().protectedOreDictionaryNames.contains("raw"));
+        assertTrue(ConfigPresets.minimal().protectedOreDictionaryNames.contains("raw"));
+        assertTrue(ConfigPresets.maxCompat().protectedOreDictionaryNames.contains("raw"));
+    }
+
+    @Test
     void standardEnablesEveryKeptIntegration() {
         final ConfigData c = ConfigPresets.standard();
         assertTrue(c.integrationModuleEnabled);

@@ -23,8 +23,8 @@ import com.mrfuzzihead.unidict.pure.config.OwnerOrder;
  * <p>
  * The keep-one-entry black-set side effect upstream accumulated here is <b>not preserved</b>: the
  * live NEI-hide decision reads the two exemption blacklists directly via
- * {@link com.mrfuzzihead.unidict.resource.ResourceHandler#isKeepOneEntryBlacklisted} and the kind
- * blacklist, so this comparator only orders (TODO.md P0 #1).
+ * {@link com.mrfuzzihead.unidict.resource.ResourceHandler#isModBlacklisted} and the kind blacklist,
+ * so this comparator only orders (TODO.md P0 #1).
  */
 public final class SpecificKindItemStackComparator implements Comparator<ItemStack> {
 

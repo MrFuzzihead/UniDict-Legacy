@@ -70,7 +70,8 @@ public final class ForgeConfigIO {
             general,
             "autoHideInNEI",
             defaults.autoHideInNEI,
-            "Auto-hide non-main variants (NEI gate). Only active when keepOneEntry is off.");
+            "Auto-hide non-main variants in NEI (the single NEI-hide mechanism, with per-kind / per-mod / "
+                + "protected-item exemptions).");
         booleanProp(
             cfg,
             general,
@@ -80,15 +81,22 @@ public final class ForgeConfigIO {
         listProp(
             cfg,
             general,
-            "keepOneEntryModBlackList",
-            defaults.keepOneEntryModBlackSet,
-            "Mods blacklisted from keepOneEntry (exact mod IDs).");
+            "autoHideInNEIModBlackList",
+            defaults.autoHideInNEIModBlackSet,
+            "Mods (exact mod IDs) whose variants are never auto-hidden in NEI (legacy keepOneEntryModBlackList maps here).");
         listProp(
             cfg,
             general,
             "autoHideInNEIBlackList",
             defaults.hideInNEIBlackSet,
             "Kinds that are never auto-hidden in NEI.");
+        listProp(
+            cfg,
+            general,
+            "protectedOreDictionaryNames",
+            defaults.protectedOreDictionaryNames,
+            "OD-name substrings that protect an item from canonicalization and NEI hiding (e.g. \"raw\" keeps "
+                + "raw metals as the mined/processing form instead of a mod's ore block).");
 
         listProp(cfg, CATEGORY_RESOURCES, "metalsToUnify", defaults.metalsToUnify, "Metals to unify.");
         listProp(
