@@ -168,6 +168,12 @@ public final class ForgeConfigIO {
             "thermalExpansion",
             defaults.thermalExpansionIntegration,
             "Thermal Expansion machines.");
+        booleanProp(
+            cfg,
+            CATEGORY_INTEGRATIONS,
+            "galacticraft",
+            defaults.galacticraftIntegration,
+            "Galacticraft machines (ingot / electric ingot compressor).");
     }
 
     /**

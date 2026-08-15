@@ -16,11 +16,22 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.FurnaceRecipes;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
+/**
+ * Runs at {@link LoadStage#LOAD_COMPLETE} (not the POST_INIT default) so every mod has finished its
+ * {@code init}/{@code postInit} — mods register vanilla furnace recipes there (Et Futurum's raw-ore
+ * smelting, Galacticraft's electric/arc-furnace-relevant entries), and this global {@code FurnaceRecipes}
+ * map is read by vanilla, IC2's electric furnace and Galacticraft's electric/arc furnace alike. Running
+ * earlier (POST_INIT) missed recipes a later mod added after UniDict's own postInit, leaving copper
+ * ore/raw → non-priority ingot (docs/INTEGRATIONS.md §Furnace; same ordering rationale as TE's LOAD_COMPLETE).
+ */
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class FurnaceIntegration extends AbstractModuleThread {
 
     FurnaceIntegration() {

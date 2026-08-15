@@ -73,6 +73,14 @@ public final class ConfigData {
     public final boolean craftingIntegration;
     public final boolean railcraftIntegration;
     public final boolean thermalExpansionIntegration;
+    /**
+     * Galacticraft machines: the Ingot Compressor / Electric Ingot Compressor outputs, rewritten
+     * non-destructively through the public {@code CompressorRecipes} list (never the circuit
+     * fabricator — GC-wafer outputs are GC-specific with no cross-mod equivalents, and never fluid
+     * outputs). GC's electric / arc furnace reuse the vanilla {@code FurnaceRecipes} map, so they are
+     * already covered by the furnace integration.
+     */
+    public final boolean galacticraftIntegration;
 
     private ConfigData(final Builder b) {
         this.keepOneEntry = b.keepOneEntry;
@@ -100,6 +108,7 @@ public final class ConfigData {
         this.craftingIntegration = b.craftingIntegration;
         this.railcraftIntegration = b.railcraftIntegration;
         this.thermalExpansionIntegration = b.thermalExpansionIntegration;
+        this.galacticraftIntegration = b.galacticraftIntegration;
     }
 
     private static Map<String, List<String>> copyOwnerOfKind(final Map<String, List<String>> source) {
@@ -143,6 +152,7 @@ public final class ConfigData {
         private boolean craftingIntegration = true;
         private boolean railcraftIntegration = true;
         private boolean thermalExpansionIntegration = true;
+        private boolean galacticraftIntegration = true;
 
         public Builder keepOneEntry(final boolean value) {
             this.keepOneEntry = value;
@@ -266,6 +276,11 @@ public final class ConfigData {
             return this;
         }
 
+        public Builder galacticraftIntegration(final boolean value) {
+            this.galacticraftIntegration = value;
+            return this;
+        }
+
         public ConfigData build() {
             return new ConfigData(this);
         }
@@ -300,6 +315,8 @@ public final class ConfigData {
             + railcraftIntegration
             + ", thermalExpansion="
             + thermalExpansionIntegration
+            + ", galacticraft="
+            + galacticraftIntegration
             + '}';
     }
 }

@@ -27,6 +27,7 @@ class ConfigPresetsTest {
         assertFalse(c.railcraftIntegration);
         assertFalse(c.thermalExpansionIntegration);
         assertFalse(c.forestryIntegration);
+        assertFalse(c.galacticraftIntegration);
         assertFalse(c.keepOneEntry);
         assertFalse(c.inputReplacement);
         assertTrue(c.unifyDrops); // drops unification is default-on (safe, non-destructive)
@@ -45,6 +46,7 @@ class ConfigPresetsTest {
         assertTrue(c.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration);
         assertTrue(c.forestryIntegration);
+        assertTrue(c.galacticraftIntegration);
         assertTrue(c.unifyDrops);
     }
 
@@ -66,12 +68,14 @@ class ConfigPresetsTest {
         assertTrue(c.forestryIntegration == standard.forestryIntegration);
         assertTrue(c.railcraftIntegration == standard.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration == standard.thermalExpansionIntegration);
+        assertTrue(c.galacticraftIntegration == standard.galacticraftIntegration);
     }
 
     @Test
     void standardMetalsAndChildrenAreFixedAndDeterministic() {
         final ConfigData c = ConfigPresets.standard();
         assertTrue(c.metalsToUnify.containsAll(Arrays.asList("Iron", "Gold", "Copper")));
+        assertTrue(c.metalsToUnify.contains("Titanium"), "Galacticraft's titanium must be in the metal set");
         assertTrue(c.childrenOfMetals.containsAll(Arrays.asList("ore", "ingot", "dust")));
         // Deterministic across calls: same values, same order.
         final ConfigData again = ConfigPresets.standard();

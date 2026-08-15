@@ -55,6 +55,7 @@ public final class ConfigReader {
     private static final String KEY_FORESTRY = "forestry";
     private static final String KEY_RAILCRAFT = "railcraft";
     private static final String KEY_THERMAL = "thermalExpansion";
+    private static final String KEY_GALACTICRAFT = "galacticraft";
 
     private ConfigReader() {}
 
@@ -92,7 +93,8 @@ public final class ConfigReader {
             .chestIntegration(defaults.chestIntegration)
             .enderIOIntegration(defaults.enderIOIntegration)
             .railcraftIntegration(defaults.railcraftIntegration)
-            .thermalExpansionIntegration(defaults.thermalExpansionIntegration);
+            .thermalExpansionIntegration(defaults.thermalExpansionIntegration)
+            .galacticraftIntegration(defaults.galacticraftIntegration);
 
         final List<String> ignored = new ArrayList<>();
         final Map<String, List<String>> ownerOfKind = new LinkedHashMap<>(defaults.ownerOfKind);
@@ -192,6 +194,9 @@ public final class ConfigReader {
                 return;
             case KEY_THERMAL:
                 b.thermalExpansionIntegration(bool(value, defaults.thermalExpansionIntegration));
+                return;
+            case KEY_GALACTICRAFT:
+                b.galacticraftIntegration(bool(value, defaults.galacticraftIntegration));
                 return;
             case LEGACY_OWNER_EVERYTHING:
                 b.ownerPriorities(list(value)); // modern alias of ownerPriorities

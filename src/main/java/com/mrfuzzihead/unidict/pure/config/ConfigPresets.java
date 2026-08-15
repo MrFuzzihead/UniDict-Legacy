@@ -46,7 +46,10 @@ public final class ConfigPresets {
         "Steel",
         "Bronze",
         "Electrum",
-        "Brass");
+        "Brass",
+        "Titanium",
+        "Desh",
+        "MeteoricIron");
 
     private static final List<String> DEFAULT_CHILDREN = Arrays
         .asList("ore", "dustTiny", "chunk", "dust", "nugget", "ingot", "block", "plate", "gear");
@@ -105,6 +108,7 @@ public final class ConfigPresets {
             .craftingIntegration(false)
             .railcraftIntegration(false)
             .thermalExpansionIntegration(false)
+            .galacticraftIntegration(false)
             .build();
     }
 
@@ -166,6 +170,7 @@ public final class ConfigPresets {
             .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
+            .galacticraftIntegration(true)
             .build();
     }
 }

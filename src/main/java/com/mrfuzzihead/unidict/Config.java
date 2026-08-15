@@ -107,4 +107,8 @@ public class Config {
     public static boolean thermalExpansion() {
         return data.thermalExpansionIntegration;
     }
+
+    public static boolean galacticraft() {
+        return data.galacticraftIntegration;
+    }
 }

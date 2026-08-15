@@ -28,9 +28,9 @@ import cpw.mods.fml.common.Loader;
  * if (Config.chest()) executor.add(new ChestIntegration());
  * if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
  * if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+ * if (Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) executor.add(new GalacticraftIntegration());
  * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants + centrifuge product
- * // keys).
- * // TODO: Galacticraft integration (deferred stub).
+ * // keys). M8: Galacticraft (ingot / electric ingot compressor).
  * </pre>
  */
 public final class IntegrationModule extends AbstractModule {
@@ -67,6 +67,20 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
             if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
             if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+            // Galacticraft's compressor recipes only exist once GC registers them at FMLServerStarting
+            // (RecipeManagerGC.setConfigurableRecipes), so it is NOT a LoadStage module — it is triggered
+            // from UniDict.serverStarted via #runGalacticraftCompressor() instead (see GalacticraftIntegration).
+        }
+    }
+
+    /**
+     * Server-started entry point for the Galacticraft compressor rewrite (GC registers its compressor
+     * recipes only at {@code FMLServerStarting}, which is later than any {@code LoadStage}). No-op unless
+     * Config.galacticraft() is on and GalacticraftCore is loaded.
+     */
+    public static void runGalacticraftCompressor() {
+        if (Config.integrationModule() && Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) {
+            GalacticraftIntegration.runCompressor();
         }
     }
 }

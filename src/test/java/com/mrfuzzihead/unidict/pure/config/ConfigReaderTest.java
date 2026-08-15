@@ -40,6 +40,7 @@ class ConfigReaderTest {
         raw.put("forestry", "false");
         raw.put("railcraft", "false");
         raw.put("thermalExpansion", "false");
+        raw.put("galacticraft", "false");
         return raw;
     }
 
@@ -69,6 +70,7 @@ class ConfigReaderTest {
         assertFalse(c.forestryIntegration);
         assertFalse(c.railcraftIntegration);
         assertFalse(c.thermalExpansionIntegration);
+        assertFalse(c.galacticraftIntegration);
     }
 
     @Test
@@ -76,6 +78,7 @@ class ConfigReaderTest {
         final Map<String, String> raw = new LinkedHashMap<>();
         raw.put("furnaceIntegration", "false");
         raw.put("thermalExpansion", "false");
+        raw.put("galacticraft", "false");
         raw.put("metalsToUnify", "Zinc");
         // Absent keys fall back to the standard preset (all integrations on).
         final ConfigData c = ConfigReader.parse(ConfigPresets.standard(), raw).config;

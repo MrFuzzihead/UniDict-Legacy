@@ -14,6 +14,7 @@ import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLLoadCompleteEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 
 @Mod(modid = UniDict.MODID, version = Tags.VERSION, name = "UniDict", acceptedMinecraftVersions = "[1.7.10]")
@@ -74,5 +75,12 @@ public class UniDict {
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         proxy.serverStarting(event);
+    }
+
+    @Mod.EventHandler
+    public void serverStarted(FMLServerStartedEvent event) {
+        // Galacticraft registers its compressor recipes during FMLServerStarting, so the compressor
+        // rewrite is deferred until the server is fully up (see GalacticraftIntegration).
+        IntegrationModule.runGalacticraftCompressor();
     }
 }

@@ -19,7 +19,7 @@ verify line each one is expected to emit.
 
 | Integration           | Stage        | Landed | Source                                                        | Load stage    | Non-destructive (BB-3)            | Verify line                        |
 |-----------------------|--------------|--------|---------------------------------------------------------------|---------------|-----------------------------------|------------------------------------|
-| Vanilla **Furnace**   | ✅ done      | M4     | public `FurnaceRecipes.smelting().getSmeltingList()`          | POST_INIT     | ✅ outputs-only (`setValue`)      | `PASS integration=furnace …`       |
+| Vanilla **Furnace**   | ✅ done      | M4     | public `FurnaceRecipes.smelting().getSmeltingList()`          | LOAD_COMPLETE | ✅ outputs-only (`setValue`)      | `PASS integration=furnace …`       |
 | **AE2** (grinder)     | ✅ done      | M6     | public `AEApi.instance().registries().grinder()`              | POST_INIT     | ✅ (interface+fake seam)          | `PASS integration=ae2 rewritten=…` |
 | **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
 | **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
@@ -28,6 +28,7 @@ verify line each one is expected to emit.
 | **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
 | **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
+| **Galacticraft**       | ✅ impl + tests (T3 pending) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
 
@@ -68,7 +69,11 @@ new M7 integration must replicate:
 - **What it rewrites:** the output `ItemStack` of every furnace smelting recipe to the canonical
   `getMainItemStack`. Non-destructive: only `setValue` outputs, never removes recipes, never mutates
   global registries.
-- **Load stage:** POST_INIT (default). Early-skips on an empty resource model.
+- **Load stage:** LOAD_COMPLETE (via `@SpecifiedLoadStage`) — not the POST_INIT default. This global
+  {@code FurnaceRecipes} map is read by vanilla, IC2's electric/induction furnace and Galacticraft's
+  electric/arc furnace alike; running it after every mod's `init`/`postInit` is what makes late-registered
+  smelting recipes (Et Futurum's raw-ore/raw-copper, GC) resolve to the priority (Thermal Foundation) ingot.
+  Early-skips on an empty resource model.
 - **Tests:** `FurnaceIntegrationTest` (3 T2 tests, fabricated-map via `OutputRewriter`).
 - **T3 gate (M4, GTNH pack):** `Furnace Integration: rewrote outputs of 465 furnace recipes`.
 - **Config:** `Config.furnace()`.
@@ -304,6 +309,46 @@ verify hook and are additive to (never a replacement of) the three rewrite lines
 - **T3 gate (pending reconfirm):** expected `[unidict-verify] PASS integration=TE machines=3 …`.
   **Config:** `Config.thermalExpansion()`. Registered `Mixins.THERMAL_EXPANSION`.
 
+### Galacticraft — ✅ impl + T2 tests (T3 pending)
+
+- **What it rewrites:** the compressor family — hand-cranked **Ingot Compressor** + powered **Electric
+  Ingot Compressor** share the public static `CompressorRecipes.getRecipeList()` (`List<IRecipe>`). Each
+  recipe's OUTPUT is rewritten to the canonical `getMainItemStack`, **in place** — GC's compressor recipes
+  (vanilla `ShapedRecipes` and Forge `ShapelessOreRecipe`) hold a *mutable* output field (unlike IE/TE's
+  immutable value objects), so a direct setter write is the whole rewrite (BB-3; no remove, no rebuild, no
+  global registry mutation).
+- **Two accessor seams** (both Forge/MC classes, `remap=false`):
+  - `ShapedRecipes.recipeOutput` → existing early `ShapedRecipesMixin` /
+    `IShapedRecipesAccessor` (already present for the crafting module).
+  - `ShapelessOreRecipe.output` → **new** early `ShapelessOreRecipeMixin` /
+    `IShapelessOreRecipeAccessor`. **1.7.10 wrinkle:** `ShapelessOreRecipe` `implements IRecipe` directly
+    and owns its own private `output` — it does **not** extend `ShapedOreRecipe`, so it needs a dedicated
+    mixin (the `ShapedOreRecipeMixin` does not cover it).
+- **Load stage:** `FMLServerStartedEvent` — GC registers its *configurable* compressor recipes only in
+  `RecipeManagerGC.setConfigurableRecipes()`, called from GC Core's `FMLServerStarting` handler (after any
+  `LoadStage`; a `rewritten=0` at POST_INIT confirmed the list is cold there). So the compressor rewrite is
+  NOT a module `LoadStage` thread — `UniDict.serverStarted` calls `IntegrationModule.runGalacticraftCompressor()`
+  → `GalacticraftIntegration.runCompressor()`, gated on `Config.galacticraft()` + GC loaded.
+- **Covered separately by the furnace integration (no code here):** GC's **Electric Furnace / Electric
+  Arc Furnace** call vanilla `FurnaceRecipes.smelting().getSmeltingResult(...)`, i.e. the exact global map
+  {@code FurnaceIntegration} rewrites. After the recent fix, that furnace rewrite runs at `LOAD_COMPLETE`
+  (after every mod's `postInit`) so late-registered smelting recipes (Et Futurum raw copper, GC) resolve to
+  the priority (Thermal Foundation) ingot — incl. tier-2 double-ingots in the arc furnace.
+- **Deliberately NOT implemented:** the **Circuit Fabricator** (its `recipes` map is private and its wafer
+  outputs are GC-specific — no cross-mod OD equivalents), the **Refinery**/oil and oxygen/fuel machines
+  (fluid outputs — BB-4 fluid-equivalence deferred).
+- **Tests:** `GalacticraftIntegrationTest` (5 T2) — drives the package-private `rewriteOutput` /
+  `rewriteOutputs` BB-3 seam through `FakeShapedRecipesAccessor` / `FakeShapelessOreRecipeAccessor`
+  (shaped + shapeless in-place, unchanged/null skipped, list preserved, unknown types skipped). No GC
+  types on the test classpath.
+- **Config:** `Config.galacticraft()` (`galacticraft` key), default on in `standard()`/`maxCompat()`,
+  off in `minimal()`. Gated on `Loader.isModLoaded("GalacticraftCore")`; invoked from `UniDict.serverStarted`
+  via `IntegrationModule.runGalacticraftCompressor()` (not the module executor — see Load stage).
+  Mixin: `Mixins.GALACTICRAFT` (early, `ShapelessOreRecipe` is a Forge class — harmless with or without GC).
+- **Verify lines:** `[unidict-verify] PASS integration=Galacticraft machine=compressor rewritten=N`;
+  journal `galacticraft.compressor`. Plus the GC metals (`Titanium`, `Desh`, `MeteoricIron`) were added
+  to the standard metal set (`ConfigPresets`).
+
 **Gate (open):** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe
 (M4 main-thread rule still enforced). The three integrations are currently verified only at T2 (JUnit);
 T3 verify lines are blocked on the dev-LIGHT → full-stack flip (see gotchas #2 & #3).
@@ -365,9 +410,11 @@ M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integ
 
 ### 4. Galacticraft → GregTech (transitive)
 
-`Galacticraft` (deferred stub) transitively drags in **`GT5-Unofficial`** (GregTech 5), which
-replaces IC2 machine behavior (incl. the macerator) and confounds IC2 testing. Kept off the
-classpath (commented in `dependencies.gradle`) until the GC stub is actually worked on.
+`Galacticraft` transitively drags in **`GT5-Unofficial`** (GregTech 5), which replaces IC2 machine
+behavior (incl. the macerator) and confounds IC2 testing. It is now excluded explicitly from the GC
+dependency in `dependencies.gradle` (`exclude module: "GT5-Unofficial"`), alongside TinkersConstruct
+(to keep the heavy TiC/CoFH transitive set off the dev classpath). GC's own deps pin NEI + IC2 +
+GTNHLib at the same versions we already use, so those flow through additively.
 
 ---
 
@@ -387,7 +434,7 @@ the top of `PLAN.md`.
   (no 1.7.10 fluid-equivalence model, BB-4).
 - **Fuel / coke equivalence (BB-4)** — the first non-OD equivalence class, deferred until *after*
   M6/M7 but prioritized as the next build-better milestone.
-- **NEI hiding** beyond what kept rewrites require; **`customUnifiedResources`**; **Galacticraft**
-  (`// TODO` stub in `IntegrationModule`); **reload / re-run module**.
+- **NEI hiding** beyond what kept rewrites require; **`customUnifiedResources`**;
+  **reload / re-run module**.
 - **Et Futurum raw-ore → IC2** — researched, likely unnecessary (IC2 re-caches on tag registration);
   deferred pending an in-game confirmation run.

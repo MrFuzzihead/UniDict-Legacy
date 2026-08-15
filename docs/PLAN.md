@@ -12,9 +12,9 @@
 
 ## Scope confirmation (unchanged)
 
-- **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
+- **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion, Galacticraft (compressor) + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
 - **Drop:** AbyssalCraft, Foundry (+FoundryUniHelper), FSP, Hydraulicraft, Magneticraft, Mekanism, NuclearCraft.
-- **Defer:** Galacticraft (stub note only); Forestry crate system (deferred — the carpenter/squeezer
+- **Defer:** Galacticraft non-compressor machines (circuit fabricator — GC waivers; refinery/oil — fluid); Forestry crate system (deferred — the carpenter/squeezer
   sliver is implemented in M7; crates stay out).
 ## ⚠ Scope rework — 2026-08-12 (decision; supersedes the scope above and re-scopes the milestones below)
 
@@ -41,7 +41,8 @@ with better code, and prioritize the features a mature "unify" mod should have h
   model, BB-4) — the carpenter/squeezer/centrifuge sliver is implemented (M7, non-destructive).
 - API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — mostly deferred; keep
   only the minimal read surface a kept integration actually uses.
-- `customUnifiedResources`, Galacticraft stub.
+- `customUnifiedResources`. (Galacticraft compressor rewrite landed M8-build-better; only its
+  non-compressor machines — circuit fabricator, refinery/oil — stay deferred.)
 
 **New first-class features (build-better; focus these first):**
 1. **Transparency** — an in-game unification report/audit: per resource, the canonical entry,
@@ -436,7 +437,7 @@ From the original feature set (deferred, NOT ported now):
 - NEI / item hiding beyond what the kept rewrites require.
 - Forestry crate registration (runtime `ItemCrated`) + fluid outputs (see M7 / deferred).
 - API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — keep only the minimal read surface kept integrations use.
-- `customUnifiedResources`, Galacticraft stub.
+- `customUnifiedResources`; Galacticraft non-compressor machines (circuit fabricator, refinery/oil — see M8 note).
 
 Infrastructure:
 - Reload / re-run module.
