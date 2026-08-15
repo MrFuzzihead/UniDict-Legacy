@@ -1,0 +1,8 @@
+HIGH    Crafting output unification (M5 rework)	Higher — players see un-unified craft outputs; autocrafting bridges may break
+HIGH    NEI variant visibility in packs	        Medium — 7 copper ingots in NEI is visually noisy but functionally OK
+MEDIUM  Forestry Carpenter output rewrite       Low-Medium — Forestry is in GTNH, its carpenter routes produce metal inconsistently
+MEDIUM  TE T3 re-verification with CoFH Core	High if CoFH crashes — the INTEGRATIONS.md documents a CoFH Core crash on Entity.moveEntity
+LOW     keepOneEntry / OD-list dedup            Medium — globally destructive, tension with BB-3
+LOW     ElectricalAge integration               Low (if pack doesn't use it)
+LOW     UniDictAPI class / formal API surface	Low (internal use only)
+LOW     BB-4 Fuel/Coke equivalence	            Low (nice-to-have, deferred)

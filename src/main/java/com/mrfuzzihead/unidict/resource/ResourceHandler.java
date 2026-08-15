@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.MetaItem;
 
@@ -91,11 +92,43 @@ public final class ResourceHandler {
     /**
      * The canonical ("main") entry for a stack, preserving its stack size. Returns the stack itself
      * when it is not part of any unified resource.
+     *
+     * <p>
+     * Two resolution paths:
+     * <ol>
+     * <li><b>Exact-hash index</b> ({@link #individualStackAttributes}) — the fast path used by the
+     * machine/integration rewrites, keyed by {@code (registeredId, item damage)} from the OD
+     * snapshot.</li>
+     * <li><b>Ore-Dictionary membership fallback</b> — when the concrete stack in hand is not in that
+     * pre-index (its damage/wildcard differs from the OD-registered value, common for hand-held /
+     * dropped items), resolve it through Forge's live OD lookups: any stack that IS an {@code
+     * ingotCopper} member maps to that resource's main entry. This is what makes drop-time
+     * unification robust.</li>
+     * </ol>
      */
     public ItemStack getMainItemStack(final ItemStack thing) {
         final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        return (attributesOfThing != null) ? attributesOfThing.uniResourceContainer.getMainEntry(thing.stackSize)
-            : thing;
+        if (attributesOfThing != null) return attributesOfThing.uniResourceContainer.getMainEntry(thing.stackSize);
+        final UniResourceContainer byOreName = containerForOreName(thing);
+        return (byOreName != null) ? byOreName.getMainEntry(thing.stackSize) : thing;
+    }
+
+    /**
+     * Resolves a stack to a modeled container via its Ore-Dictionary membership, when the exact-hash
+     * index missed it. Returns the first modeled container whose OD name the stack belongs to, or
+     * {@code null}. Defensive: never throws on an unregistered / unusual stack.
+     */
+    private UniResourceContainer containerForOreName(final ItemStack thing) {
+        if (thing == null || thing.getItem() == null) return null;
+        try {
+            for (final int oreId : OreDictionary.getOreIDs(thing)) {
+                final UniResourceContainer container = containerMap.get(OreDictionary.getOreName(oreId));
+                if (container != null) return container;
+            }
+        } catch (final Exception ignored) {
+            // Never let a resolution miss abort the caller (drop / machine rewrite).
+        }
+        return null;
     }
 
     public List<ItemStack> getMainItemStackList(@Nonnull final Collection<ItemStack> things) {
