@@ -6,6 +6,22 @@ Progress tracker matching `PLAN.md`. Check a box off in the same PR that satisfi
 
 - T1 = JVM unit test Â· T2 = seam/fake test Â· T3 = in-game `[unidict-verify]` line.
 - Legend: `[x]` done Â· `[~]` re-scoped/deferred (see PLAN) Â· `[ ]` open.
+## ⚡ HEAD snapshot (2026-08-15) — supersedes the open boxes below that it touches
+
+`feature-Implementation` has landed everything the "mod-integration" plan promised. The per-milestone
+boxes below are **historical**; the **forward-looking** remaining work lives in
+[`TODO.md`](TODO.md) (P0 release blockers: NEI variant hiding, `keepOneEntry` via NEI hiding, the
+CoFH/TE runtime gate, docs sync).
+
+Landed since this tracker's last full update:
+- **M8 Galacticraft compressor** — implementation + tests complete (see `docs/INTEGRATIONS.md`); T3
+  verify line still needs a GC-at-runtime run.
+- **Forestry crates + bronze-tool recycling** — carpenter/squeezer/centrifuge plus crate-*recipe*
+  wiring and bronze recycling (all non-destructive; crate-*item* creation still deferred).
+- **`UnifyDrops`** — new drop-time canonicalisation module (`Config.unifyDrops()`, default on).
+- **EIO / Railcraft / TE T3** — verified in the 2026-08-14 full dev-mod regression (see the M9 "Full T3 regression" entry below).
+
+
 
 ## M0 â€” Harness & risk retirement
 - [x] `dependencies.gradle` finalized for kept mods; **TE = dev jar `curse.maven:ThermalExpansion-69163:2388759`** (not the API jar)

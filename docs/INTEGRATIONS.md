@@ -24,13 +24,19 @@ verify line each one is expected to emit.
 | **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
 | **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
 | **Chest** (loot)      | ✅ done      | M6     | accessor seam (`ChestGenHooks`, `WeightedRandomChestContent`) | POST_INIT     | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
-| **EnderIO**           | 🟡 impl + tests (T3 pending) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
+| **EnderIO**           | ✅ done (T3 vfy 2026-08-14) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
 | **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
-| **Thermal Expansion** | 🟡 impl + tests (T3 pending) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
+| **Thermal Expansion** | ✅ done (T3 vfy 2026-08-14) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
 | **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
-| **Galacticraft**       | ✅ impl + tests (T3 pending) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
+| **Galacticraft**       | ✅ done (impl; T3 to confirm) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
+| **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | POST_INIT | ✅ output-only, identity-preserving | INFO (log only) |
+
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
+
+### Cross-cutting module — `UnifyDrops` (landed, new — not from upstream)
+
+Registered in `IntegrationModule` **outside** the `Config.integrationModule()` master switch (gated only on its own `Config.unifyDrops()`, default on), `UnifyDrops` listens for `EntityJoinWorldEvent` and upgrades a dropped/generated `EntityItem`'s stack to the canonical entry of its unified resource. Runs at POST_INIT (after the `ResourceHandler` pipeline) and is server-side only (`world.isRemote` guard). Only **clean** stacks are replaced — any stack with an NBT tag compound (enchanted/tagged/lore) is left untouched, and already-canonical drops are returned by identity (no spurious re-writes). It reuses the exact resolver (`ResourceHandler.getMainItemStack`) the machine integrations use, so it stays implicitly coupled to whatever the resource model covers (e.g. if BB‑4 fuels land, drops unify fuels automatically). Because it is a runtime listener, its effect is currently reported by the log line in `call()`; a T3 `[unidict-verify]` gate does not exist yet and is a candidate to add.
 
 ---
 
@@ -349,9 +355,8 @@ verify hook and are additive to (never a replacement of) the three rewrite lines
   journal `galacticraft.compressor`. Plus the GC metals (`Titanium`, `Desh`, `MeteoricIron`) were added
   to the standard metal set (`ConfigPresets`).
 
-**Gate (open):** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe
-(M4 main-thread rule still enforced). The three integrations are currently verified only at T2 (JUnit);
-T3 verify lines are blocked on the dev-LIGHT → full-stack flip (see gotchas #2 & #3).
+**Gate (open → closed for EIO/Railcraft/TE):** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe
+(M4 main-thread rule still enforced). EIO/Railcraft/TE were **T3-verified in the 2026-08-14 full dev-mod regression** (see `STATUS.md`): EIO `machines=2 rewritten=0`, Railcraft `rewritten=0`, TE `machines=3 rewritten=253` — all `PASS`. The remaining open T3 item is **Galacticraft** (compressor), whose verify line needs a run with `GalacticraftCore` at runtime (dev-LIGHT keeps GC off runtime; see gotchas #2 & #3).
 
 ## Environment gotchas & dev-tooling notes
 
