@@ -20,24 +20,19 @@ package com.mrfuzzihead.unidict.drops;
  * zero MC statics; the event handler is a thin adapter.
  */
 
-import java.util.Arrays;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
-import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
-import com.mrfuzzihead.unidict.MetaItem;
 import com.mrfuzzihead.unidict.UniDict;
-import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.registry.GameData;
 
 /**
  * Wired through the module framework: this is an {@link AbstractModuleThread} whose load-stage
@@ -78,58 +73,7 @@ public final class UnifyDrops extends AbstractModuleThread {
         if (stack == null || stack.stackSize <= 0) return;
         final ItemStack main = unifyDrop(stack, resourceHandler::getMainItemStack);
         // unifyDrop returns the input identity unless it really changed; only then touch the entity.
-        if (main != null && main != stack) {
-            item.setEntityItemStack(main);
-            UniDict.LOG.info(
-                "UnifyDrops: converted {}x {} (from {}) to {}x {} (from {}) on the ground.",
-                stack.stackSize,
-                stack.getDisplayName(),
-                Util.getModName(stack),
-                main.stackSize,
-                main.getDisplayName(),
-                Util.getModName(main));
-        } else {
-            // Debug diagnostics: WHY a server-side item drop was left untouched. Three cases:
-            // * "has NBT" -> conservative rule: tagged stacks are never rewritten
-            // * "already canonical"-> the drop IS the main entry already (nothing to do)
-            // * "unmodelled" -> not a member of any unified resource
-            // If a copper ingot drop produces NO log line at all here, the EntityJoinWorldEvent is
-            // NOT reaching this handler server-side (singleplayer drops often only spawn a visual
-            // client EntityItem), which is the singleplayer-visibility failure mode.
-            final String dropDesc = stack.getItem() == null ? "null-item"
-                : MetaItem.get(stack) + "("
-                    + GameData.getItemRegistry()
-                        .getNameForObject(stack.getItem())
-                    + "@"
-                    + stack.getItemDamage()
-                    + ") od="
-                    + Arrays.toString(toOreNames(stack));
-            final String reason = stack.hasTagCompound() ? "has NBT (untouched)"
-                : resourceHandler.exists(stack) ? "already canonical entry" : "belongs to no unified resource";
-            UniDict.LOG.debug(
-                "UnifyDrops: left {}x {} (from {}) unchanged ({}) [{}]",
-                stack.stackSize,
-                stack.getDisplayName(),
-                Util.getModName(stack),
-                reason,
-                dropDesc);
-        }
-    }
-
-    /**
-     * The Ore-Dictionary names Forge currently reports for a stack (diagnostic only). Empty for a
-     * stack Forge doesn't recognise as any OD member.
-     */
-    private static String[] toOreNames(final ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return new String[0];
-        try {
-            final int[] ids = OreDictionary.getOreIDs(stack);
-            final String[] names = new String[ids == null ? 0 : ids.length];
-            for (int i = 0; i < names.length; i++) names[i] = OreDictionary.getOreName(ids[i]);
-            return names;
-        } catch (final Exception ignored) {
-            return new String[0];
-        }
+        if (main != null && main != stack) item.setEntityItemStack(main);
     }
 
     /**
