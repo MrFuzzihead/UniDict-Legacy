@@ -12,9 +12,133 @@
 
 ## Scope confirmation (unchanged)
 
-- **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
+- **Keep & port:** Crafting, Chest, Furnace, AE2, EnderIO, Forestry, IC2, IE, Railcraft, Thermal Expansion, Galacticraft (compressor) + API helpers (ForestryUniHelper, FurnaceUniHelper, IEUniHelper, TConUniHelper).
 - **Drop:** AbyssalCraft, Foundry (+FoundryUniHelper), FSP, Hydraulicraft, Magneticraft, Mekanism, NuclearCraft.
-- **Defer:** Galacticraft (stub note only); Forestry crate system (port as-is, flag for future rework).
+- **Defer:** Galacticraft non-compressor machines (circuit fabricator — GC waivers; refinery/oil — fluid); Forestry crate-*item* creation (deferred — the carpenter/squeezer/centrifuge sliver landed in M7; crate-*recipe* wiring landed later, only runtime `ItemCrated` creation stays out).
+> **HEAD status (2026-08-15):** `feature-Implementation` has completed the integration plan — incl.
+> Forestry crate-*recipe* wiring + bronze recycling, the Galacticraft compressor, and the new
+> `UnifyDrops` module. The remaining scope, which is **non-mod-integration feature work**, is tracked
+> in [`TODO.md`](TODO.md) (P0: NEI variant hiding, `keepOneEntry` via NEI hiding, the CoFH/TE runtime
+> gate, docs sync). Read any "deferred"/"M5"/"crates" wording below through that lens.
+
+## ⚠ Scope rework — 2026-08-12 (decision; supersedes the scope above and re-scopes the milestones below)
+
+**Direction:** full rework, not a faithful port. Original UniDict is treated as a *reference for
+mechanics*, not a spec to reproduce. We keep only the low-risk, high-value behavior, rebuild it
+with better code, and prioritize the features a mature "unify" mod should have had.
+
+**Kept from the original feature set (rebuilt, "better code", covered by T1/T2/T3):**
+- **Machine output rewrites — the flagship.** Vanilla furnace, AE2 grinder, IC2 (macerator,
+  compressor, centrifuge, metal-former roller, blast furnace), IE (arc, blast, crusher, metal
+  press), TE (redstone furnace, pulverizer, induction smelter), EIO (alloy smelter, SAG mill),
+  Railcraft (blast furnace). Rewrite existing recipe *outputs* to the canonical entry,
+  **non-destructively** — never remove a recipe unless required, never mutate forge's global
+  OreDictionary source of truth.
+- **Chest / loot rewrite** (`ChestIntegration`) — best-effort, minor.
+
+**Deferred from the original (NOT ported now):**
+- Crafting recipe rewrite + recipe-key rework (was M5) — it removed other mods' recipes from
+  `CraftingManager`; revisit only later through non-destructive rewriting.
+- `keepOneEntry` / `removeFromElsewhere` / global OreDictionary mutation — invasive; the
+  historical crash source. Revisit only if a clear need arises.
+- NEI hiding / item hiding beyond what the chosen rewrites require.
+- Forestry **crate-*item* registration** (runtime `ItemCrated`) and **fluid outputs** (no 1.7.10 fluid-equivalence
+  model, BB-4) — the carpenter/squeezer/centrifuge sliver, the crate-*recipe* wiring and bronze-tool recycling are
+  implemented (non-destructive/additive).
+- API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers) — mostly deferred; keep
+  only the minimal read surface a kept integration actually uses.
+- `customUnifiedResources`. (Galacticraft compressor rewrite landed M8-build-better; only its
+  non-compressor machines — circuit fabricator, refinery/oil — stay deferred.)
+
+**New first-class features (build-better; focus these first):**
+1. **Transparency** — an in-game unification report/audit: per resource, the canonical entry,
+   every variant, the owning mod, and what was rewritten. This productionizes the
+   `[unidict-verify]` harness into a real user-facing + developer-facing feature
+   (e.g. `/unidict report`). It is also the main way we "prove it works" at each stage.
+2. **Cleaner config** — grouped categories plus **presets** (e.g. minimal / standard /
+   max-compat), fewer overlapping knobs than the original.
+3. **Non-destructive rewriting** — machine/loot rewrites never delete or mutate global
+   registries; craft rewriting, when it returns, rewrites in place.
+4. **Broader equivalence** — extend unification beyond OreDictionary tag-equality to other
+   equivalence classes over time.
+
+**Explicitly deferred (infrastructure):** reload / re-run module — a load-time one-shot is
+acceptable for now.
+
+**Unchanged:** M0 infrastructure — JUnit harness, `@Accessor` / `@Invoker` risk spikes,
+sequential/deterministic execution, accessor-as-interface seam (T2). These apply to all kept work.
+
+**Milestone impact (re-scope of the sections below):**
+- **M1** (pure resource model) — keep: the kind×resource selection core is the substrate for
+  main-entry selection and for the transparency report.
+- **M2** (config + determinism/infra) — keep; config work absorbs the *presets* feature.
+- **M3** (UniOreDictionary seam) — keep, trimmed to a **read-only** accessor (+ `getFirstEntry`
+  for the IE crusher); mutation methods deferred.
+- **M4** — reframed: the vertical slice is core selection + **vanilla furnace rewrite** + the
+  first transparency-report output. No NEI hiding.
+- **M5** (crafting rewrite + recipe-key) — **DEFERRED.**
+- **M6** — machine rewrites: Furnace, AE2, IC2, IE + Chest (loot). One PR each.
+- **M7** — machine rewrites (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter + squeezer).
+- **M8** — mostly deferred; keep only the minimal read surface kept integrations need.
+- **M9** — cleanup + full regression (unchanged).
+- **Build-better track** — see dedicated section below.
+
+
+## Build-better track (the "accomplish-more" features)
+
+These are first-class deliverables, not post-port extras. Each is testable and ships with its
+own verify line. Priority order as decided 2026-08-12: transparency, config presets,
+non-destructive rewriting, broader equivalence. **Reload / re-run module is deferred.**
+
+### BB-1 — Transparency (unification report / audit)
+- **Scope:** a dev + user command (e.g. `/unidict report`) that prints, per resource, the
+  canonical (main) entry, every variant and owner mod, and — for the kept integrations — what
+  got rewritten. Productionizes the `[unidict-verify]` harness; the report doubles as the T3
+  oracle ("prove it works" at every stage).
+- **Builds on:** M1 selection core, M2 sequential execution, the T3 writer.
+- **Tests:** T1 on a pure `ReportEntry` computation/formatting; T3 grep of report lines.
+- **Gate:** `[unidict-verify] report` output is stable and diffable across runs; every kept
+  rewrite has a matching report line.
+
+### BB-2 — Cleaner config + presets
+- **Scope:** grouped categories, fewer overlapping knobs than the original (dedupe
+  `ownerOfEveryThing` vs per-kind owners vs `enableSpecificKindSort`), and **presets** —
+  minimal / standard / max-compat. Presets pick defaults; explicit keys still override.
+- **Builds on:** M2 Config port; keep legacy key names as aliases where cheap for compat.
+- **Tests:** T1 `Config` fixture covers every key + preset resolution.
+- **Gate:** each preset yields a documented, deterministic default set; fixture test green.
+
+### BB-3 — Non-destructive rewriting
+- **Scope:** machine/loot rewrites rewrite outputs **in place** and never remove or mutate
+  global registries (forge OD lists, CraftingManager, a mod manager's structural recipe list).
+- **Tests:** T2 on a fake machine-recipe map asserts rewrite changes only outputs and preserves
+  entry counts; a grep guard ensures no kept integration calls a destructive API.
+- **Gate:** grep guard passes (no `Iterator.remove` on shared recipe lists in kept code);
+  fabricated-map T2 test green.
+
+### BB-4 — Broader equivalence
+- **Scope:** extend unification beyond OreDictionary tag-equality to other equivalence classes
+  (e.g. fuel/energy-providing stacks, "same item" grouped across mods) as the core matures.
+  Research + spike first; exact equivalences are TBD and added iteratively.
+- **Tests:** T1 on each equivalence classifier; T3 verify lines per equivalence class.
+- **Gate:** at least one non-OD equivalence class implemented, tested, and reported.
+- **Scope decision (2026-08-13):** the first non-metal equivalence class is **fuel/coke** (coal coke from
+  Railcraft + IE). It is **deferred until after M6/M7 but prioritized as the next build-better milestone** —
+  it is NOT part of the metal machine-rewrite work. Rationale + plan:
+  - The unification *engine* is already resource-agnostic (`ResourceHandler.getMainItemStack` is what every
+    machine rewrite calls), so registering coke needs no machine code — only (a) a new resource *kind* for
+    the fuel/coke form in the M1 taxonomy (within the 64-kind guard), (b) a config surface (resurrect the
+    deferred `customUnifiedResources` / a "fuels" preset toggle), and (c) a **fuel-equivalence classifier**.
+  - Fuels are NOT naive OD tag-equality: metals are near-interchangeable, but coke variants can differ in
+    burn time and some recipes/fuel slots check the exact item. The classifier must pick the canonical coke
+    by fuel value and preserve per-item burn semantics (config-gated, opt-in).
+  - Before implementing, verify in the live GTNH pack that Railcraft/IE coke actually share a tag and what
+    each fuel value is, so the canonical-selection rule is data-backed.
+  - Shipping shape: register Coke, let the existing machine rewrites pick up its outputs via
+    `getMainItemStack`, add a verify/report line, then satisfy the BB-4 gate with a T3-run equivalence line.
+
+### Deferred (infrastructure)
+- Reload / re-run module — a load-time one-shot is acceptable for now.
 
 ## Boilerplate checkpoint (repo state at v2)
 
@@ -96,6 +220,8 @@ Tests (T1): kind bit assignment; `register`/`registerAndGet` idempotence; 64-kin
 Tests (T1/T2): `Config` fixture round-trip; `Manager`/`LoadStage` — registration order == execution order; zero threads reachable in the integration path.
 
 **Gate:** `./gradlew test build` green; `runClient` boots with all integrations off; grep confirms no `ExecutorService` in `src/main` integration code.
+
+**M2 sequencing (scope decision 2026-08-13):** M2 lands as **two commits**. **Commit 1** = determinism/infra, in place before any integration exists so every later integration is an isolated, diffable change: sequential `LoadStageExecutor` (replaces the thread pool; registration order == execution order), explicit-`new` registry in `IntegrationModule`, DI classes deleted, `Util` trimmed, `LoadStage`/`SpecifiedLoadStage` ported, and a `DeterminismGuardTest` JUnit grep guard (the enforceable form of the gate grep above). **Commit 2** = `Config` port + BB-2 presets; it also ports the config-coupled `SpecificKindItemStackComparator` and `Util.itemStackComparatorByModName`, which are intentionally deferred out of Commit 1 because they depend on `Config`'s owner-of-kind maps (clean commit boundary). `runClient` gate verified at the end of Commit 1 (mechanism unit-verified by the T2 executor/handler tests) and re-verified after Commit 2.
 ---
 
 ## M3 — UniOreDictionary via the accessor seam *(v1 steps 11–13; depends on M0 Spike A)*
@@ -103,6 +229,7 @@ Tests (T1/T2): `Config` fixture round-trip; `Manager`/`LoadStage` — registrati
 **Files:** `mixins.early/OreDictionaryMixin.java`, `IOreDictionaryAccessor.java`, rewritten `UniOreDictionary.java`, `src/test/.../FakeOreDictionaryAccessor.java`.
 
 - Define `IOreDictionaryAccessor` (the 5 maps); the mixin implements it, the fake lives in test sources.
+- **Spike-A carry-over (Hodgepodge):** do NOT capture via `@Inject` into `OreDictionary.rebakeMap()` — Hodgepodge's `SpeedupOreDictionaryTransformer` strips it. Read the maps **lazily**: `oreDictBridge`/`UniOreDictionary` call the mixin's `@Accessor` getters on demand. See §Interop decisions.
 - Rewrite `UniOreDictionary` to read all maps through the interface. Public methods keep signatures for API compat (`get`, `getUn`, `getId`, `getThoseThatMatches`, `removeFromElsewhere`, `getFirstEntry`, …). `removeFromElsewhere` keeps public `OreDictionary.getOreIDs` + direct list manipulation via the accessor.
 - Delete every `Util.getField`/`setField` call site here — the last reflection in core (v1 step 13).
 
@@ -179,7 +306,7 @@ Order builds the integration pattern (config toggle + sequential entry + verify 
 Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mixins.early` or `…late` per target + fake; `TargetMods` gating where the mod must be loaded.
 
 1. **`EnderIOIntegration` (22)** + `OreDictionaryPreferencesMixin` (`preferences` map). Drop `FixedSizeList` usage if trivially `ArrayList`-able (likely).
-2. **`ForestryIntegration` (23)** + `CarpenterRecipeManagerMixin` (`recipes` set). Crate system (`createCratesDefault` + `ForestryUniHelper.registerCratesAndCreateRecipes`) ported as-is with `// TODO: rework crate registration`.
+2. **`ForestryIntegration` (23)** — scoped, all non-destructive: `ShapedOreRecipeMixin` (early `@Accessor` on the Forge `ShapedOreRecipe.output`) behind `IShapedOreRecipeAccessor` rewrites carpenter grid outputs **in place**; squeezer container-recipe remnants via `Map.Entry.setValue` on the public `SqueezerRecipeManager.containerRecipes` (no mixin); `CentrifugeRecipeMixin` (late, `TargetMods.FORESTRY`) behind `ICentrifugeRecipeAccessor` rewrites each recipe's private product map **in place** (clear+putAll — the machine reads that exact map via `getProducts(Random)`, so bee-comb → metal outputs unify). **Not ported:** crate registration (deferred), fluid outputs (no 1.7.10 fluid-equivalence model).
 3. **`RailcraftIntegration` (26)** + `BlastFurnaceCraftingManagerMixin` (`recipes` list, instance accessor).
 4. **`TEIntegration` (27)** — `FurnaceManagerMixin`, `PulverizerManagerMixin`, `SmelterManagerMixin` (each `@Accessor` for `recipeMap` + `@Invoker` for the private `Recipe*` ctor). Keep `@SpecifiedLoadStage(LOAD_COMPLETE)`. Prefer `@Invoker` per Spike B; on failure, flip the pre-written 3 AT entries and flag for review.
 
@@ -192,7 +319,7 @@ Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mix
 **Files:** `api/UniDictAPI`, `api/helper/ForestryUniHelper`, `api/helper/FurnaceUniHelper`, `api/helper/IEUniHelper`, `api/helper/TConUniHelper`, `NEIHelper`.
 
 - `UniDictAPI` (39) unchanged (public read API).
-- `ForestryUniHelper` (40): reuse the M7 carpenter accessor interface (fake-driven T2); keep crate-registration as-is (deferred rework).
+- `ForestryUniHelper` (40): deferred (crates). Revisit via the M7 `ShapedOreRecipeMixin` accessor interface (fake-driven T2); keep crate-registration as-is (deferred rework).
 - `FurnaceUniHelper` (41), `IEUniHelper` (42), `TConUniHelper` (43): unchanged (public APIs + `NEIHelper`).
 - `NEIHelper` (44): main-thread guard already in (M4); stays the single `API.hideItem` site.
 - `mcmod.info` (46) — currently example-mod boilerplate (author/URL/description); update.
@@ -213,27 +340,45 @@ Each is a mechanical repeat of the M3 pattern: interface + `@Mixin` impl in `mix
 
 ## Mixin summary table (v1, + interface/fake column)
 
-| Mixin class                        | Target                        | Accessor/Invoker               | Interface (+ test fake)                                  | Replaces                                               |
-|------------------------------------|-------------------------------|--------------------------------|----------------------------------------------------------|--------------------------------------------------------|
-| `OreDictionaryMixin`               | `OreDictionary`               | `@Accessor` x5 (static)        | `IOreDictionaryAccessor` (+ `FakeOreDictionaryAccessor`) | `UniOreDictionary` reflection                          |
-| `ChestGenHooksMixin`               | `ChestGenHooks`               | `@Accessor` x2                 | `IChestGenHooksAccessor`                                 | `ChestIntegration` reflection                          |
-| `CarpenterRecipeManagerMixin`      | `CarpenterRecipeManager`      | `@Accessor` x1                 | `ICarpenterRecipeManagerAccessor`                        | `ForestryIntegration` + `ForestryUniHelper` reflection |
-| `OreDictionaryPreferencesMixin`    | `OreDictionaryPreferences`    | `@Accessor` x1                 | `IOreDictionaryPreferencesAccessor`                      | `EnderIOIntegration` reflection                        |
-| `BlastFurnaceCraftingManagerMixin` | `BlastFurnaceCraftingManager` | `@Accessor` x1                 | `IBlastFurnaceCraftingManagerAccessor`                   | `RailcraftIntegration` reflection                      |
-| `FurnaceManagerMixin`              | `FurnaceManager`              | `@Accessor` x1 + `@Invoker` x1 | `IFurnaceManagerAccessor`                                | `TEIntegration` reflection                             |
-| `PulverizerManagerMixin`           | `PulverizerManager`           | `@Accessor` x1 + `@Invoker` x1 | `IPulverizerManagerAccessor`                             | `TEIntegration` reflection                             |
-| `SmelterManagerMixin`              | `SmelterManager`              | `@Accessor` x1 + `@Invoker` x1 | `ISmelterManagerAccessor`                                | `TEIntegration` reflection                             |
+| Mixin class                        | Target                        | Accessor/Invoker                   | Interface (+ test fake)                                      | Replaces                                                                           |
+|------------------------------------|-------------------------------|------------------------------------|--------------------------------------------------------------|------------------------------------------------------------------------------------|
+| `OreDictionaryMixin`               | `OreDictionary`               | `@Accessor` x5 (static)            | `IOreDictionaryAccessor` (+ `FakeOreDictionaryAccessor`)     | `UniOreDictionary` reflection                                                      |
+| `ChestGenHooksMixin`               | `ChestGenHooks`               | `@Accessor` x2                     | `IChestGenHooksAccessor`                                     | `ChestIntegration` reflection                                                      |
+| `WeightedRandomChestContentMixin`  | `WeightedRandomChestContent`  | `@Accessor` x2 (get+set)           | `IWeightedRandomChestContentAccessor`                        | `ChestIntegration` reflection (\*1.7.10 only)                                      |
+| `ShapedOreRecipeMixin`             | `ShapedOreRecipe` (Forge)     | `@Accessor` x2 (get+set, instance) | `IShapedOreRecipeAccessor` (+ `FakeShapedOreRecipeAccessor`) | `ForestryIntegration` carpenter output rewrite                                     |
+| `CentrifugeRecipeMixin`            | `CentrifugeRecipe` (Forestry) | `@Accessor` x1 (get, instance)     | `ICentrifugeRecipeAccessor` (+ generic product-map seam)     | `ForestryIntegration` centrifuge product-key rewrite (late, `TargetMods.FORESTRY`) |
+| `OreDictionaryPreferencesMixin`    | `OreDictionaryPreferences`    | `@Accessor` x1                     | `IOreDictionaryPreferencesAccessor`                          | `EnderIOIntegration` reflection                                                    |
+| `BlastFurnaceCraftingManagerMixin` | `BlastFurnaceCraftingManager` | `@Accessor` x1                     | `IBlastFurnaceCraftingManagerAccessor`                       | `RailcraftIntegration` reflection                                                  |
+| `FurnaceManagerMixin`              | `FurnaceManager`              | `@Accessor` x1 + `@Invoker` x1     | `IFurnaceManagerAccessor`                                    | `TEIntegration` reflection                                                         |
+| `PulverizerManagerMixin`           | `PulverizerManager`           | `@Accessor` x1 + `@Invoker` x1     | `IPulverizerManagerAccessor`                                 | `TEIntegration` reflection                                                         |
+| `SmelterManagerMixin`              | `SmelterManager`              | `@Accessor` x1 + `@Invoker` x1     | `ISmelterManagerAccessor`                                    | `TEIntegration` reflection                                                         |
 
-**AT fallback note (unchanged):** if `@Invoker` can't target a private constructor in the UniMixins / Sponge 0.8.5-GTNH build, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`). Spike B in M0 settles this once and for all.
+**Chest accessor note (\*1.7.10):** the plan's `ChestGenHooksMixin` covers the two Forge-added fields (`chestInfo` registry + `contents`). The added `WeightedRandomChestContentMixin` is a **1.7.10-necessitated second accessor**: upstream (1.12.2) rewrote loot items by mutating `WeightedRandomChestContent.theItemId` as a *public* field, but in MC 1.7.10 that field is **private** (notch `qx.b`, SRG `field_76297_b`), so `ChestIntegration` reaches it through this get+set accessor to rewrite in place (BB-3). Toolchain catches from M6 (2026-08-13): (1) the Mixin AP requires an `@Accessor` stub to return the **exact field descriptor**, not a supertype (`HashMap`/`ArrayList`, not `Map`/`List`) — a covariant `Map<...>` return fails with `Could not locate @Accessor target …`; (2) the Mixin transformer rejects a **non-abstract instance** `@Accessor` at apply time (`InvalidAccessorException: @Accessor method … is not abstract`, a run-1 crash), so every *instance* accessor is `protected abstract`, while a *static* field accessor (e.g. `chestInfo`) stays a concrete `private static` method (the proven M3 `OreDictionaryMixin` pattern — Java forbids `abstract static`).
+
+**AT fallback note (unchanged):** if `@Invoker` can't target a private constructor in the UniMixins / Sponge 0.8.5-GTNH build, the three TE constructors fall back to 3 AT entries (`PulverizerManager$RecipePulverizer`, `SmelterManager$RecipeSmelter`, `FurnaceManager$RecipeFurnace`). **Spike B outcome (2026-08-12):** `@Invoker("<init>")` compiles for all three TE constructor signatures (Mixins AP 0.8.7 validates them) — use `@Invoker` in M7. The AT fallback is **documented only, no physical file** (the toolchain `applyJST` auto-applies any `*_at.cfg` in resources to the *decompiled MC* and rejects non-MC class entries — a resource AT would break the build). Write + validate AT entries only if runtime `@Invoker` fails in-game.
+
+---
+
+## Interop decisions — defer to Hodgepodge (hard rule)
+
+**Rule:** UniDict must work with **every GTNH environment mod at its default settings**. We never
+disable, override, or work around a Hodgepodge (or GTNHLib, or any pack-infra) feature to make our
+code work; if a target is being transformed by such a mod, we adopt the approach that coexists with
+that transformation. Document each conflict here.
+
+- **Hodgepodge `SpeedupOreDictionaryTransformer` (`com.mitchej123.hodgepodge…mc.SpeedupOreDictionaryTransformer`)** — ASM-rewrites `OreDictionary.rebakeMap()`, `getOreID`, `getOres`, `registerOreImpl`, … as a speedup, **stripping injected callbacks**. Effect on us: our M0 spike captured the bridge via `@Inject(at = @At("TAIL"))` into `rebakeMap`, which **never fires** under Hodgepodge (the mixin applies cleanly — the 5 `@Accessor`s are proofed — but the injector is dropped). Decision: **do not disable the transformer.** The M3 seam reads the maps **lazily** — expose the `@Accessor` getters and read the current field values on demand whenever `UniOreDictionary`/`OreDictionaryBridge` queries them, instead of relying on a one-time `capture()`. The fields remain populated under Hodgepodge (it optimizes, not removes); lazy reads coexist with it. Green line becomes `[unidict-verify] PASS spikeA oredict-bridge`.
+  - Bottom line for M3: **`@Accessor` getters yes; side-effecting `@Inject` into transform-targeted methods no.**
+  - See `docs/TestPlan.md` rule 8 and `docs/STATUS.md` (M0 Spike A is `[~]` for this reason).
 
 ---
 
 ## Key risks / watch items (updated)
 
-- **`@Accessor` on static fields** — demoted from "single biggest could go wrong" to **M0 Spike A**. On failure, the `@Inject`-based accessor fallback is adopted on day one, before M3 depends on it.
+- **`@Accessor` on static fields** — demoted from "single biggest could go wrong" to **M0 Spike A**. **Resolved:** accessors apply cleanly, but the capture hook conflicts with Hodgepodge's `SpeedupOreDictionaryTransformer` (see §Interop decisions) → M3 uses a **lazy-read** bridge, never a `rebakeMap` `@Inject`.
+- **GTNH environment transformers (Hodgepodge et al.)** — **NEW RISK.** Any `@Inject` into a method a pack coremod ASM-rewrites is silently dropped (observed with `SpeedupOreDictionaryTransformer`/`rebakeMap`). Hard rule: defer to Hodgepodge, never disable it; prefer `@Accessor`/`@Invoker`/vanilla-safe hooks over `@Inject` into transformed methods. Enforced on a per-case basis in §Interop decisions.
 - **`@Invoker` on constructors** — **M0 Spike B**; the 3 TE AT entries are the pre-written fallback.
 - **Recipe key rework** changes dedup behavior — isolated to M5 commit 2, protected by T1 regression tests and before/after verify dumps.
-- **Forestry crate runtime item registration** remains the most fragile kept feature; ported as-is, flagged `// TODO: rework crate registration`.
+- **Forestry crate runtime item registration** remains the most fragile kept feature; **deferred** (not ported) — only the non-destructive carpenter/squeezer sliver is implemented; flagged `// TODO: rework crate registration` if revisited.
 - **JUnit wiring depends on the toolchain** — settled by the M0 demo test; the checkout does not yet prove `useJUnitPlatform()` is wired.
 
 ---
@@ -290,7 +435,16 @@ Each integration row in M6/M7 repeats the 5-item per-PR checklist; check them of
 
 ---
 
-## Deferred items (unchanged)
+## Deferred items (updated 2026-08-15) — the forward-looking backlog is [TODO.md](TODO.md); this keeps the historical deferrals accurate
 
-- **Galacticraft integration** — stub note only; real implementation to be added later.
-- **Forestry crate system** — ported as-is; the runtime `ItemCrated` registration is a future rework candidate (flagged `// TODO: rework crate registration`).
+Strictly-deferred from the kept feature set:
+
+- **Crafting recipe-key rework / input rewrite** — M5 landed the *output-only* craft rewrite; the destructive input/recipe-key rework stays out (see TODO.md P1 `inputReplacement`).
+- **`keepOneEntry` (aggressive) / `removeFromElsewhere` / global OreDictionary mutation** — the historical crash source. `keepOneEntry`'s safe form (via NEI hiding) is a P0 item in TODO.md; live-list mutation stays out.
+- **NEI / item hiding** — now a planned P0 feature (variant hiding + `autoHideInNEI`); see TODO.md P0.
+- **Forestry crate-*item* creation (runtime `ItemCrated`) + fluid outputs** — crate-*recipe* wiring and bronze recycling landed (see `INTEGRATIONS.md`); item creation + fluid outputs stay deferred.
+- **API/helper surface (`UniDictAPI` + Forestry/Furnace/IE/TCon helpers)** — keep only the minimal read surface kept integrations use (TODO.md P2).
+- **`customUnifiedResources`** (TODO.md P1) and **GC non-compressor machines** (TODO.md P2).
+
+Infrastructure:
+- **Reload / re-run module** — deferred (TODO.md P2).

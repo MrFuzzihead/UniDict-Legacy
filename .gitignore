@@ -36,3 +36,9 @@ addon.late.local.gradle
 addon.late.local.gradle.kts
 layout.json
 /migrate/
+
+# DEV-only CoFH/GT/Hodgepodge run-time files. These make the dev client boot with
+# CoFH Core on the local classpath and are NOT part of the published mod (see
+# docs/INTEGRATIONS.md "Environment gotchas", #2). Kept out of the repo/working tree.
+/META-INF/
+src/main/resources/META-INF/unidict_at.cfg

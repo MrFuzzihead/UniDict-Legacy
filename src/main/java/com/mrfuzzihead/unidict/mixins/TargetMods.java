@@ -7,8 +7,11 @@ import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 
 public enum TargetMods implements ITargetMod {
 
-    EXAMPLEMODNOCORE("examplemodnocoremodid"),
-    EXAMPLEMODCORE("modauthor.modname.core.CoreMod", "examplemodcoremodid");
+    THERMAL_EXPANSION("ThermalExpansion"),
+    ENDER_IO("EnderIO"),
+    RAILCRAFT("Railcraft"),
+    FORESTRY("Forestry"),
+    IC2("IC2");
 
     private final TargetModBuilder builder;
 

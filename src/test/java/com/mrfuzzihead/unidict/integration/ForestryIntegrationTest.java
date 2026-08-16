@@ -1,0 +1,416 @@
+package com.mrfuzzihead.unidict.integration;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.UnaryOperator;
+
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+
+import org.junit.jupiter.api.Test;
+
+import com.mrfuzzihead.unidict.forestry.FakeCarpenterRecipeAdder;
+import com.mrfuzzihead.unidict.forestry.FakeShapedOreRecipeAccessor;
+import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
+import com.mrfuzzihead.unidict.integration.ForestryIntegration.ContainerRecipeView;
+
+/**
+ * T2 test for the Forestry integration (docs/PLAN.md §M7 #2). Three concerns:
+ *
+ * <p>
+ * <b>Carpenter grid-output rewrite</b> — {@link ForestryIntegration#rewriteCarpenterOutputs} maps
+ * each {@link IShapedOreRecipeAccessor} through the {@code resolveMain} resolver via the accessor
+ * seam, asserting BB-3: only outputs change, no recipe is removed, null/unchanged outputs are left
+ * alone. Driven through a fake accessor (no Forestry classes on the JUnit test classpath).
+ *
+ * <p>
+ * <b>Squeezer container-recipe remnants rewrite</b> — {@link ForestryIntegration#rewriteContainerRecipes}
+ * rewrites each {@link Map.Entry}'s value remnants in place, asserting BB-3: only the remnants stack
+ * changes, the entry count is preserved, and the map key is unchanged. Driven through a neutral
+ * {@link Holder} map and a neutral view (no Forestry types on the test classpath).
+ *
+ * <p>
+ * <b>Centrifuge product-map rewrite</b> — {@link ForestryIntegration#rewriteCentrifugeProducts} maps
+ * each product key through the resolver and, only when something changed, clears + refills the SAME
+ * map in place, asserting BB-3: product entry count and chances are preserved, non-canonical keys are
+ * replaced with canonical ones, unchanged/unresolvable maps are left untouched.
+ */
+class ForestryIntegrationTest {
+
+    // ---- Carpenter (grid-recipe output) --------------------------------------
+
+    @Test
+    void rewriteCarpenterOutputsMapsRecipesAndPreservesCount() {
+        final Item itemA = new Item();
+        final Item itemB = new Item();
+        final ItemStack outA = new ItemStack(itemA, 2, 1);
+        final ItemStack outB = new ItemStack(itemB, 2, 1);
+
+        final List<IShapedOreRecipeAccessor> recipes = new ArrayList<>();
+        recipes.add(new FakeShapedOreRecipeAccessor(outA));
+        recipes.add(new FakeShapedOreRecipeAccessor(outB));
+
+        final ItemStack canonicalB = new ItemStack(itemB, 9, 3);
+        final UnaryOperator<ItemStack> resolveMain = s -> (s == outB) ? canonicalB : s;
+
+        final int rewritten = ForestryIntegration.rewriteCarpenterOutputs(recipes, resolveMain);
+
+        assertEquals(1, rewritten, "only the resolvable output should be rewritten");
+        assertEquals(2, recipes.size(), "rewriting must never add or remove recipes");
+        assertSame(
+            outA,
+            recipes.get(0)
+                .unidict$getOutput(),
+            "unchanged output keeps its identity");
+        assertSame(
+            canonicalB,
+            recipes.get(1)
+                .unidict$getOutput(),
+            "the mapped output is set in place");
+    }
+
+    @Test
+    void rewriteCarpenterOutputsLeavesUnchangedRecipeAlone() {
+        final Item itemA = new Item();
+        final ItemStack output = new ItemStack(itemA, 1, 1);
+
+        final FakeShapedOreRecipeAccessor recipe = new FakeShapedOreRecipeAccessor(output);
+        final int rewritten = ForestryIntegration
+            .rewriteCarpenterOutputs(new ArrayList<>(Arrays.asList(recipe)), UnaryOperator.identity());
+
+        assertEquals(0, rewritten, "identity resolver must not rewrite anything");
+        assertSame(output, recipe.unidict$getOutput());
+    }
+
+    @Test
+    void rewriteCarpenterOutputsSkipsNullEntries() {
+        final Item itemA = new Item();
+        final FakeShapedOreRecipeAccessor recipe = new FakeShapedOreRecipeAccessor(new ItemStack(itemA, 1, 1));
+        final List<IShapedOreRecipeAccessor> recipes = new ArrayList<>(Arrays.asList(recipe, null));
+
+        final int rewritten = ForestryIntegration.rewriteCarpenterOutputs(recipes, UnaryOperator.identity());
+
+        assertEquals(0, rewritten);
+        assertEquals(2, recipes.size(), "a null entry must not be removed");
+        assertNull(recipes.get(1));
+    }
+    // ---- Squeezer (container-recipe remnants) ---------------------------------
+
+    /** Neutral container-recipe holder so the generic seam is testable with no Forestry classes. */
+    private static final class Holder {
+
+        ItemStack remnants;
+        final int time;
+        final float chance;
+
+        Holder(final ItemStack remnants, final int time, final float chance) {
+            this.remnants = remnants;
+            this.time = time;
+            this.chance = chance;
+        }
+    }
+
+    private static final ContainerRecipeView<Holder> HOLDER_VIEW = new ContainerRecipeView<Holder>() {
+
+        @Override
+        public ItemStack getRemnants(final Holder recipe) {
+            return recipe.remnants;
+        }
+
+        @Override
+        public int getProcessingTime(final Holder recipe) {
+            return recipe.time;
+        }
+
+        @Override
+        public float getRemnantsChance(final Holder recipe) {
+            return recipe.chance;
+        }
+
+        @Override
+        public Holder rebuild(final Holder original, final ItemStack canonicalRemnants) {
+            return new Holder(canonicalRemnants, original.time, original.chance);
+        }
+    };
+
+    @Test
+    void rewriteContainerRecipesRemapsRemnantsAndPreservesEntryCountAndKey() {
+        final Item itemA = new Item();
+        final Item itemB = new Item();
+        final ItemStack outA = new ItemStack(itemA, 2, 1);
+        final ItemStack outB = new ItemStack(itemB, 2, 1);
+        final ItemStack keyA = new ItemStack(itemA, 1, 0);
+        final ItemStack keyB = new ItemStack(itemB, 1, 0);
+
+        final Map<ItemStack, Holder> containerRecipes = new HashMap<>();
+        containerRecipes.put(keyA, new Holder(outA, 20, 0.5f));
+        containerRecipes.put(keyB, new Holder(outB, 40, 0.25f));
+
+        final ItemStack canonicalB = new ItemStack(itemB, 9, 3);
+        final UnaryOperator<ItemStack> resolveMain = s -> (s == outB) ? canonicalB : s;
+
+        final int rewritten = ForestryIntegration.rewriteContainerRecipes(containerRecipes, HOLDER_VIEW, resolveMain);
+
+        assertEquals(1, rewritten, "only the resolvable remnants should be rewritten");
+        assertEquals(2, containerRecipes.size(), "rewriting must never add or remove entries");
+        assertSame(outA, containerRecipes.get(keyA).remnants, "unchanged remnants keep their identity");
+        assertSame(canonicalB, containerRecipes.get(keyB).remnants, "the mapped remnants are set in place");
+        assertEquals(20, containerRecipes.get(keyA).time, "processing time is preserved for unchanged entries");
+        assertEquals(40, containerRecipes.get(keyB).time, "processing time is preserved for rewritten entries");
+        assertEquals(0.5f, containerRecipes.get(keyA).chance, 0.001f, "chance is preserved for unchanged entries");
+        assertEquals(0.25f, containerRecipes.get(keyB).chance, 0.001f, "chance is preserved for rewritten entries");
+    }
+
+    @Test
+    void rewriteContainerRecipesLeavesNullAndUnchangedEntriesAlone() {
+        final Item itemA = new Item();
+        final ItemStack outA = new ItemStack(itemA, 1, 1);
+        final ItemStack keyA = new ItemStack(itemA, 1, 0);
+
+        final Map<ItemStack, Holder> containerRecipes = new HashMap<>();
+        containerRecipes.put(keyA, new Holder(outA, 10, 1.0f));
+
+        final int rewritten = ForestryIntegration
+            .rewriteContainerRecipes(containerRecipes, HOLDER_VIEW, UnaryOperator.identity());
+
+        assertEquals(0, rewritten, "identity resolver must not rewrite anything");
+        assertSame(outA, containerRecipes.get(keyA).remnants);
+        assertEquals(1, containerRecipes.size(), "rewriting must never change the entry count");
+    }
+
+    @Test
+    void rewriteContainerRecipesSkipsNullRemnantsWithoutIncident() {
+        final Item itemA = new Item();
+        final ItemStack keyA = new ItemStack(itemA, 1, 0);
+
+        final Map<ItemStack, Holder> containerRecipes = new HashMap<>();
+        containerRecipes.put(keyA, new Holder(null, 5, 0.75f)); // null remnants -> no byproduct
+
+        final int rewritten = ForestryIntegration
+            .rewriteContainerRecipes(containerRecipes, HOLDER_VIEW, UnaryOperator.identity());
+
+        assertEquals(0, rewritten, "a recipe with no remnants must be skipped");
+        assertNull(containerRecipes.get(keyA).remnants, "null remnants must be left as-is");
+    }
+
+    // ---- Centrifuge (product-map rewrite) ------------------------------------
+
+    @Test
+    void rewriteCentrifugeProductsMapsProductKeysInPlacePreservingChances() {
+        final Item itemA = new Item();
+        final ItemStack productA = new ItemStack(itemA, 1, 1);
+        final ItemStack productB = new ItemStack(itemA, 1, 2);
+        final ItemStack canonicalB = new ItemStack(itemA, 1, 5);
+
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(productA, 1.0f);
+        products.put(productB, 0.25f);
+
+        final int changed = ForestryIntegration
+            .rewriteCentrifugeProducts(products, s -> (s == productB) ? canonicalB : s);
+
+        assertEquals(1, changed, "only the resolvable product should be rewritten");
+        assertEquals(2, products.size(), "rewriting must never change the product count");
+        assertEquals(1.0f, products.get(productA), 0.001f, "unchanged product's chance is preserved");
+        assertEquals(0.25f, products.get(canonicalB), 0.001f, "rewritten product's chance is preserved");
+        assertTrue(products.containsKey(canonicalB), "the mapped product key is present");
+        assertFalse(products.containsKey(productB), "the non-canonical product key is replaced");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsLeavesUnchangedMapUntouched() {
+        final Item itemA = new Item();
+        final ItemStack productA = new ItemStack(itemA, 1, 1);
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(productA, 0.5f);
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, UnaryOperator.identity());
+
+        assertEquals(0, changed, "identity resolver must not rewrite anything");
+        assertEquals(1, products.size());
+        assertTrue(products.containsKey(productA), "an unchanged product map is not cleared/rebuilt");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsSkipsNullProductEntries() {
+        final Map<ItemStack, Float> products = new HashMap<>();
+        products.put(null, 0.5f); // a null product is impossible in a real recipe (ctor rejects it); guard anyway
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, UnaryOperator.identity());
+
+        assertEquals(0, changed);
+        assertTrue(products.containsKey(null), "a null product entry is left as-is when nothing changes");
+    }
+    // ---- Bronze-tool recycling ---------------------------------------------
+
+    @Test
+    void addBronzeRecyclingAddsOneRecipePerRegisteredTool() {
+        final Item item = new Item();
+        final ItemStack canonicalIngot = new ItemStack(item, 1, 0);
+        final ItemStack pickaxe = new ItemStack(new Item(), 1, 0);
+        final ItemStack shovel = new ItemStack(new Item(), 1, 0);
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addBronzeRecycling(adder, canonicalIngot, pickaxe, shovel);
+
+        assertEquals(2, added, "both registered tools should recycle");
+        assertEquals(
+            2,
+            adder.singleProducts()
+                .size(),
+            "two single-slot recipes added");
+        assertEquals(
+            2,
+            adder.singleProducts()
+                .get(0).stackSize,
+            "pickaxe recycles into 2 canonical ingots");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .get(1).stackSize,
+            "shovel recycles into 1 canonical ingot");
+        assertSame(
+            pickaxe,
+            adder.singleIngredients()
+                .get(0),
+            "pickaxe is the ingredient of the first recipe");
+        assertSame(
+            shovel,
+            adder.singleIngredients()
+                .get(1),
+            "shovel is the ingredient of the second recipe");
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty(),
+            "recycling never uses a 3x3 grid recipe");
+    }
+
+    @Test
+    void addBronzeRecyclingEncountersOnlyTheMissingTool() {
+        final ItemStack canonicalIngot = new ItemStack(new Item(), 1, 0);
+        final ItemStack shovel = new ItemStack(new Item(), 1, 0);
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addBronzeRecycling(adder, canonicalIngot, null, shovel);
+
+        assertEquals(1, added, "only the present tool is recycled");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .size());
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .get(0).stackSize);
+        assertSame(
+            shovel,
+            adder.singleIngredients()
+                .get(0));
+    }
+
+    @Test
+    void addBronzeRecyclingIsNoOpWithoutCanonicalIngot() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addBronzeRecycling(adder, null, new ItemStack(new Item(), 1, 0), new ItemStack(new Item(), 1, 0));
+
+        assertEquals(0, added, "no canonical bronze ingot -> nothing to recycle into");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
+    }
+
+    // ---- Crate wiring ------------------------------------------------------
+
+    @Test
+    void addCrateRecipesAddsCratingAndUncrating() {
+        final Item item = new Item();
+        final ItemStack canonicalIngot = new ItemStack(item, 1, 0);
+        final ItemStack crateStack = new ItemStack(new Item(), 1, 0);
+        final String oredicted = "ingotCopper";
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration.addCrateRecipes(adder, canonicalIngot, crateStack, oredicted);
+
+        assertEquals(2, added, "crating and uncrating are both added");
+        assertEquals(
+            1,
+            adder.gridProducts()
+                .size(),
+            "one crating recipe");
+        assertTrue(
+            adder.gridProducts()
+                .get(0)
+                .isItemEqual(crateStack),
+            "crating outputs the crate");
+        assertEquals(
+            1,
+            adder.gridProducts()
+                .get(0).stackSize,
+            "crating outputs a crate stack");
+        assertEquals(
+            oredicted,
+            adder.gridIngredients()
+                .get(0),
+            "crating ingredient is the ingot OreDictionary name");
+        assertEquals(
+            1,
+            adder.singleProducts()
+                .size(),
+            "one uncrating recipe");
+        assertEquals(
+            9,
+            adder.singleProducts()
+                .get(0).stackSize,
+            "uncrating outputs 9 canonical ingots");
+        final ItemStack uncrated = (ItemStack) adder.singleIngredients()
+            .get(0);
+        assertSame(crateStack, uncrated, "uncrating ingredient is the crate stack");
+    }
+
+    @Test
+    void addCrateRecipesNoOpsWhenCrateIsMissing() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addCrateRecipes(adder, new ItemStack(new Item(), 1, 0), null, "ingotCopper");
+
+        assertEquals(0, added, "no registered crate -> nothing to wire");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
+    }
+
+    @Test
+    void addCrateRecipesNoOpsOnMissingOreDictName() {
+        final FakeCarpenterRecipeAdder adder = new FakeCarpenterRecipeAdder();
+
+        final int added = ForestryIntegration
+            .addCrateRecipes(adder, new ItemStack(new Item(), 1, 0), new ItemStack(new Item(), 1, 0), null);
+
+        assertEquals(0, added, "a null Oredict ingredient cannot be crated");
+        assertTrue(
+            adder.singleProducts()
+                .isEmpty());
+        assertTrue(
+            adder.gridProducts()
+                .isEmpty());
+    }
+
+}
