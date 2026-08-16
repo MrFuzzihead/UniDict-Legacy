@@ -22,8 +22,20 @@ public final class RewriteJournal {
 
     private RewriteJournal() {}
 
-    /** Records one machine rewrite total. Ordering is deterministic (integration run order). */
+    /**
+     * Records one machine rewrite total. Ordering is deterministic (integration run order).
+     * Idempotent for re-runs: a re-record of the same {@code source}/{@code machine} (e.g. the crafting
+     * rewrite at LOAD_COMPLETE and again at server start) updates the last matching entry instead of
+     * appending a duplicate, so the report always shows the authoritative final count once.
+     */
     public static void record(final String source, final String machine, final int count) {
+        for (int i = records.size() - 1; i >= 0; i--) {
+            final RewriteRecord existing = records.get(i);
+            if (existing.source.equals(source) && existing.machine.equals(machine)) {
+                records.set(i, new RewriteRecord(source, machine, count));
+                return;
+            }
+        }
         records.add(new RewriteRecord(source, machine, count));
     }
 

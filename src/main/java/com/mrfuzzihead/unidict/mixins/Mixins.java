@@ -41,8 +41,12 @@ public enum Mixins implements IMixins {
         .addCommonMixins("BlastFurnaceCraftingManagerMixin")
         .addRequiredMod(TargetMods.RAILCRAFT)),
 
+    IC2(new MixinBuilder().setPhase(Phase.LATE)
+        .addCommonMixins("AdvRecipeMixin", "AdvShapelessRecipeMixin")
+        .addRequiredMod(TargetMods.IC2)),
+
     CRAFTING(new MixinBuilder().setPhase(Phase.EARLY)
-        .addCommonMixins("ShapedRecipesMixin", "ShapelessRecipesMixin"));
+        .addCommonMixins("ShapedRecipesMixin", "ShapelessRecipesMixin", "CraftingManagerMixin"));
 
     private final MixinBuilder builder;
 

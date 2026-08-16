@@ -89,5 +89,8 @@ public class UniDict {
         // Galacticraft registers its compressor recipes during FMLServerStarting, so the compressor
         // rewrite is deferred until the server is fully up (see GalacticraftIntegration).
         IntegrationModule.runGalacticraftCompressor();
+        // Crafting compaction/alloy recipes (and script edits) can likewise be registered only at
+        // server start; re-run the (idempotent) crafting output rewrite here to catch them.
+        IntegrationModule.runCraftingAtServerStart();
     }
 }

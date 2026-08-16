@@ -83,4 +83,14 @@ public final class IntegrationModule extends AbstractModule {
             GalacticraftIntegration.runCompressor();
         }
     }
+
+    /**
+     * Server-started re-run of the crafting-table output rewrite. Some packs register / re-register
+     * compaction + alloy recipes (and script edits) only at {@code FMLServerStartingEvent}, so the
+     * LOAD_COMPLETE pass can miss them; the rewrite is idempotent so re-running here is safe and
+     * catches the authoritative final recipe list (TODO.md / the GTNH copper-compaction report).
+     */
+    public static void runCraftingAtServerStart() {
+        if (Config.integrationModule() && Config.crafting()) CraftingIntegration.runCraftingRewrite();
+    }
 }

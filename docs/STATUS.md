@@ -86,12 +86,22 @@ comparators.
 
 - [x] **Non-destructive output-only rewrite:** CraftingIntegration iterates CraftingManager.getRecipeList()
   and replaces each recipe's output ItemStack in place through accessor mixins -- never removes or
-  rebuilds a recipe (BB-3). Covers ShapedRecipes and ShapelessRecipes (which includes Forge's
-  ShapedOreRecipe/ShapelessOreRecipe via subclassing). IC2 AdvRecipe/AdvShapelessRecipe noted as a
-  safe gap (metal output recipes typically use vanilla types in GTNH).
+  rebuilds a recipe (BB-3). Covers vanilla ShapedRecipes/ShapelessRecipes AND Forge's
+  ShapedOreRecipe/ShapelessOreRecipe (which implement IRecipe directly in 1.7.10, incl. Forestry's
+  ShapedRecipeCustom subclass). **IC2 fully covered (2026-08-16):** AdvShapelessRecipe via its public
+  `output` field accessor and AdvRecipe via a public-`final`-field accessor (the mutator writes the
+  `final` field from inside the declaring class, JVM-permitted) -- so IC2's firing/alloy/compaction
+  recipes (e.g. 9 tiny copper dust -> copper dust) unify too. Rewrite re-runs idempotently at
+  LOAD_COMPLETE and at server start (late/scripted recipes); a findMatchingRecipe read-side hook
+  remains a best-effort safety net. **T3 (2026-08-16, GTNH pack):** `rewrote outputs of 187` at
+  load-complete / `200` at server start; `[unidict-verify] PASS integration=crafting rewritten=200`;
+  zero "not rewritten" warnings; railcraft copper/lead/tin/steel + forestry bronze + IC2 tiny-dust all
+  craft canonical.
 - [x] **Accessor mixins:** ShapedRecipesMixin/IShapedRecipesAccessor + ShapelessRecipesMixin/
-  IShapelessRecipesAccessor (EARLY phase, remap=true for vanilla fields). Test fakes extend the real
-  recipe types for instanceof compatibility.
+  IShapelessRecipesAccessor (EARLY phase, remap=true for vanilla fields) + ShapedOreRecipeMixin/
+  ShapelessOreRecipeMixin (EARLY, Forge fields, remap=false) + IC2 AdvShapelessRecipeMixin/
+  AdvRecipeMixin (LATE, `TargetMods.IC2`). Test fakes extend the real recipe types for instanceof
+  compatibility.
 - [x] **Config toggle:** craftingIntegration (true in standard/max-compat, false in minimal).
 - [x] **Report integration:** RewriteJournal.record('crafting', 'table', rewritten) +
   [unidict-verify] PASS integration=crafting rewritten=N.
