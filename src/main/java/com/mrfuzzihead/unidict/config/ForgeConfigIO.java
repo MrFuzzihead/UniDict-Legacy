@@ -97,6 +97,25 @@ public final class ForgeConfigIO {
             defaults.protectedOreDictionaryNames,
             "OD-name substrings that protect an item from canonicalization and NEI hiding (e.g. \"raw\" keeps "
                 + "raw metals as the mined/processing form instead of a mod's ore block).");
+        listProp(
+            cfg,
+            general,
+            "protectedItemNames",
+            defaults.protectedItemNames,
+            "Qualified item-name (registry \"modid:path\") substrings that protect a specific item from "
+                + "canonicalization and NEI hiding — e.g. \"EtFuturum:block_copper\" keeps a mod's decorative "
+                + "(aged/oxidized) copper block obtainable and visible instead of folding it into the canonical "
+                + "copper block.");
+        listProp(
+            cfg,
+            general,
+            "canonicalItemNames",
+            defaults.canonicalItemNames,
+            "Qualified item-name (registry \"modid:path\") substrings that make the matching variant the "
+                + "CANONICAL (main) entry of its unified container. Use for shared-OD-tag craft conflicts: "
+                + "e.g. \"EtFuturum:block_copper\" makes EtF's block the one copper block — every copper-block "
+                + "recipe (incl. TF's) is rewritten to it, so only one is craftable and the decorative block "
+                + "wins over the storage block.");
 
         listProp(cfg, CATEGORY_RESOURCES, "metalsToUnify", defaults.metalsToUnify, "Metals to unify.");
         listProp(

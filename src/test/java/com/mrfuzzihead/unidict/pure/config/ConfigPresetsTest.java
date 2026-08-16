@@ -43,6 +43,19 @@ class ConfigPresetsTest {
     }
 
     @Test
+    void oreNoLongerExemptedFromNihDefaultAndEtfCopperBlockCanonicalByDefault() {
+        final ConfigData standard = ConfigPresets.standard();
+        // "ore" was the default kind exemption; the user wants ores auto-collapsed too, so it is gone.
+        assertTrue(standard.hideInNEIBlackSet.isEmpty());
+        // EtF's copper block is the default canonical copper block in standard/max-compat (resolves the
+        // craft conflict); minimal is left clean. Item-name matching is against live registry names, so
+        // these are no-ops when EtF is absent.
+        assertTrue(standard.canonicalItemNames.contains("etfuturum:copper_block"));
+        assertTrue(ConfigPresets.maxCompat().canonicalItemNames.contains("etfuturum:copper_block"));
+        assertTrue(ConfigPresets.minimal().canonicalItemNames.isEmpty());
+    }
+
+    @Test
     void standardEnablesEveryKeptIntegration() {
         final ConfigData c = ConfigPresets.standard();
         assertTrue(c.integrationModuleEnabled);

@@ -23,7 +23,9 @@ import net.minecraftforge.oredict.OreDictionary;
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.MetaItem;
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.config.ConfigData;
 
+import cpw.mods.fml.common.registry.GameData;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -46,23 +48,64 @@ public final class ResourceHandler {
     }
 
     /**
-     * Whether an item is "protected" from canonicalization and NEI hiding: it is a member of an
-     * OreDictionary entry whose name contains one of the configured {@code protectedOreDictionaryNames}
-     * substrings (default {@code "raw"}). Protected items are returned unchanged by
-     * {@link #getMainItemStack} — so an EtF raw-copper drop stays raw instead of morphing into a mod's
-     * copper ore block — and are exempt from NEI hiding (TODO.md P0 #1).
+     * Whether an item is "protected" from canonicalization and NEI hiding. Matches two configurable
+     * sets, OR'd together (TODO.md P0 #1):
+     * <ul>
+     * <li>{@code protectedOreDictionaryNames} — the item is a member of an OD entry whose name
+     * contains one of the substrings (default {@code "raw"} keeps raw metals tagged {@code rawCopper}/…
+     * as the mined/processing form).</li>
+     * <li>{@code protectedItemNames} — the item's registered {@code modid:path} name contains one of
+     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "EtFuturum:block_copper"}
+     * keeps a mod's decorative copper block, incl. its aged/oxidized variants).</li>
+     * </ul>
+     * Protected items are returned unchanged by {@link #getMainItemStack} — so a mined raw-metal or a
+     * protected decorative block is preserved (craftable + non-canonicalized) — and are exempt from
+     * NEI hiding.
      */
     public static boolean isProtected(final ItemStack stack) {
         if (stack == null || stack.getItem() == null) return false;
-        final Set<String> protectedNames = Config.get().protectedOreDictionaryNames;
-        if (protectedNames.isEmpty()) return false;
+        final ConfigData config = Config.get();
+        final Set<String> odTokens = config.protectedOreDictionaryNames;
+        final Set<String> itemSubstrings = config.protectedItemNames;
+        if (odTokens.isEmpty() && itemSubstrings.isEmpty()) return false;
         try {
             for (final int oreId : OreDictionary.getOreIDs(stack)) {
                 final String name = OreDictionary.getOreName(oreId);
-                for (final String token : protectedNames) if (name.contains(token)) return true;
+                for (final String token : odTokens) if (name.contains(token)) return true;
             }
         } catch (final Exception ignored) {
             // Never let an OD membership lookup abort canonicalization.
+        }
+        if (!itemSubstrings.isEmpty() && stack.getItem() != null) {
+            try {
+                final String registry = GameData.getItemRegistry()
+                    .getNameForObject(stack.getItem());
+                if (registry != null)
+                    for (final String token : itemSubstrings) if (registry.contains(token)) return true;
+            } catch (final Exception ignored) {
+                // Never let a registry name lookup abort canonicalization.
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether an item is a configured <b>canonical override</b>: its registered {@code modid:path} name
+     * contains one of the {@code canonicalItemNames} substrings. Such an item is promoted to the main
+     * entry of its unified container regardless of owner priority — used to resolve shared-OD-tag craft
+     * conflicts (e.g. making EtF's copper block the one canonical {@code blockCopper}, so TF's colliding
+     * recipe output is rewritten to it too and only one block is craftable).
+     */
+    public static boolean isCanonicalPreferred(final ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        final Set<String> canonical = Config.get().canonicalItemNames;
+        if (canonical.isEmpty()) return false;
+        try {
+            final String registry = GameData.getItemRegistry()
+                .getNameForObject(stack.getItem());
+            if (registry != null) for (final String token : canonical) if (registry.contains(token)) return true;
+        } catch (final Exception ignored) {
+            // Never let a registry name lookup abort selection.
         }
         return false;
     }

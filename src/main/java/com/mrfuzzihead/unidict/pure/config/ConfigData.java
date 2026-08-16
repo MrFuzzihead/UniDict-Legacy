@@ -57,6 +57,25 @@ public final class ConfigData {
      * as the mined/processing form instead of morphing them into a mod's copper ore block.
      */
     public final Set<String> protectedOreDictionaryNames;
+    /**
+     * Qualified item-name substrings protecting a specific item (or its variants) from canonicalization
+     * and NEI hiding. Matched against the registered {@code modid:path} name — unlike
+     * {@link #protectedOreDictionaryNames}, which matches OD tags. This is for cases where the item has
+     * no carve-out OD tag: e.g. {@code "EtFuturum:block_copper"} keeps a mod's decorative copper block
+     * (incl. aged/oxidized variants of that name) obtainable and visible instead of folding it into the
+     * canonical copper block.
+     */
+    public final Set<String> protectedItemNames;
+    /**
+     * Qualified item-name substrings that make the matching variant the <b>canonical (main)</b> entry of
+     * its unified container — an ownership override on top of the owner-priority order. This is the
+     * mechanism for shared-OD-tag craft conflicts: e.g. EtF and TF both register 9-ingot → block recipes
+     * from {@code ingotCopper}, so they collide on the same crafting pattern; making
+     * {@code "EtFuturum:block_copper"} canonical means every copper-block recipe's output is rewritten to
+     * that block, so only one block is craftable (and the colliding TF recipe effectively produces the
+     * same block).
+     */
+    public final Set<String> canonicalItemNames;
 
     // ---- resources / owners ------------------------------------------
     public final Set<String> metalsToUnify;
@@ -104,6 +123,8 @@ public final class ConfigData {
         this.hideInNEIBlackSet = Collections.unmodifiableSet(new LinkedHashSet<>(b.hideInNEIBlackSet));
         this.protectedOreDictionaryNames = Collections
             .unmodifiableSet(new LinkedHashSet<>(b.protectedOreDictionaryNames));
+        this.protectedItemNames = Collections.unmodifiableSet(new LinkedHashSet<>(b.protectedItemNames));
+        this.canonicalItemNames = Collections.unmodifiableSet(new LinkedHashSet<>(b.canonicalItemNames));
 
         this.metalsToUnify = Collections.unmodifiableSet(new LinkedHashSet<>(b.metalsToUnify));
         this.childrenOfMetals = Collections.unmodifiableSet(new LinkedHashSet<>(b.childrenOfMetals));
@@ -149,6 +170,8 @@ public final class ConfigData {
         private final Set<String> autoHideInNEIModBlackSet = new LinkedHashSet<>();
         private final Set<String> hideInNEIBlackSet = new LinkedHashSet<>();
         private final Set<String> protectedOreDictionaryNames = new LinkedHashSet<>();
+        private final Set<String> protectedItemNames = new LinkedHashSet<>();
+        private final Set<String> canonicalItemNames = new LinkedHashSet<>();
 
         private final Set<String> metalsToUnify = new LinkedHashSet<>();
         private final Set<String> childrenOfMetals = new LinkedHashSet<>();
@@ -209,6 +232,18 @@ public final class ConfigData {
         public Builder protectedOreDictionaryNames(final Set<String> value) {
             this.protectedOreDictionaryNames.clear();
             this.protectedOreDictionaryNames.addAll(value);
+            return this;
+        }
+
+        public Builder protectedItemNames(final Set<String> value) {
+            this.protectedItemNames.clear();
+            this.protectedItemNames.addAll(value);
+            return this;
+        }
+
+        public Builder canonicalItemNames(final Set<String> value) {
+            this.canonicalItemNames.clear();
+            this.canonicalItemNames.addAll(value);
             return this;
         }
 

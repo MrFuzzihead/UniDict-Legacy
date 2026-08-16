@@ -33,6 +33,8 @@ public final class ConfigReader {
     private static final String KEY_AUTO_HIDE_NEI = "autoHideInNEI";
     private static final String KEY_HIDE_NEI_BLACK = "autoHideInNEIBlackList";
     private static final String KEY_PROTECTED_OD_NAMES = "protectedOreDictionaryNames";
+    private static final String KEY_PROTECTED_ITEM_NAMES = "protectedItemNames";
+    private static final String KEY_CANONICAL_ITEM_NAMES = "canonicalItemNames";
     private static final String KEY_KIND_DEBUG = "kindDebugMode";
     /** Consumed by the loader ({@code Config}) to select the default surface — not part of {@link ConfigData}. */
     private static final String KEY_PRESET = "preset";
@@ -85,6 +87,8 @@ public final class ConfigReader {
             .autoHideInNEIModBlackSet(defaults.autoHideInNEIModBlackSet)
             .hideInNEIBlackSet(defaults.hideInNEIBlackSet)
             .protectedOreDictionaryNames(defaults.protectedOreDictionaryNames)
+            .protectedItemNames(defaults.protectedItemNames)
+            .canonicalItemNames(defaults.canonicalItemNames)
             .metalsToUnify(defaults.metalsToUnify)
             .childrenOfMetals(defaults.childrenOfMetals)
             .resourceBlackList(defaults.resourceBlackList)
@@ -158,6 +162,12 @@ public final class ConfigReader {
                 return;
             case KEY_PROTECTED_OD_NAMES:
                 b.protectedOreDictionaryNames(set(value));
+                return;
+            case KEY_PROTECTED_ITEM_NAMES:
+                b.protectedItemNames(set(value));
+                return;
+            case KEY_CANONICAL_ITEM_NAMES:
+                b.canonicalItemNames(set(value));
                 return;
             case KEY_METALS:
                 b.metalsToUnify(set(value));

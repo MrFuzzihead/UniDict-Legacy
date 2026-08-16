@@ -90,6 +90,7 @@ public final class UniResourceContainer implements IResourceContainer {
         if (entries.isEmpty()) return false;
         if (updated) return true;
         if (sort && SelectionRules.shouldResort(sort, initialSize, entries.size())) sort();
+        applyCanonicalOverride();
         if (!entries.isEmpty()) {
             final ItemStack mainEntry = entries.get(0);
             mainEntryMeta = (mainEntryItem = mainEntry.getItem()).getDamage(mainEntry);
@@ -117,6 +118,27 @@ public final class UniResourceContainer implements IResourceContainer {
     public void sort() {
         final Comparator<ItemStack> itemStackComparator = getComparator();
         if (itemStackComparator != null) Collections.sort(entries, itemStackComparator);
+    }
+
+    /**
+     * Promotes a configured canonical-override variant to the front of the ordered snapshot so it
+     * becomes the container's main (canonical) entry regardless of owner priority. Resolves
+     * shared-OD-tag craft conflicts — e.g. both EtF and TF register a 9-ingot → block recipe on the
+     * same pattern, so making one block canonical means every copper-block recipe's output (incl. the
+     * other mod's) is rewritten to it and only one block is craftable.
+     */
+    private void applyCanonicalOverride() {
+        if (entries.size() < 2) return;
+        try {
+            for (int i = 0; i < entries.size(); i++) {
+                if (ResourceHandler.isCanonicalPreferred(entries.get(i))) {
+                    if (i != 0) entries.add(0, entries.remove(i));
+                    return;
+                }
+            }
+        } catch (final Exception ignored) {
+            // Never let a canonical-override lookup break selection.
+        }
     }
 
     @Override

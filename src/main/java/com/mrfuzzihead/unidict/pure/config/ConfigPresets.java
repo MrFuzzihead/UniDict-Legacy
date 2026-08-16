@@ -122,8 +122,12 @@ public final class ConfigPresets {
             .autoHideInNEI(true)
             .kindDebugMode(false)
             .autoHideInNEIModBlackSet(new LinkedHashSet<>())
-            .hideInNEIBlackSet(new LinkedHashSet<>(Arrays.asList("ore")))
+            .hideInNEIBlackSet(new LinkedHashSet<>())
             .protectedOreDictionaryNames(new LinkedHashSet<>(Arrays.asList("raw")))
+            // EtF's copper block as the canonical copper block resolves its 9-ingot->block recipe
+            // colliding with TF's (one block craftable, TF's rewritten to EtF's). No-op when EtF is
+            // absent — the match is against live registry names, and no registered item then matches.
+            .canonicalItemNames(new LinkedHashSet<>(Arrays.asList("etfuturum:copper_block")))
             .metalsToUnify(new LinkedHashSet<>(DEFAULT_METALS))
             .childrenOfMetals(new LinkedHashSet<>(DEFAULT_CHILDREN))
             .resourceBlackList(Arrays.asList("Aluminium"))
@@ -158,6 +162,7 @@ public final class ConfigPresets {
             .autoHideInNEIModBlackSet(standard.autoHideInNEIModBlackSet)
             .hideInNEIBlackSet(standard.hideInNEIBlackSet)
             .protectedOreDictionaryNames(standard.protectedOreDictionaryNames)
+            .canonicalItemNames(standard.canonicalItemNames)
             .metalsToUnify(standard.metalsToUnify)
             .childrenOfMetals(standard.childrenOfMetals)
             .resourceBlackList(standard.resourceBlackList)
