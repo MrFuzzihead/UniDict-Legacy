@@ -50,7 +50,12 @@ dependencies {
     // for a full-stack regression (M7/M9) run.
     // -----------------------------------------------------------------------------------------
     devOnlyNonPublishable("com.github.GTNewHorizons:Mantle:0.5.4:dev")
-    devOnlyNonPublishable("com.github.GTNewHorizons:Railcraft:9.17.31:dev")
+    // Railcraft's POM pulls thaumcraft:Thaumcraft:1.7.10-4.2.3.5 from gregtech.overminddl1.com, which is
+    // unreachable/flaky on CI and times out the :runtimeClasspath resolution. UniDict never references
+    // Thaumcraft (no imports), so the whole group is excluded to keep the build resolvable.
+    devOnlyNonPublishable("com.github.GTNewHorizons:Railcraft:9.17.31:dev") {
+        exclude group: "thaumcraft"
+    }
     devOnlyNonPublishable("com.github.GTNewHorizons:TinkersConstruct:1.14.97-GTNH:dev")
     devOnlyNonPublishable("com.github.GTNewHorizons:ForestryMC:4.11.35:dev")
     devOnlyNonPublishable("com.github.GTNewHorizons:EnderCore:0.5.14:dev")
