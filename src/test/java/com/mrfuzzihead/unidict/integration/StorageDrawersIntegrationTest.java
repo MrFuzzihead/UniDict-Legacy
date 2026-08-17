@@ -32,8 +32,7 @@ class StorageDrawersIntegrationTest {
 
         @Override
         public boolean register(final ItemStack upper, final ItemStack lower, final int convRate) {
-            records.add(
-                "upper=" + stackName(upper) + ",lower=" + stackName(lower) + ",rate=" + convRate);
+            records.add("upper=" + stackName(upper) + ",lower=" + stackName(lower) + ",rate=" + convRate);
             return accept;
         }
 
@@ -71,11 +70,8 @@ class StorageDrawersIntegrationTest {
         final Item ingot = new Item();
         final RecordingRegistrar registrar = new RecordingRegistrar();
 
-        final int n = StorageDrawersIntegration.registerChain(
-            new ItemStack(block, 1, 0),
-            new ItemStack(ingot, 1, 1),
-            null,
-            registrar);
+        final int n = StorageDrawersIntegration
+            .registerChain(new ItemStack(block, 1, 0), new ItemStack(ingot, 1, 1), null, registrar);
 
         assertEquals(1, n);
         assertEquals(1, registrar.records.size());
@@ -87,11 +83,8 @@ class StorageDrawersIntegrationTest {
         final Item nugget = new Item();
         final RecordingRegistrar registrar = new RecordingRegistrar();
 
-        final int n = StorageDrawersIntegration.registerChain(
-            null,
-            new ItemStack(ingot, 1, 0),
-            new ItemStack(nugget, 1, 1),
-            registrar);
+        final int n = StorageDrawersIntegration
+            .registerChain(null, new ItemStack(ingot, 1, 0), new ItemStack(nugget, 1, 1), registrar);
 
         assertEquals(1, n);
         assertEquals(1, registrar.records.size());
@@ -102,11 +95,7 @@ class StorageDrawersIntegrationTest {
         final Item ingot = new Item();
         final RecordingRegistrar registrar = new RecordingRegistrar();
 
-        final int n = StorageDrawersIntegration.registerChain(
-            null,
-            new ItemStack(ingot, 1, 0),
-            null,
-            registrar);
+        final int n = StorageDrawersIntegration.registerChain(null, new ItemStack(ingot, 1, 0), null, registrar);
 
         assertEquals(0, n);
         assertTrue(registrar.records.isEmpty(), "a lone canonical ingot is not a compaction chain");
@@ -126,11 +115,8 @@ class StorageDrawersIntegrationTest {
         final Item same = new Item();
         final RecordingRegistrar registrar = new RecordingRegistrar();
 
-        final int n = StorageDrawersIntegration.registerChain(
-            new ItemStack(same, 1, 3),
-            new ItemStack(same, 1, 3),
-            null,
-            registrar);
+        final int n = StorageDrawersIntegration
+            .registerChain(new ItemStack(same, 1, 3), new ItemStack(same, 1, 3), null, registrar);
 
         assertEquals(0, n);
         assertTrue(registrar.records.isEmpty());
@@ -143,11 +129,8 @@ class StorageDrawersIntegrationTest {
         final RecordingRegistrar registrar = new RecordingRegistrar();
         registrar.accept = false;
 
-        final int n = StorageDrawersIntegration.registerChain(
-            new ItemStack(block, 1, 0),
-            new ItemStack(ingot, 1, 1),
-            null,
-            registrar);
+        final int n = StorageDrawersIntegration
+            .registerChain(new ItemStack(block, 1, 0), new ItemStack(ingot, 1, 1), null, registrar);
 
         assertEquals(0, n, "a registrar that refuses must not inflate the reported count");
         assertEquals(1, registrar.records.size(), "the registrar was still asked");

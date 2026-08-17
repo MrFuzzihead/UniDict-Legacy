@@ -3,20 +3,17 @@ package com.mrfuzzihead.unidict.integration;
 /*
  * Storage Drawers compacting-drawer compat (the "any compat module for Storage Drawers" idea from
  * docs/TODO.md).
- *
  * A Compacting Drawer resolves its three tiers (block / ingot / nugget) by FIRST consulting
  * StorageDrawers.compRegistry (a public CompTierRegistry) and, only if that misses, by searching the
  * live CraftingManager recipes — where it prefers a candidate whose owning mod matches the base item
  * (findMatchingModCandidate). Because the canonical copper INGOT is TF's but the canonical copper
  * BLOCK is EtF's (canonicalItemNames), the recipe-search + mod-matching path picks the TF block — the
  * exact collision reported in TODO.md.
- *
  * This module is the safe, non-destructive fix: AFTER the resource pipeline (default POST_INIT) it
  * seeds CompTierRegistry with the unified model's canonical block/ingot/nugget triples through the
  * mod's OWN public register(...) API — the same path Minetweaker's Compaction integration uses — so a
  * compacting drawer honors the canonical entries deterministically, independent of recipe order or
  * the mod-matching bias. No recipe mutation, no mixins, no global OreDictionary mutation (BB-3).
- *
  * The T2-testable seam is registerChain(block, ingot, nugget, registrar); call() is thin wiring from
  * the resource model to StorageDrawers.compRegistry.
  */
@@ -40,6 +37,7 @@ public final class StorageDrawersIntegration extends AbstractModuleThread {
 
     /** Seam over {@code StorageDrawers.compRegistry} so production stays decoupled from the mod type in T2. */
     interface CompactionRegistrar {
+
         boolean register(ItemStack upper, ItemStack lower, int convRate);
     }
 
@@ -70,8 +68,7 @@ public final class StorageDrawersIntegration extends AbstractModuleThread {
      *
      * @return the total number of tier records registered.
      */
-    static int registerCanonicalChains(
-        final Collection<Resource<UniResourceContainer>> resources,
+    static int registerCanonicalChains(final Collection<Resource<UniResourceContainer>> resources,
         final CompactionRegistrar registrar) {
         int total = 0;
         final long blockKind = Resource.getKindOfName("block");
@@ -95,16 +92,15 @@ public final class StorageDrawersIntegration extends AbstractModuleThread {
      * is only registered when both ends are present and are genuinely different items (a degenerate
      * block→block / ingot→ingot record is never written). Returns the number of records added.
      */
-    static int registerChain(
-        final ItemStack block,
-        final ItemStack ingot,
-        final ItemStack nugget,
+    static int registerChain(final ItemStack block, final ItemStack ingot, final ItemStack nugget,
         final CompactionRegistrar registrar) {
         int n = 0;
         if (block != null && ingot != null && !sameItem(block, ingot) && registrar.register(block, ingot, CONV_RATE)) {
             n++;
         }
-        if (ingot != null && nugget != null && !sameItem(ingot, nugget) && registrar.register(ingot, nugget, CONV_RATE)) {
+        if (ingot != null && nugget != null
+            && !sameItem(ingot, nugget)
+            && registrar.register(ingot, nugget, CONV_RATE)) {
             n++;
         }
         return n;
