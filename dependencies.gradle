@@ -77,6 +77,7 @@ dependencies {
     devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
     runtimeOnlyNonPublishable("ganymedes01.etfuturum:Et-Futurum-Requiem:2.6.52-GTNH:dev")
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:waila:1.19.31:dev")
+    devOnlyNonPublishable("com.github.GTNewHorizons:StorageDrawers:2.2.28-GTNH:dev")
 
     // IC2 on the test classpath (M6 T2): the IC2 machine-rewrite seam uses the real ic2.api.recipe
     // RecipeOutput type (logic that touches the type but not statics — docs/PLAN.md §0 T2), mirroring

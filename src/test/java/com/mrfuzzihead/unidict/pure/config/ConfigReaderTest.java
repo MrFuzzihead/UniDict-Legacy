@@ -44,6 +44,7 @@ class ConfigReaderTest {
         raw.put("railcraft", "false");
         raw.put("thermalExpansion", "false");
         raw.put("galacticraft", "false");
+        raw.put("storageDrawers", "false");
         return raw;
     }
 
@@ -77,6 +78,7 @@ class ConfigReaderTest {
         assertFalse(c.railcraftIntegration);
         assertFalse(c.thermalExpansionIntegration);
         assertFalse(c.galacticraftIntegration);
+        assertFalse(c.storageDrawersIntegration);
     }
 
     @Test

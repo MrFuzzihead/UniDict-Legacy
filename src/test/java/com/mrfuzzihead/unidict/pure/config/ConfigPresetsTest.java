@@ -28,6 +28,7 @@ class ConfigPresetsTest {
         assertFalse(c.thermalExpansionIntegration);
         assertFalse(c.forestryIntegration);
         assertFalse(c.galacticraftIntegration);
+        assertFalse(c.storageDrawersIntegration);
         assertFalse(c.keepOneEntry);
         assertFalse(c.inputReplacement);
         assertTrue(c.unifyDrops); // drops unification is default-on (safe, non-destructive)
@@ -69,6 +70,7 @@ class ConfigPresetsTest {
         assertTrue(c.thermalExpansionIntegration);
         assertTrue(c.forestryIntegration);
         assertTrue(c.galacticraftIntegration);
+        assertTrue(c.storageDrawersIntegration);
         assertTrue(c.unifyDrops);
     }
 
@@ -91,6 +93,7 @@ class ConfigPresetsTest {
         assertTrue(c.railcraftIntegration == standard.railcraftIntegration);
         assertTrue(c.thermalExpansionIntegration == standard.thermalExpansionIntegration);
         assertTrue(c.galacticraftIntegration == standard.galacticraftIntegration);
+        assertTrue(c.storageDrawersIntegration == standard.storageDrawersIntegration);
     }
 
     @Test
