@@ -112,4 +112,33 @@ class IC2IntegrationTest {
         assertSame(canonical, recipes.get("partial").items.get(1));
         assertTrue(recipes.containsKey("unchanged"), "all recipes must be preserved");
     }
+
+    @Test
+    void rewriteMutatesTheRecipeOutputInPlaceSoIC2sCacheSeesIt() {
+        // Regression (IC2 runtime-cache interception): IC2's BasicMachineRecipeManager reads machine outputs
+        // from its internal `recipeCache`, which at addRecipe time shares the SAME RecipeOutput instance
+        // stored in the `recipes` map. If the rewrite REPLACED the map value with a new RecipeOutput, the
+        // cache (and thus the real machine) would keep returning the old, pre-rewrite stack (e.g. IC2 tin
+        // dust) while the report/NEI claimed unification. So we assert the rewrite mutates the ORIGINAL
+        // instance in place and preserves its identity.
+        final Item itemA = new Item();
+        final ItemStack dust = new ItemStack(itemA, 2, 1);
+        // IC2's RecipeOutput(NBTTagCompound, ItemStack...) constructor wraps items in Arrays.asList()
+        // (fixed-size: set() works, but add()/remove()/clear() throw). Reproduce that so this test guards
+        // the structural-mutation server crash that in-place rewrite must never trigger.
+        final RecipeOutput recipe = new RecipeOutput(new NBTTagCompound(), dust);
+        final ItemStack canonical = new ItemStack(itemA, 9, 3);
+
+        final Map<String, RecipeOutput> recipes = new HashMap<>();
+        recipes.put("tin-ingot->tin-dust", recipe);
+        // Simulate IC2's cache sharing the same RecipeOutput reference the machine will read.
+        final RecipeOutput cached = recipe;
+
+        final int rewritten = IC2Integration.rewriteOutputs(recipes, s -> (s == dust) ? canonical : s);
+
+        assertEquals(1, rewritten);
+        // Same instance retained (invariant IC2 relies on for its cache to stay in sync).
+        assertSame(cached, recipes.get("tin-ingot->tin-dust"));
+        assertSame(canonical, cached.items.get(0), "the cached output must now be the canonical entry");
+    }
 }

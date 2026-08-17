@@ -93,4 +93,16 @@ public final class IntegrationModule extends AbstractModule {
     public static void runCraftingAtServerStart() {
         if (Config.integrationModule() && Config.crafting()) CraftingIntegration.runCraftingRewrite();
     }
+
+    /**
+     * Server-started re-run of the IC2 machine-output rewrite. The POST_INIT pass canonicalizes the
+     * live {@code Recipes.*} maps, but a pack can re-register machine recipes after POST_INIT; the
+     * (idempotent, in-place) rewrite is re-run here so the authoritative final recipes are canonical
+     * — and IC2's internal {@code recipeCache} observes the change (see {@link IC2Integration#runAtServerStart()}).
+     */
+    public static void runIC2AtServerStart() {
+        if (Config.integrationModule() && Config.ic2() && Loader.isModLoaded("IC2")) {
+            IC2Integration.runAtServerStart();
+        }
+    }
 }

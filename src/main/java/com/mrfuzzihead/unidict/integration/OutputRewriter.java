@@ -31,6 +31,18 @@ final class OutputRewriter {
     /**
      * Adapts one machine's output holder type to the item list it stores. Not a functional interface
      * (two operations), so callers supply an anonymous-class/field adapter rather than a lambda.
+     *
+     * <p>
+     * <b>Identity / machine-visibility contract (the IC2 §M6 record).</b> The value {@link #rebuild}
+     * returns is exactly what the core stores (via {@code Map.Entry.setValue} / {@code List.set}). When
+     * the target machine resolves its output from a record it CACHES by identity — IC2's
+     * {@code BasicMachineRecipeManager} serves machine outputs from a private {@code recipeCache} that,
+     * at {@code addRecipe} time, shares the SAME {@code RecipeOutput} instance as its public map — the
+     * rebuild MUST mutate that shared record <em>in place</em> and return the same instance ({@link
+     * IC2Integration#OUTPUT_VIEW}). Returning a new instance only rewrites the public map (visible to
+     * the report/NEI) while the machine keeps producing the pre-rewrite output. Use index-based
+     * replacement that preserves list size; never structurally mutate (add/remove/clear) an output list,
+     * which may be fixed-size (IC2 wraps {@code RecipeOutput.items} in {@code Arrays.asList}).
      */
     interface OutputView<V> {
 

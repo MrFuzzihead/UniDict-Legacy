@@ -225,4 +225,50 @@ class OutputRewriterTest {
             "chance of a rewritten output is preserved");
         assertNull(outputs.get(2), "null output entry is skipped and left untouched");
     }
+
+    @Test
+    void inPlaceRebuildKeepsASharedMachineCacheInSync() {
+        final Item itemA = new Item();
+        final ItemStack dust = new ItemStack(itemA, 2, 1);
+        final ItemStack canonical = new ItemStack(itemA, 9, 3);
+
+        // The record the integration enumerates/stores in its "recipe map" ...
+        final Map<String, Holder> recipes = new HashMap<>();
+        final Holder recipe = new Holder(new ArrayList<>(Arrays.asList(dust)));
+        recipes.put("tin-ingot->tin-dust", recipe);
+
+        // ... and a "machine cache" holding the SAME record instance the machine will read. This mirrors
+        // IC2's BasicMachineRecipeManager, whose private recipeCache shares one RecipeOutput instance
+        // with its public recipes map (the IC2 §M6 root cause: a replace-with-new rewrite left the cache
+        // holding the pre-rewrite output, invisible to the machine).
+        final Holder machineCache = recipe;
+
+        final OutputRewriter.OutputView<Holder> inPlaceView = new OutputRewriter.OutputView<Holder>() {
+
+            @Override
+            public List<ItemStack> getItems(final Holder output) {
+                return output.items;
+            }
+
+            @Override
+            public Holder rebuild(final Holder original, final List<ItemStack> mapped) {
+                // Index-based, size-preserving in-place mutation that returns the SAME instance — the
+                // required shape for a machine that caches the record by identity (see OutputView javadoc).
+                for (int i = 0; i < original.items.size(); i++) original.items.set(i, mapped.get(i));
+                return original;
+            }
+        };
+
+        final int rewritten = OutputRewriter.rewriteOutputs(recipes, inPlaceView, s -> (s == dust) ? canonical : s);
+
+        assertEquals(1, rewritten, "the output should have been rewritten");
+        // Identity preserved: the stored map value IS the instance the machine cache holds, so the
+        // rewrite is not invisible to the machine. (A future integration that returns a NEW record here
+        // — the old IC2 bug — would fail this assertion: the cache would keep the stale output.)
+        assertSame(machineCache, recipes.get("tin-ingot->tin-dust"));
+        assertSame(
+            canonical,
+            machineCache.items.get(0),
+            "the shared record the machine reads must now yield the canonical item");
+    }
 }
