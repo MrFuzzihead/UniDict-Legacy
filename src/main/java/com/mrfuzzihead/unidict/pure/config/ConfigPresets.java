@@ -49,7 +49,13 @@ public final class ConfigPresets {
         "Brass",
         "Titanium",
         "Desh",
-        "MeteoricIron");
+        "MeteoricIron",
+        // ExtraPlanets (target pack, libs/extraplanets-3.0.0-dev.jar) — metals whose EP ore/ingot/block
+        // variants overlap the canonical cross-mod entry and so should unify via the kept furnace /
+        // galacticraft-compressor / crafting rewrites. Nickel/Zinc/Lead/Platinum are already above.
+        "Tungsten", // GT5 registers ingotTungsten/dustTungsten/blockTungsten/oreTungsten
+        "Uranium", // IC2 + GT5 register ingotUranium
+        "Magnesium"); // GT5 registers ingotMagnesium
 
     private static final List<String> DEFAULT_CHILDREN = Arrays
         .asList("ore", "dustTiny", "chunk", "dust", "nugget", "ingot", "block", "plate", "gear");

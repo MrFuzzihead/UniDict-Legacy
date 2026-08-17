@@ -98,6 +98,11 @@ class ConfigPresetsTest {
         final ConfigData c = ConfigPresets.standard();
         assertTrue(c.metalsToUnify.containsAll(Arrays.asList("Iron", "Gold", "Copper")));
         assertTrue(c.metalsToUnify.contains("Titanium"), "Galacticraft's titanium must be in the metal set");
+        // ExtraPlanets metals with cross-mod equivalents (same rationale as Galacticraft above) must be in
+        // the default metal set so their ore/ingot/block variants unify with the canonical entry.
+        assertTrue(c.metalsToUnify.contains("Tungsten"), "ExtraPlanets tungsten overlaps GT5 -> unify it");
+        assertTrue(c.metalsToUnify.contains("Uranium"), "ExtraPlanets uranium overlaps IC2/GT5 -> unify it");
+        assertTrue(c.metalsToUnify.contains("Magnesium"), "ExtraPlanets magnesium overlaps GT5 -> unify it");
         assertTrue(c.childrenOfMetals.containsAll(Arrays.asList("ore", "ingot", "dust")));
         // Deterministic across calls: same values, same order.
         final ConfigData again = ConfigPresets.standard();
