@@ -31,6 +31,7 @@ verify line each one is expected to emit.
 | **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
 | **Galacticraft**       | ✅ done (impl; T3 to confirm) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
 | **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | POST_INIT | ✅ output-only, identity-preserving | INFO (log only) |
+| **Storage Drawers**    | ✅ impl + T2 (T3 to confirm) | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same blessed path as Minetweaker `Compaction`) | POST_INIT | ✅ additive registry seeding — no recipe mutation | INFO (log only) |
 
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
@@ -38,6 +39,34 @@ verify line each one is expected to emit.
 ### Cross-cutting module — `UnifyDrops` (landed, new — not from upstream)
 
 Registered in `IntegrationModule` **outside** the `Config.integrationModule()` master switch (gated only on its own `Config.unifyDrops()`, default on), `UnifyDrops` listens for `EntityJoinWorldEvent` and upgrades a dropped/generated `EntityItem`'s stack to the canonical entry of its unified resource. Runs at POST_INIT (after the `ResourceHandler` pipeline) and is server-side only (`world.isRemote` guard). Only **clean** stacks are replaced — any stack with an NBT tag compound (enchanted/tagged/lore) is left untouched, and already-canonical drops are returned by identity (no spurious re-writes). It reuses the exact resolver (`ResourceHandler.getMainItemStack`) the machine integrations use, so it stays implicitly coupled to whatever the resource model covers (e.g. if BB‑4 fuels land, drops unify fuels automatically). Because it is a runtime listener, its effect is currently reported by the log line in `call()`; a T3 `[unidict-verify]` gate does not exist yet and is a candidate to add.
+
+### Cross-cutting module — `StorageDrawersIntegration` (landed, new — not from upstream)
+
+**Why it exists:** a **compacting drawer** resolves its three tiers (block / ingot / nugget) by FIRST
+consulting `StorageDrawers.compRegistry` (a public `CompTierRegistry`) and, only if that misses, by
+searching the live `CraftingManager` recipes — where `findMatchingModCandidate` prefers the candidate
+whose owning mod matches the base item. So when the canonical copper *ingot* is TF's but the canonical
+copper *block* is EtF's (`canonicalItemNames`), the recipe-search + mod-bias path picks the **TF**
+block — the exact collision reported in `TODO.md`. This is a Storage-Drawers-internal canonicalism
+question that drop-time `UnifyDrops` cannot fix (it only upgrades world-`EntityItem` drops, not the
+drawer's stored view or manual in-inventory extraction).
+
+**What it does:** at POST_INIT (after the `ResourceHandler` pipeline) it walks every unified resource,
+resolves the canonical `block`/`ingot`/`nugget` entries from the model, and seeds
+`StorageDrawers.compRegistry` through the mod's **own public `register(upper, lower, rate)` API** —
+the same path Minetweaker's `Compaction` integration uses. Because the registry is consulted *before*
+the recipe search, the compacting drawer then deterministically honors the canonical entries (e.g. a
+drawer seeded with a TF copper ingot shows the **EtF block** as its top tier), independent of recipe
+order or the mod-matching bias.
+
+**Safety:** purely **additive** registry seeding — no recipe mutation, no mixins/ASM, no global
+OreDictionary mutation (BB-3). Records match exact item pairs, so only the canonical chains we
+register are affected. Registered pairs are idempotent (`register` unregisters a prior same-target
+record, so re-running is safe). A degenerate same-item pair (block ≡ ingot) is never written.
+
+**Verify:** T1 config parse (`storageDrawers` toggle), T2 on the `registerChain` seam (which pairs +
+rate, null/degenerate/refused handling); T3 to confirm in-pack: insert a TF copper ingot into a
+compacting drawer and confirm the block tier is EtF's.
 
 ---
 

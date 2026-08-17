@@ -201,6 +201,13 @@ public final class ForgeConfigIO {
             "galacticraft",
             defaults.galacticraftIntegration,
             "Galacticraft machines (ingot / electric ingot compressor).");
+        booleanProp(
+            cfg,
+            CATEGORY_INTEGRATIONS,
+            "storageDrawers",
+            defaults.storageDrawersIntegration,
+            "Storage Drawers compacting drawers (seed the tier registry with the canonical "
+                + "block/ingot/nugget chains so compacting honors the unified model, e.g. EtF's copper block).");
     }
 
     /**

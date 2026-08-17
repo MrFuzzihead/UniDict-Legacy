@@ -17,7 +17,7 @@ import java.util.Map;
  * Three documented presets:
  * <ul>
  * <li>{@link #minimal()} — minimal metal set, only the two vanilla-safe integrations (furnace, chest).</li>
- * <li>{@link #standard()} — the default {@link #defaults()}: all 9 kept integrations, full metal list.</li>
+ * <li>{@link #standard()} — the default {@link #defaults()}: all 10 kept integrations, full metal list.</li>
  * <li>{@link #maxCompat()} — standard plus aggressive features (input replacement + keep-one-entry).</li>
  * </ul>
  */
@@ -116,10 +116,11 @@ public final class ConfigPresets {
             .railcraftIntegration(false)
             .thermalExpansionIntegration(false)
             .galacticraftIntegration(false)
+            .storageDrawersIntegration(false)
             .build();
     }
 
-    /** Standard: the default surface — all 9 kept integrations, full metal list. */
+    /** Standard: the default surface — all 10 kept integrations, full metal list. */
     public static ConfigData standard() {
         return ConfigData.builder()
             .keepOneEntry(false)
@@ -150,6 +151,7 @@ public final class ConfigPresets {
             .craftingIntegration(true)
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
+            .storageDrawersIntegration(true)
             .build();
     }
 

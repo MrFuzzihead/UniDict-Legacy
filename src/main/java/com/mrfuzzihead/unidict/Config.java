@@ -112,4 +112,8 @@ public class Config {
     public static boolean galacticraft() {
         return data.galacticraftIntegration;
     }
+
+    public static boolean storageDrawers() {
+        return data.storageDrawersIntegration;
+    }
 }

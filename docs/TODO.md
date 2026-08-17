@@ -17,6 +17,7 @@ Living backlog of everything **not yet done** for an initial release, as of `fea
 | Config presets (minimal / standard / max-compat)                                             | DONE                                             |
 | `/unidict report` transparency + `RewriteJournal`                                            | DONE                                             |
 | **NEI variant hiding** (`autoHideInNEI`, kind + mod + protected OD names)                  | DONE (impl + T1/T2; T3 `hidden=N` to confirm)    |
+| **Storage Drawers** compacting-drawer compat (seeds the canonical block/ingot/nugget chains) | DONE (impl + T1/T2; T3 to confirm) |
 
 **Everything below this line is the remaining scope.** Prioritisation is P0 → P2; "dropped" items are deliberately out of scope.
 

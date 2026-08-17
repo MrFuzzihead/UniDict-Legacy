@@ -19,7 +19,7 @@ import java.util.Set;
  * is collapsed into {@link #ownerPriorities} (global default order) + {@link #ownerOfKind} (per-kind
  * override). A per-kind override simply applies when present; there is no boolean to toggle the
  * feature on/off.</li>
- * <li><b>Only kept integrations.</b> Toggles exist for the 9 kept integrations; the removed mods
+ * <li><b>Only kept integrations.</b> Toggles exist for the 10 kept integrations; the removed mods
  * are gone.</li>
  * <li><b>Preset-friendly.</b> {@link ConfigPresets} supplies deterministic defaults and
  * {@link ConfigReader} overlays explicit keys (last-write-wins), so a preset is just a default
@@ -112,6 +112,13 @@ public final class ConfigData {
      * already covered by the furnace integration.
      */
     public final boolean galacticraftIntegration;
+    /**
+     * Storage Drawers compacting drawers: seed {@code StorageDrawers.compRegistry} with the unified
+     * model's canonical block/ingot/nugget chains so a compacting drawer honors the canonical entries
+     * (e.g. EtF's copper block as the top tier of a drawer seeded with a TF copper ingot) instead of
+     * whichever colliding 9-ingot → block recipe the recipe search + mod-matching bias happens to pick.
+     */
+    public final boolean storageDrawersIntegration;
 
     private ConfigData(final Builder b) {
         this.keepOneEntry = b.keepOneEntry;
@@ -144,6 +151,7 @@ public final class ConfigData {
         this.railcraftIntegration = b.railcraftIntegration;
         this.thermalExpansionIntegration = b.thermalExpansionIntegration;
         this.galacticraftIntegration = b.galacticraftIntegration;
+        this.storageDrawersIntegration = b.storageDrawersIntegration;
     }
 
     private static Map<String, List<String>> copyOwnerOfKind(final Map<String, List<String>> source) {
@@ -191,6 +199,7 @@ public final class ConfigData {
         private boolean railcraftIntegration = true;
         private boolean thermalExpansionIntegration = true;
         private boolean galacticraftIntegration = true;
+        private boolean storageDrawersIntegration = true;
 
         public Builder keepOneEntry(final boolean value) {
             this.keepOneEntry = value;
@@ -337,6 +346,11 @@ public final class ConfigData {
             return this;
         }
 
+        public Builder storageDrawersIntegration(final boolean value) {
+            this.storageDrawersIntegration = value;
+            return this;
+        }
+
         public ConfigData build() {
             return new ConfigData(this);
         }
@@ -373,6 +387,8 @@ public final class ConfigData {
             + thermalExpansionIntegration
             + ", galacticraft="
             + galacticraftIntegration
+            + ", storageDrawers="
+            + storageDrawersIntegration
             + '}';
     }
 }

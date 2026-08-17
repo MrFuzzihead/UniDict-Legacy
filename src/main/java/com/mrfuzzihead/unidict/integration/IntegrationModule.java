@@ -67,6 +67,9 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
             if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
             if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+            if (Config.storageDrawers() && Loader.isModLoaded("StorageDrawers"))
+                executor.add(new StorageDrawersIntegration());
+
             // Galacticraft's compressor recipes only exist once GC registers them at FMLServerStarting
             // (RecipeManagerGC.setConfigurableRecipes), so it is NOT a LoadStage module — it is triggered
             // from UniDict.serverStarted via #runGalacticraftCompressor() instead (see GalacticraftIntegration).
