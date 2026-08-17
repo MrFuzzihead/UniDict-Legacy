@@ -55,7 +55,21 @@ final class IC2Integration extends AbstractModuleThread {
 
         @Override
         public RecipeOutput rebuild(final RecipeOutput original, final List<ItemStack> mapped) {
-            return new RecipeOutput(original.metadata, mapped);
+            // CRITICAL (IC2 runtime-cache interception): IC2's BasicMachineRecipeManager serves machine
+            // outputs from a separate `recipeCache` (item -> damage -> Tuple2<RecipeInput, RecipeOutput>)
+            // that getOutputFor() reads INSTEAD of the `recipes` map we enumerate via getRecipes(). At
+            // addRecipe time the SAME RecipeOutput instance is stored in both `recipes` and `recipeCache`,
+            // so replacing the map value with a NEW RecipeOutput left the cache holding the pre-rewrite
+            // output — the machine kept producing the old item (e.g. IC2 tin dust) even though the report
+            // said the recipe was rewritten. We therefore mutate the shared instance IN PLACE.
+            // Replacements must be INDEX-BASED (same length), never clear()/addAll()/remove(): IC2's
+            // RecipeOutput(NBTTagCompound, ItemStack...) wraps items in Arrays.asList(), a FIXED-SIZE
+            // list whose set() works but whose structural add()/remove()/clear() throw
+            // UnsupportedOperationException (server crash if we cleared it). mapped has the same size as
+            // original.items (the OutputRewriter always maps 1:1), so every index is covered.
+            final List<ItemStack> items = original.items;
+            for (int i = 0; i < items.size(); i++) items.set(i, mapped.get(i));
+            return original;
         }
     };
 
@@ -151,5 +165,37 @@ final class IC2Integration extends AbstractModuleThread {
      */
     static <K> int rewriteOutputs(final Map<K, RecipeOutput> recipes, final UnaryOperator<ItemStack> resolveMain) {
         return OutputRewriter.rewriteOutputs(recipes, OUTPUT_VIEW, resolveMain);
+    }
+
+    /**
+     * <p>
+     * Idempotent re-run of the IC2 machine-output rewrite, invoked from {@code UniDict.serverStarted}
+     * (same pattern as {@link IntegrationModule#runCraftingAtServerStart()}). The POST_INIT pass already
+     * canonicalizes the live {@code Recipes.*} maps, but a pack can re-register machine recipes after
+     * POST_INIT (IC2 re-parses recipe sources, or another mod re-adds via {@code Recipes.*}); re-running
+     * here locks the authoritative final recipe maps onto the canonical entries. Outputs are mutated in
+     * place by {@link #OUTPUT_VIEW}, so IC2's internal {@code recipeCache} stays in sync — this is what
+     * makes the IC2 macerator actually emit the canonical (e.g. Thermal Foundation) dust instead of IC2's.
+     *
+     * @return number of machine outputs (re)rewritten on this pass
+     */
+    static int runAtServerStart() {
+        final ResourceHandler resourceHandler = UniDict.resourceHandler;
+        if (resourceHandler == null || resourceHandler.resources.isEmpty() || !Config.ic2()) return 0;
+        int rewritten = 0;
+        for (final Machine machine : machineList()) {
+            if (machine.recipes == null) continue;
+            final int n = rewriteOutputs(machine.recipes, resourceHandler::getMainItemStack);
+            if (n > 0) {
+                rewritten += n;
+                RewriteJournal.record("ic2", machine.name, n);
+            }
+        }
+        if (rewritten > 0) {
+            UniDict.LOG.info(
+                "[ic2-server-start] re-rewrote outputs of " + rewritten
+                    + " IC2 machine recipes to their canonical entries.");
+        }
+        return rewritten;
     }
 }

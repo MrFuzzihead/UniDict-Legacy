@@ -116,6 +116,10 @@ These ship the other half of the mod's promise ("unify the *whole* view", not ju
 - **What:** upstream integrations this fork deliberately did not keep, in rough priority if the target pack ever needs them: **Mekanism**, **Magneticraft**, **Hydraulicraft**, **AbyssalCraft**, **Foundry**, **FSP**, **NuclearCraft**, **ElectricalAge**, plus any 1.12.2-era upstream additions worth a 1.7.10 port — each is a new module, not "core feature" work.
 - **Notes:** none are needed by the current pack; do not start without re-reading the scope-rework notice in `PLAN.md`.
 
+### 13. Storage Drawers Compact Drawer
+- **What:** Storage Drawers' Compact Drawer lists the same-mod block version of the metal used (TF copper ingot = TF copper nuget = TF copper block). We override Copper block to Et Futurum, so Compact Drawer should show that as the block
+- **Notes:** Not very necessary but QoL
+
 ---
 
 ## Dropped — deliberately out of scope (do not re-introduce)

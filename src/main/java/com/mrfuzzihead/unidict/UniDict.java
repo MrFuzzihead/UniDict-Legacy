@@ -92,5 +92,8 @@ public class UniDict {
         // Crafting compaction/alloy recipes (and script edits) can likewise be registered only at
         // server start; re-run the (idempotent) crafting output rewrite here to catch them.
         IntegrationModule.runCraftingAtServerStart();
+        // IC2 machine recipes (incl. the macerator) can be re-registered after POST_INIT; re-run the
+        // (idempotent, in-place) machine-output rewrite so the final authoritative recipes are canonicalized.
+        IntegrationModule.runIC2AtServerStart();
     }
 }
