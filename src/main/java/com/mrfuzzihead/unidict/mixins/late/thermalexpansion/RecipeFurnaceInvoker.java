@@ -1,4 +1,4 @@
-package com.mrfuzzihead.unidict.mixins.late;
+package com.mrfuzzihead.unidict.mixins.late.thermalexpansion;
 
 import net.minecraft.item.ItemStack;
 

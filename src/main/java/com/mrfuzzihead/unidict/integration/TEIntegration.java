@@ -8,7 +8,8 @@ package com.mrfuzzihead.unidict.integration;
  * <p>The three TE recipe types ({@code RecipeFurnace}, {@code RecipePulverizer}, {@code RecipeSmelter})
  * are immutable value objects ({@code final} output fields) whose constructors are package-private, so a
  * rewritten recipe must be <b>rebuilt</b> via the M0-Spike-B {@code @Invoker} mixins
- * ({@link com.mrfuzzihead.unidict.mixins.late.RecipeFurnaceInvoker} &amp; co.) and replaced by {@code Map.setValue}
+ * ({@link com.mrfuzzihead.unidict.mixins.late.thermalexpansion.RecipeFurnaceInvoker} &amp; co.) and replaced by {@code
+ * Map.setValue}
  * — never a removal, never a global-registry mutation (BB-3). The per-manager {@code private static}
  * {@code recipeMap} fields are read through the M7 accessor seam
  * ({@code IFurnaceManagerAccessor} &amp; co. realised by {@code FurnaceManagerMixin} &amp; co.), replacing

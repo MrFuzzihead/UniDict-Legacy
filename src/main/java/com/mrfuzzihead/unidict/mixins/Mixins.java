@@ -20,29 +20,29 @@ public enum Mixins implements IMixins {
         .addCommonMixins("ShapelessOreRecipeMixin")),
 
     FORESTRY_CENTRIFUGE(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("CentrifugeRecipeMixin")
+        .addCommonMixins("forestry.CentrifugeRecipeMixin")
         .addRequiredMod(TargetMods.FORESTRY)),
 
     THERMAL_EXPANSION(new MixinBuilder().setPhase(Phase.LATE)
         .addCommonMixins(
-            "RecipeFurnaceInvoker",
-            "RecipePulverizerInvoker",
-            "RecipeSmelterInvoker",
-            "FurnaceManagerMixin",
-            "PulverizerManagerMixin",
-            "SmelterManagerMixin")
+            "thermalexpansion.RecipeFurnaceInvoker",
+            "thermalexpansion.RecipePulverizerInvoker",
+            "thermalexpansion.RecipeSmelterInvoker",
+            "thermalexpansion.FurnaceManagerMixin",
+            "thermalexpansion.PulverizerManagerMixin",
+            "thermalexpansion.SmelterManagerMixin")
         .addRequiredMod(TargetMods.THERMAL_EXPANSION)),
 
     ENDER_IO(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("OreDictionaryPreferencesMixin")
+        .addCommonMixins("enderio.OreDictionaryPreferencesMixin")
         .addRequiredMod(TargetMods.ENDER_IO)),
 
     RAILCRAFT(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("BlastFurnaceCraftingManagerMixin")
+        .addCommonMixins("railcraft.BlastFurnaceCraftingManagerMixin")
         .addRequiredMod(TargetMods.RAILCRAFT)),
 
     IC2(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("AdvRecipeMixin", "AdvShapelessRecipeMixin")
+        .addCommonMixins("ic2.AdvRecipeMixin", "ic2.AdvShapelessRecipeMixin")
         .addRequiredMod(TargetMods.IC2)),
 
     CRAFTING(new MixinBuilder().setPhase(Phase.EARLY)

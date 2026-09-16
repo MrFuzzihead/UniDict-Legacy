@@ -61,9 +61,9 @@ public final class ConfigData {
      * Qualified item-name substrings protecting a specific item (or its variants) from canonicalization
      * and NEI hiding. Matched against the registered {@code modid:path} name — unlike
      * {@link #protectedOreDictionaryNames}, which matches OD tags. This is for cases where the item has
-     * no carve-out OD tag: e.g. {@code "EtFuturum:block_copper"} keeps a mod's decorative copper block
-     * (incl. aged/oxidized variants of that name) obtainable and visible instead of folding it into the
-     * canonical copper block.
+     * no carve-out OD tag: e.g. {@code "etfuturum:copper_block"} keeps EtF's copper block (and any variant
+     * whose registry name shares that substring) obtainable and visible instead of folding it into the
+     * canonical copper block. Matching is a case-sensitive substring of the registered {@code modid:path}.
      */
     public final Set<String> protectedItemNames;
     /**
@@ -71,9 +71,11 @@ public final class ConfigData {
      * its unified container — an ownership override on top of the owner-priority order. This is the
      * mechanism for shared-OD-tag craft conflicts: e.g. EtF and TF both register 9-ingot → block recipes
      * from {@code ingotCopper}, so they collide on the same crafting pattern; making
-     * {@code "EtFuturum:block_copper"} canonical means every copper-block recipe's output is rewritten to
+     * {@code "etfuturum:copper_block"} canonical means every copper-block recipe's output is rewritten to
      * that block, so only one block is craftable (and the colliding TF recipe effectively produces the
-     * same block).
+     * same block). Matching is a case-sensitive substring of the registered {@code modid:path} name, so an
+     * entry that doesn't appear in the live name (wrong modid, wrong path or wrong case — e.g. the
+     * {@code EtFuturum:block_copper} spelling this comment used to carry) silently has no effect.
      */
     public final Set<String> canonicalItemNames;
 
@@ -115,8 +117,11 @@ public final class ConfigData {
     /**
      * Storage Drawers compacting drawers: seed {@code StorageDrawers.compRegistry} with the unified
      * model's canonical block/ingot/nugget chains so a compacting drawer honors the canonical entries
-     * (e.g. EtF's copper block as the top tier of a drawer seeded with a TF copper ingot) instead of
+     * (e.g. EtF's copper block as the top tier of a drawer keyed with a TF copper ingot) instead of
      * whichever colliding 9-ingot → block recipe the recipe search + mod-matching bias happens to pick.
+     * Runs at LOAD_COMPLETE and is re-seeded at server start, because
+     * {@code CompTierRegistry.register(...)} <em>replaces</em> records sharing the new upper/lower stack
+     * (a late {@code mods.storagedrawers.Compaction} script would otherwise delete the canonical record).
      */
     public final boolean storageDrawersIntegration;
 

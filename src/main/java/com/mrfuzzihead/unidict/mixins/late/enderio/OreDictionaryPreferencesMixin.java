@@ -1,4 +1,4 @@
-package com.mrfuzzihead.unidict.mixins.late;
+package com.mrfuzzihead.unidict.mixins.late.enderio;
 
 import java.util.Map;
 

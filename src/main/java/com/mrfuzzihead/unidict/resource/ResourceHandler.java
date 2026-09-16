@@ -55,8 +55,8 @@ public final class ResourceHandler {
      * contains one of the substrings (default {@code "raw"} keeps raw metals tagged {@code rawCopper}/…
      * as the mined/processing form).</li>
      * <li>{@code protectedItemNames} — the item's registered {@code modid:path} name contains one of
-     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "EtFuturum:block_copper"}
-     * keeps a mod's decorative copper block, incl. its aged/oxidized variants).</li>
+     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "etfuturum:copper_block"}
+     * keeps EtF's copper block, incl. its aged/oxidized variants). Matching is case-sensitive.</li>
      * </ul>
      * Protected items are returned unchanged by {@link #getMainItemStack} — so a mined raw-metal or a
      * protected decorative block is preserved (craftable + non-canonicalized) — and are exempt from

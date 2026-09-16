@@ -1,4 +1,4 @@
-package com.mrfuzzihead.unidict.mixins.late;
+package com.mrfuzzihead.unidict.mixins.late.ic2;
 
 import net.minecraft.item.ItemStack;
 

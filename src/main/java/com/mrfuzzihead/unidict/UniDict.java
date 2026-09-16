@@ -95,5 +95,9 @@ public class UniDict {
         // IC2 machine recipes (incl. the macerator) can be re-registered after POST_INIT; re-run the
         // (idempotent, in-place) machine-output rewrite so the final authoritative recipes are canonicalized.
         IntegrationModule.runIC2AtServerStart();
+        // Storage Drawers' compacting-drawer tier registry is replace-not-add, and pack scripts
+        // (mods.storagedrawers.Compaction...) are (re)applied after post-init; re-seed the canonical
+        // block/ingot/nugget chains so the unified model stays the last writer.
+        IntegrationModule.runStorageDrawersAtServerStart();
     }
 }

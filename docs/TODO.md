@@ -16,8 +16,8 @@ Living backlog of everything **not yet done** for an initial release, as of `fea
 | **UnifyDrops** — drop-time canonicalisation                                                  | DONE (new, not in upstream)                      |
 | Config presets (minimal / standard / max-compat)                                             | DONE                                             |
 | `/unidict report` transparency + `RewriteJournal`                                            | DONE                                             |
-| **NEI variant hiding** (`autoHideInNEI`, kind + mod + protected OD names)                  | DONE (impl + T1/T2; T3 `hidden=N` to confirm)    |
-| **Storage Drawers** compacting-drawer compat (seeds the canonical block/ingot/nugget chains) | DONE (impl + T1/T2; T3 to confirm) |
+| **NEI variant hiding** (`autoHideInNEI`, kind + mod + protected OD names)                    | DONE (impl + T1/T2; T3 `hidden=N` to confirm)    |
+| **Storage Drawers** compacting-drawer compat (seeds the canonical block/ingot/nugget chains) | DONE (impl + T1/T2 + T3 gate; LOAD_COMPLETE + server-start re-seed) |
 
 **Everything below this line is the remaining scope.** Prioritisation is P0 → P2; "dropped" items are deliberately out of scope.
 
@@ -120,6 +120,7 @@ These ship the other half of the mod's promise ("unify the *whole* view", not ju
 ### 13. Storage Drawers Compact Drawer
 - **What:** Storage Drawers' Compact Drawer lists the same-mod block version of the metal used (TF copper ingot = TF copper nuget = TF copper block). We override Copper block to Et Futurum, so Compact Drawer should show that as the block
 - **Notes:** Not very necessary but QoL
+- **Landed (integration `StorageDrawersIntegration`):** seeds `StorageDrawers.compRegistry` with the model's canonical block/ingot/nugget chains at `LOAD_COMPLETE`, and re-seeds at server start — required because `CompTierRegistry.register(...)` is *replace-not-add* (a later `mods.storagedrawers.Compaction` script would delete the canonical record), and because a drawer's **base tier is always the item that keys it**, so the drawer must be keyed with the canonical ingot/nugget (a drawer keyed by the colliding block keeps that block). T3 gate: `PASS integration=storageDrawers seeded=N verified=M`. See `INTEGRATIONS.md` for the two drawer-side caveats and the debug recipe (`StorageDrawers.cfg` `general.enableDebugLogging=true`).
 
 ---
 

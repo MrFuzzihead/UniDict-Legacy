@@ -31,7 +31,7 @@ verify line each one is expected to emit.
 | **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
 | **Galacticraft**       | ✅ done (impl; T3 to confirm) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
 | **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | POST_INIT | ✅ output-only, identity-preserving | INFO (log only) |
-| **Storage Drawers**    | ✅ impl + T2 (T3 to confirm) | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same blessed path as Minetweaker `Compaction`) | POST_INIT | ✅ additive registry seeding — no recipe mutation | INFO (log only) |
+| **Storage Drawers**    | ✅ impl + T2 + T3 gate | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same path as Minetweaker `Compaction`; NOTE `register` **replaces** records sharing the new upper/lower) | LOAD_COMPLETE + server start (idempotent re-seed) | ✅ registry seeding only — no recipe mutation | `PASS integration=storageDrawers seeded=… verified=…` |
 
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
@@ -51,22 +51,45 @@ block — the exact collision reported in `TODO.md`. This is a Storage-Drawers-i
 question that drop-time `UnifyDrops` cannot fix (it only upgrades world-`EntityItem` drops, not the
 drawer's stored view or manual in-inventory extraction).
 
-**What it does:** at POST_INIT (after the `ResourceHandler` pipeline) it walks every unified resource,
-resolves the canonical `block`/`ingot`/`nugget` entries from the model, and seeds
-`StorageDrawers.compRegistry` through the mod's **own public `register(upper, lower, rate)` API** —
-the same path Minetweaker's `Compaction` integration uses. Because the registry is consulted *before*
-the recipe search, the compacting drawer then deterministically honors the canonical entries (e.g. a
-drawer seeded with a TF copper ingot shows the **EtF block** as its top tier), independent of recipe
-order or the mod-matching bias.
+**What it does:** at LOAD_COMPLETE (after every other mod's post-init, and after the `ResourceHandler`
+pipeline) it walks every unified resource, resolves the canonical `block`/`ingot`/`nugget` entries from
+the model, and seeds `StorageDrawers.compRegistry` through the mod's **own public
+`register(upper, lower, rate)` API** — the same path Minetweaker's `Compaction` integration uses.
+Because the registry is consulted *before* the recipe search, the compacting drawer then deterministically
+honors the canonical entries (e.g. a drawer keyed with a TF copper ingot shows the **EtF block** as its top
+tier), independent of recipe order or the mod-matching bias.
 
-**Safety:** purely **additive** registry seeding — no recipe mutation, no mixins/ASM, no global
-OreDictionary mutation (BB-3). Records match exact item pairs, so only the canonical chains we
-register are affected. Registered pairs are idempotent (`register` unregisters a prior same-target
-record, so re-running is safe). A degenerate same-item pair (block ≡ ingot) is never written.
+**Two drawer-side facts that decide whether this works in a pack:**
 
-**Verify:** T1 config parse (`storageDrawers` toggle), T2 on the `registerChain` seam (which pairs +
-rate, null/degenerate/refused handling); T3 to confirm in-pack: insert a TF copper ingot into a
-compacting drawer and confirm the block tier is EtF's.
+1. `CompTierRegistry.register(...)` is **replace-not-add** — it first unregisters any record whose `upper`
+   or `lower` matches the new pair, so a *later* registration of the colliding TF block→TF ingot chain
+   **deletes** the canonical EtF block→TF ingot record. The published `mods.storagedrawers.Compaction.add(...)`
+   API (MineTweaker/CraftTweaker) hits exactly that path, is applied after post-init and re-applied on script
+   reload — hence LOAD_COMPLETE plus an idempotent **re-seed at server start**
+   (`IntegrationModule.runStorageDrawersAtServerStart()`, same shape as the crafting/IC2 re-runs), which
+   makes the unified model the last writer and logs a WARN when a chain had been replaced in the meantime.
+   (`Compaction.undo()` only removes *by upper*, so a reload can leave a half-applied record.)
+2. A drawer's **base tier is always the item that keys it** (`TileEntityDrawersComp.populateSlots` runs only
+   while `convRate[0] == 0`, from `putItemsIntoSlot`/`setStoredItem`); the registry supplies only the tiers
+   *above/below* that item. So key a drawer with the canonical **ingot** (or a nugget) to see the canonical
+   block on top — a drawer keyed by a non-canonical block keeps showing/dispensing that block (its layout is
+   resolved once and carried in portable NBT as `Conv0..2`).
+
+**Safety:** registry seeding only — no recipe mutation, no mixins/ASM, no global OreDictionary mutation
+(BB-3). Records match exact item pairs, so only the canonical chains we register are affected, and the
+seeding is idempotent (`register` unregisters a prior same-target record, so re-running is safe). A
+degenerate same-item pair (block ≡ ingot) is never written. Note this is *not* purely additive on Storage
+Drawers' side: writing our chain is what makes it win over a previously registered colliding chain — which
+is the point — so we deliberately write last, and on every world load.
+
+**Verify:** T1 config parse (`storageDrawers` toggle), T2 on the `registerChain` (write) and `verifyChain`
+(read-back) seams — which pairs + rate, null/degenerate/refused handling, read-back agreement, and a
+re-registered colliding chain reading back unverified; T3 `PASS integration=storageDrawers seeded=N
+verified=M` (M < N means the registry no longer resolves a canonical pair — the drawer would fall back to
+the colliding chain). In-pack confirmation: key a **fresh** compacting drawer with a TF copper ingot and
+check the block tier is EtF's; `StorageDrawers.cfg` `general.enableDebugLogging=true` logs
+`Found <x> in registry with conv=9` (registry path) versus `Finding ascending candidates for …` /
+`Picked candidate …` (recipe-search fallback).
 
 ---
 

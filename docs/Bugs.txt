@@ -1,0 +1,3 @@
+In dev environment, EtF raw aluminum shows in NEI. But in production modpack, raw aluminum does not show in NEI (other raw metals show). Functionally, raw aluminum is the same in both envs
+
+Titanium ore (GC, AmunRa) does not have correct oredict entry, also gives wrong items (changing to oreTitanium MAY fix this?) - maybe use CraftTweaker

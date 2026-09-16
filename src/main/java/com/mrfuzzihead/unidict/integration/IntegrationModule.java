@@ -67,6 +67,11 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
             if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
             if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+            // Storage Drawers (LOAD_COMPLETE, not POST_INIT — see @SpecifiedLoadStage): SD's
+            // CompTierRegistry.register(...) replaces records sharing the new upper/lower stack, so the
+            // canonical chains must be written after every other mod's post-init, and re-seeded at server
+            // start (runStorageDrawersAtServerStart) because MineTweaker/CraftTweaker Compaction scripts
+            // are (re)applied after post-init.
             if (Config.storageDrawers() && Loader.isModLoaded("StorageDrawers"))
                 executor.add(new StorageDrawersIntegration());
 
@@ -106,6 +111,20 @@ public final class IntegrationModule extends AbstractModule {
     public static void runIC2AtServerStart() {
         if (Config.integrationModule() && Config.ic2() && Loader.isModLoaded("IC2")) {
             IC2Integration.runAtServerStart();
+        }
+    }
+
+    /**
+     * Server-started re-seed of the Storage Drawers compacting-drawer tier registry. SD's
+     * {@code CompTierRegistry.register(...)} <em>replaces</em> any record sharing the new upper/lower
+     * stack, so a pack's {@code mods.storagedrawers.Compaction.add(...)} script (MineTweaker/CraftTweaker
+     * apply — and re-apply on script reload — after post-init) would otherwise leave the drawer resolving
+     * the colliding 9-ingot → block chain (e.g. TF's block) instead of the unified model's canonical one.
+     * Re-seeding here makes the unified model the last writer; it is idempotent.
+     */
+    public static void runStorageDrawersAtServerStart() {
+        if (Config.integrationModule() && Config.storageDrawers() && Loader.isModLoaded("StorageDrawers")) {
+            StorageDrawersIntegration.runAtServerStart();
         }
     }
 }
