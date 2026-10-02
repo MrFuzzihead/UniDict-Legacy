@@ -95,5 +95,9 @@ public class UniDict {
         // IC2 machine recipes (incl. the macerator) can be re-registered after POST_INIT; re-run the
         // (idempotent, in-place) machine-output rewrite so the final authoritative recipes are canonicalized.
         IntegrationModule.runIC2AtServerStart();
+        // Tinkers' Construct casting recipes (incl. those added by its addons — ExtraTiC, TSteelworks,
+        // Mariculture) can be registered after LOAD_COMPLETE; re-run the (idempotent, in-place) casting
+        // output rewrite so the final authoritative list is canonicalized.
+        IntegrationModule.runTinkersConstructAtServerStart();
     }
 }

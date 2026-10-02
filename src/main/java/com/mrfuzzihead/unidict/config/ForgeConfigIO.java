@@ -208,6 +208,13 @@ public final class ForgeConfigIO {
             defaults.storageDrawersIntegration,
             "Storage Drawers compacting drawers (seed the tier registry with the canonical "
                 + "block/ingot/nugget chains so compacting honors the unified model, e.g. EtF's copper block).");
+        booleanProp(
+            cfg,
+            CATEGORY_INTEGRATIONS,
+            "tinkersConstruct",
+            defaults.tinkersConstructIntegration,
+            "Tinkers' Construct smeltery casting table / basin recipe outputs (melt + alloy outputs are "
+                + "molten fluids and have no unified item to map to).");
     }
 
     /**

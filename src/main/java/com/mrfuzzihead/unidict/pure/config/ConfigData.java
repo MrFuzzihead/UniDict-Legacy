@@ -119,6 +119,13 @@ public final class ConfigData {
      * whichever colliding 9-ingot → block recipe the recipe search + mod-matching bias happens to pick.
      */
     public final boolean storageDrawersIntegration;
+    /**
+     * Tinkers' Construct smeltery: the Casting Table / Casting Basin recipe outputs, rewritten
+     * non-destructively in place through TiC's public {@code LiquidCasting} API (never a removal —
+     * upstream's {@code TConUniHelper#removeCast} deleted the recipe; never the melt/alloy side, which
+     * produces molten <em>fluids</em>, not items, and so has no canonical entry to map to — BB-4).
+     */
+    public final boolean tinkersConstructIntegration;
 
     private ConfigData(final Builder b) {
         this.keepOneEntry = b.keepOneEntry;
@@ -152,6 +159,7 @@ public final class ConfigData {
         this.thermalExpansionIntegration = b.thermalExpansionIntegration;
         this.galacticraftIntegration = b.galacticraftIntegration;
         this.storageDrawersIntegration = b.storageDrawersIntegration;
+        this.tinkersConstructIntegration = b.tinkersConstructIntegration;
     }
 
     private static Map<String, List<String>> copyOwnerOfKind(final Map<String, List<String>> source) {
@@ -200,6 +208,7 @@ public final class ConfigData {
         private boolean thermalExpansionIntegration = true;
         private boolean galacticraftIntegration = true;
         private boolean storageDrawersIntegration = true;
+        private boolean tinkersConstructIntegration = true;
 
         public Builder keepOneEntry(final boolean value) {
             this.keepOneEntry = value;
@@ -351,6 +360,11 @@ public final class ConfigData {
             return this;
         }
 
+        public Builder tinkersConstructIntegration(final boolean value) {
+            this.tinkersConstructIntegration = value;
+            return this;
+        }
+
         public ConfigData build() {
             return new ConfigData(this);
         }
@@ -389,6 +403,8 @@ public final class ConfigData {
             + galacticraftIntegration
             + ", storageDrawers="
             + storageDrawersIntegration
+            + ", tinkersConstruct="
+            + tinkersConstructIntegration
             + '}';
     }
 }

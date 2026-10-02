@@ -116,4 +116,8 @@ public class Config {
     public static boolean storageDrawers() {
         return data.storageDrawersIntegration;
     }
+
+    public static boolean tinkersConstruct() {
+        return data.tinkersConstructIntegration;
+    }
 }
