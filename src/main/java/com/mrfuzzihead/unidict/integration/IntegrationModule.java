@@ -29,8 +29,9 @@ import cpw.mods.fml.common.Loader;
  * if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
  * if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
  * if (Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) executor.add(new GalacticraftIntegration());
+ * if (Config.tinkersConstruct() && Loader.isModLoaded("TConstruct")) executor.add(new TinkersConstructIntegration());
  * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants + centrifuge product
- * // keys). M8: Galacticraft (ingot / electric ingot compressor).
+ * // keys). M8: Galacticraft (ingot / electric ingot compressor). TiC: smeltery casting table / basin.
  * </pre>
  */
 public final class IntegrationModule extends AbstractModule {
@@ -69,6 +70,8 @@ public final class IntegrationModule extends AbstractModule {
             if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
             if (Config.storageDrawers() && Loader.isModLoaded("StorageDrawers"))
                 executor.add(new StorageDrawersIntegration());
+            if (Config.tinkersConstruct() && Loader.isModLoaded("TConstruct"))
+                executor.add(new TinkersConstructIntegration());
 
             // Galacticraft's compressor recipes only exist once GC registers them at FMLServerStarting
             // (RecipeManagerGC.setConfigurableRecipes), so it is NOT a LoadStage module — it is triggered
@@ -106,6 +109,18 @@ public final class IntegrationModule extends AbstractModule {
     public static void runIC2AtServerStart() {
         if (Config.integrationModule() && Config.ic2() && Loader.isModLoaded("IC2")) {
             IC2Integration.runAtServerStart();
+        }
+    }
+
+    /**
+     * Server-started re-run of the Tinkers' Construct smeltery casting rewrite. TiC (and its addons —
+     * ExtraTiC, TSteelworks, Mariculture) can register additional casting recipes after the LOAD_COMPLETE
+     * pass; the (idempotent, in-place) rewrite is re-run so the authoritative final recipe list is
+     * canonical. No-op unless {@code Config.tinkersConstruct()} is on and TConstruct is loaded.
+     */
+    public static void runTinkersConstructAtServerStart() {
+        if (Config.integrationModule() && Config.tinkersConstruct() && Loader.isModLoaded("TConstruct")) {
+            TinkersConstructIntegration.runAtServerStart();
         }
     }
 }

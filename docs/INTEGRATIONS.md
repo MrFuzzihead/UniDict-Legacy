@@ -32,6 +32,7 @@ verify line each one is expected to emit.
 | **Galacticraft**       | ✅ done (impl; T3 to confirm) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
 | **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | POST_INIT | ✅ output-only, identity-preserving | INFO (log only) |
 | **Storage Drawers**    | ✅ impl + T2 (T3 to confirm) | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same blessed path as Minetweaker `Compaction`) | POST_INIT | ✅ additive registry seeding — no recipe mutation | INFO (log only) |
+| **Tinkers' Construct** (smeltery casting) | ✅ impl + T2 (T3 pending) | 2026 | public `TConstructRegistry.getTableCasting()`/`getBasinCasting()` → `LiquidCasting.getCastingRecipes()`; `CastingRecipe.output` is a public field | LOAD_COMPLETE + server start (idempotent, re-run) | ✅ in-place `output` write (never a removal) | `…=TinkersConstruct` |
 
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
@@ -384,6 +385,58 @@ verify hook and are additive to (never a replacement of) the three rewrite lines
 - **Verify lines:** `[unidict-verify] PASS integration=Galacticraft machine=compressor rewritten=N`;
   journal `galacticraft.compressor`. Plus the GC metals (`Titanium`, `Desh`, `MeteoricIron`) were added
   to the standard metal set (`ConfigPresets`).
+
+### Tinkers' Construct — ✅ impl + T2 tests (T3 pending)
+
+- **What it rewrites:** the smeltery's **Casting Table** and **Casting Basin**. Both read the same
+  public holder: `TConstructRegistry.getTableCasting()` / `getBasinCasting()` → `LiquidCasting`, whose
+  `getCastingRecipes()` returns the **live** backing `ArrayList` (upstream's `removeCast` relied on
+  exactly that). `CastingRecipe.output` is a **public, non-final** field, so the rewrite is a single
+  in-place field write — **no accessor mixin, no `@Invoker`, no reflection**, and no recipe rebuild, so
+  the recipe's other fields (`coolTime`, `consumeCast`, `ignoreNBT`, `fluidRenderProperties`) cannot be
+  lost. `LiquidCasting.getCastingRecipe(...)` re-scans its list per lookup and `getResult()` returns the
+  field, so a changed output is live immediately — **no cache to bust** (contrast the IC2 `recipeCache`
+  note below).
+- **Deliberately NOT implemented — the melt/alloy side (BB-4).** A smeltery never yields an `ItemStack`
+  from melting. `javap` on `tconstruct.library.crafting.Smeltery`:
+  `smeltingList : Map<ItemMetaWrapper, FluidStack>`, `getSmelteryResult(ItemStack) -> FluidStack`,
+  `mixMetals(List<FluidStack>) -> List<FluidStack>`. Melting an Ardite ore produces **molten Ardite**, a
+  fluid; alloying stays fluid-to-fluid. UniDict's model is ItemStack/OreDict-based, so there is no item
+  at the melt stage to redirect to e.g. Thermal Foundation's — that needs a fluid-equivalence class,
+  which 1.7.10 has no OreDict-style model for (**BB-4**, the same deferral already recorded for the
+  Forestry squeezer/fermenter fluid outputs). An ingot first becomes an *item* at the casting step, which
+  is why casting is the one and only ItemStack-output seam.
+- **BB-3 — non-destructive, and a deliberate divergence from upstream.** Upstream
+  `wanion.unidict.api.helper.TConUniHelper#removeCast` iterated the recipes and **REMOVED** every
+  `CastingRecipe` whose `output` **or** `cast` matched a hidden variant, i.e. it deleted the player's
+  ability to cast that item at all. The port writes the canonical entry **in place** instead. Inputs are
+  never touched: `cast` (ItemStack) and `castingMetal` (FluidStack) are left alone, because a cast is
+  *consumed*, not produced, and inputs are M5-deferred.
+- **Null outputs are legitimate.** A bare "pour the metal" recipe (registered via
+  `addCastingRecipe(ItemStack, FluidStack, int, int)`) has `output == null`. The view reports that as an
+  **empty** item list, so the shared `OutputRewriter` core sees no change and never calls `rebuild`
+  (which would NPE on `mapped.get(0)`).
+- **Load stage:** `LOAD_COMPLETE` (latest `LoadStage`) — TiC and its addons (ExtraTiC, TSteelworks,
+  Mariculture, TiCTooltips are all in the dev pack) register casting recipes during their own init, and
+  the earlier POST_INIT default was already shown to miss late registrations (the reason the vanilla
+  Furnace rewrite was bumped — see `STATUS.md`). A **server-start re-run** is idempotent and catches
+  anything registered later still: `UniDict.serverStarted` → `IntegrationModule.runTinkersConstructAtServerStart()`
+  → `TinkersConstructIntegration.runAtServerStart()`, mirroring `IC2Integration.runAtServerStart()`.
+  `RewriteJournal.record` updates rather than appends, so the report shows one final count per machine.
+- **Tests:** `TinkersConstructIntegrationTest` (6 T2) — drives the package-private generic
+  `rewriteCastingOutputs` seam (over the shared `OutputRewriter.rewriteList`) with a neutral mutable
+  holder standing in for `CastingRecipe` (no TiC types on the test classpath): in-place remap, cast input
+  + other fields preserved, null output skipped, idempotent re-run, null list entry skipped, journal
+  dedupe. The real `TConstructRegistry` statics and the actual pour are T3.
+- **Config:** `Config.tinkersConstruct()` (`tinkersConstruct` key), on in `standard()`/`maxCompat()`,
+  off in `minimal()`. Gated on `Loader.isModLoaded("TConstruct")`. No `Mixins` entry needed (no mixin).
+- **Verify lines:** `[unidict-verify] PASS integration=TinkersConstruct machine=castingTable rewritten=N`
+  (+ `machine=castingBasin`); journal `tinkersconstruct.castingTable` / `.castingBasin`.
+- **Expected yield is low, by design:** for its own metals TiC is already the canonical owner — the dev
+  log shows `main=TConstruct:materials` / `MetalBlock` / `SearedBrick` for `ingotCobalt`, `blockArdite`,
+  `oreCobalt`, `ingotAluminum` (TiC ranks last in `ownerPriorities`, but no higher-priority mod owns
+  them). The rewrite therefore only bites where TF/minecraft/IC2 *do* outrank TiC on a resource TiC
+  happens to cast (e.g. its own `ingotIron`/`ingotGold` castings, `nuggetSteel`).
 
 **Gate (open → closed for EIO/Railcraft/TE):** full kept-mod `runClient` — one verify line per integration, all PASS; NEI stays safe
 (M4 main-thread rule still enforced). EIO/Railcraft/TE were **T3-verified in the 2026-08-14 full dev-mod regression** (see `STATUS.md`): EIO `machines=2 rewritten=0`, Railcraft `rewritten=0`, TE `machines=3 rewritten=253` — all `PASS`. The remaining open T3 item is **Galacticraft** (compressor), whose verify line needs a run with `GalacticraftCore` at runtime (dev-LIGHT keeps GC off runtime; see gotchas #2 & #3).

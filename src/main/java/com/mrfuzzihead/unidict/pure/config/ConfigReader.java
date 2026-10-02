@@ -63,6 +63,7 @@ public final class ConfigReader {
     private static final String KEY_THERMAL = "thermalExpansion";
     private static final String KEY_GALACTICRAFT = "galacticraft";
     private static final String KEY_STORAGE_DRAWERS = "storageDrawers";
+    private static final String KEY_TINKERS = "tinkersConstruct";
 
     private ConfigReader() {}
 
@@ -105,7 +106,8 @@ public final class ConfigReader {
             .railcraftIntegration(defaults.railcraftIntegration)
             .thermalExpansionIntegration(defaults.thermalExpansionIntegration)
             .galacticraftIntegration(defaults.galacticraftIntegration)
-            .storageDrawersIntegration(defaults.storageDrawersIntegration);
+            .storageDrawersIntegration(defaults.storageDrawersIntegration)
+            .tinkersConstructIntegration(defaults.tinkersConstructIntegration);
 
         final List<String> ignored = new ArrayList<>();
         final Map<String, List<String>> ownerOfKind = new LinkedHashMap<>(defaults.ownerOfKind);
@@ -221,6 +223,9 @@ public final class ConfigReader {
                 return;
             case KEY_STORAGE_DRAWERS:
                 b.storageDrawersIntegration(bool(value, defaults.storageDrawersIntegration));
+                return;
+            case KEY_TINKERS:
+                b.tinkersConstructIntegration(bool(value, defaults.tinkersConstructIntegration));
                 return;
             case LEGACY_OWNER_EVERYTHING:
                 b.ownerPriorities(list(value)); // modern alias of ownerPriorities

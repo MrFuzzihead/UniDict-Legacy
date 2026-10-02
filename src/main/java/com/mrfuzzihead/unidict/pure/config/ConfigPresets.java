@@ -117,6 +117,7 @@ public final class ConfigPresets {
             .thermalExpansionIntegration(false)
             .galacticraftIntegration(false)
             .storageDrawersIntegration(false)
+            .tinkersConstructIntegration(false)
             .build();
     }
 
@@ -152,6 +153,7 @@ public final class ConfigPresets {
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
             .storageDrawersIntegration(true)
+            .tinkersConstructIntegration(true)
             .build();
     }
 
@@ -188,6 +190,7 @@ public final class ConfigPresets {
             .railcraftIntegration(true)
             .thermalExpansionIntegration(true)
             .galacticraftIntegration(true)
+            .tinkersConstructIntegration(true)
             .build();
     }
 }
