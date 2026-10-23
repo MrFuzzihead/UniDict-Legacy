@@ -17,17 +17,16 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
-import com.mrfuzzihead.unidict.MetaItem;
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
 import com.mrfuzzihead.unidict.pure.config.ConfigData;
 
 import cpw.mods.fml.common.registry.GameData;
-import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
 
 @SuppressWarnings("unused")
 public final class ResourceHandler {
@@ -110,7 +109,19 @@ public final class ResourceHandler {
         return false;
     }
 
-    private final TIntObjectMap<UniAttributes<UniResourceContainer>> individualStackAttributes = new TIntObjectHashMap<>();
+    /**
+     * The variant → resource/container index behind {@link #getMainItemStack}.
+     *
+     * <p>
+     * Keyed by the <b>{@link Item} instance and its damage</b>, never by the numeric registry id: Forge
+     * reassigns registry ids at runtime ({@code FMLModIdMappingEvent}) while this index is built once at
+     * postInit and lives for the whole session. A numeric key would go stale on every remap — and since a
+     * remap shifts each mod's ids into another mod's old slots, a stale key does not merely miss, it
+     * <em>cross-wires</em>: looking up item A hit item B's entry and returned B's canonical stack. That is
+     * what made EtF Amethyst Shard drops come back as aluminum/gold ore blocks (count preserved, because
+     * {@code getMainEntry(size)} keeps the caller's stack size). Item identity survives a remap; ids do not.
+     */
+    private final IdentityDamageIndex<UniAttributes<UniResourceContainer>> individualStackAttributes = new IdentityDamageIndex<>();
     private final Map<String, UniResourceContainer> containerMap = new HashMap<>();
     private final Map<String, Resource<UniResourceContainer>> resourceMap;
 
@@ -118,12 +129,8 @@ public final class ResourceHandler {
         resources = (this.resourceMap = resourceMap).values();
     }
 
-    public boolean exists(final int thingId) {
-        return individualStackAttributes.containsKey(thingId);
-    }
-
     public boolean exists(final ItemStack thing) {
-        return (thing != null) && individualStackAttributes.containsKey(MetaItem.get(thing));
+        return get(thing) != null;
     }
 
     public boolean resourceExists(@Nonnull final String name) {
@@ -135,7 +142,9 @@ public final class ResourceHandler {
     }
 
     private UniAttributes<UniResourceContainer> get(final ItemStack thing) {
-        return (thing == null || thing.getItem() == null) ? null : individualStackAttributes.get(MetaItem.get(thing));
+        if (thing == null) return null;
+        final Item item = thing.getItem();
+        return (item == null) ? null : individualStackAttributes.get(item, item.getDamage(thing));
     }
 
     public Resource<UniResourceContainer> getResource(final String resourceName) {
@@ -168,9 +177,9 @@ public final class ResourceHandler {
      * <p>
      * Two resolution paths:
      * <ol>
-     * <li><b>Exact-hash index</b> ({@link #individualStackAttributes}) — the fast path used by the
-     * machine/integration rewrites, keyed by {@code (registeredId, item damage)} from the OD
-     * snapshot.</li>
+     * <li><b>Exact index</b> ({@link #individualStackAttributes}) — the fast path used by the
+     * machine/integration rewrites, keyed by the {@link Item} instance and item damage taken from the
+     * OD snapshot (wildcard-aware; never by registry id — see that field's javadoc).</li>
      * <li><b>Ore-Dictionary membership fallback</b> — when the concrete stack in hand is not in that
      * pre-index (its damage/wildcard differs from the OD-registered value, common for hand-held /
      * dropped items), resolve it through Forge's live OD lookups: any stack that IS an {@code
@@ -235,14 +244,23 @@ public final class ResourceHandler {
         return Resource.getResources(resources, kinds);
     }
 
-    /** Maps every variant's key to its resource/container so {@link #getMainItemStack} can resolve. */
+    /**
+     * Maps every variant to its resource/container so {@link #getMainItemStack} can resolve, keyed by
+     * item identity + damage (see {@link #individualStackAttributes}). Safe to re-run: the index is
+     * cleared first, so a later re-index cannot leave duplicate/stale keys behind.
+     */
     void populateIndividualStackAttributes() {
+        individualStackAttributes.clear();
         for (final Resource<UniResourceContainer> resource : new ArrayList<>(resources)) {
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 containerMap.put(container.name, container);
                 final UniAttributes<UniResourceContainer> uniAttributes = new UniAttributes<>(resource, container);
-                final int[] hashes = container.getHashes();
-                if (hashes != null) for (final int hash : hashes) individualStackAttributes.put(hash, uniAttributes);
+                // Re-derive the (item, damage) pairs from the container's own snapshot instead of a
+                // precomputed id hash: the hash baked in load-time registry ids and went stale on remap.
+                for (final ItemStack entry : container.getEntries()) {
+                    final Item item = (entry == null) ? null : entry.getItem();
+                    if (item != null) individualStackAttributes.put(item, item.getDamage(entry), uniAttributes);
+                }
             }
         }
     }

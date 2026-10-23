@@ -21,7 +21,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
-import com.mrfuzzihead.unidict.MetaItem;
 import com.mrfuzzihead.unidict.common.SpecificKindItemStackComparator;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
@@ -41,7 +40,6 @@ public final class UniResourceContainer implements IResourceContainer {
     private boolean updated = false;
     private Item mainEntryItem;
     private int mainEntryMeta;
-    private int[] hashes;
 
     public UniResourceContainer(@Nonnull final String name, final long kind) {
         this.kindName = Resource.getNameOfKind(kind);
@@ -94,13 +92,8 @@ public final class UniResourceContainer implements IResourceContainer {
         if (!entries.isEmpty()) {
             final ItemStack mainEntry = entries.get(0);
             mainEntryMeta = (mainEntryItem = mainEntry.getItem()).getDamage(mainEntry);
-            hashes = MetaItem.getArray(entries);
         }
         return updated = true;
-    }
-
-    int[] getHashes() {
-        return hashes;
     }
 
     @Override
