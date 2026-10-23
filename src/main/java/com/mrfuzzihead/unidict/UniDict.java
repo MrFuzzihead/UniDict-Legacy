@@ -99,5 +99,10 @@ public class UniDict {
         // Mariculture) can be registered after LOAD_COMPLETE; re-run the (idempotent, in-place) casting
         // output rewrite so the final authoritative list is canonicalized.
         IntegrationModule.runTinkersConstructAtServerStart();
+        // Dev-only T3 oracle, stage 2: the world's block/item id map is applied during world load
+        // (FMLModIdMappingEvent, i.e. between SERVER_ABOUT_TO_START and here), so this is the earliest
+        // point at which an id-staleness regression in the resource index is observable — the drop-time
+        // cross-wiring bug had no stage that could see it (docs/TODO.md #3b).
+        VerifyHarness.runPostRemapChecks();
     }
 }

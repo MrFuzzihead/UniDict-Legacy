@@ -59,6 +59,31 @@ These ship the other half of the mod's promise ("unify the *whole* view", not ju
 - **Verify:** a full-`devOnly` `runClient` that boots without the `IllegalAccessError`.
 - **Risks/notes:** this is the single real blocker for "release build with TE". Revisit whatever the target pack actually ships.
 
+### 3b. Fixed defect (2026-10-23) — drop-time cross-wiring after `FMLModIdMappingEvent`
+- **Symptom (field report, pack with Et Futurum + Artifice):** an EtF **Amethyst Cluster** drop came back as
+  **aluminum/gold ore blocks** with the cluster's own count (2, more with Fortune); silk-touch drops were
+  untouched. `UnifyDrops` was on (`unifyDrops=true`).
+- **Root cause:** `ResourceHandler#individualStackAttributes` was keyed by
+  `MetaKey.forItemAndDamage(registryId, damage)`. It is built once at POST_INIT and lives for the session,
+  but Forge **renumbers item registry ids** on `FMLModIdMappingEvent` (this pack remaps 9,202 ids). Remapping
+  shifts each mod's ids into another mod's old slots, so a stale lookup does not just miss — it hits
+  **another item's** entry and returns that container's `getMainEntry(size)` (hence the preserved count).
+  `modded_raw_ore`'s load-time id was the amethyst shard's remapped id, so the shard resolved to `oreAluminum`.
+  `containerForOreName`'s OD fallback only ran on *misses*, so it never saw the false hits.
+- **Fix:** the index is now `pure.IdentityDamageIndex` — keyed by the **`Item` instance (identity) + damage**,
+  wildcard-aware, built from the container snapshots. Item identity survives a remap; ids do not. `UniResourceContainer.hashes`
+  (and `getHashes()`) is gone, and the now-meaningless `ResourceHandler#exists(int)` (id-keyed) was removed.
+  `MetaKey` keeps its role for one-shot key math inside a single pass (recipe/cumulative keys) — it must never
+  key a map that outlives POST_INIT.
+- **Verify:** T1 `IdentityDamageIndexTest` (identity isolation, damage keying, wildcard precedence, re-index).
+  **T3 stage-2 harness** (`VerifyHarness.runPostRemapChecks`, hooked at `FMLServerStartedEvent` — *after* Forge
+  rebakes ids): `resourceIndex coverage`, `resourceIndex no-cross-wiring` (index assignment must be one of the
+  variant's live OD groups) and `resourceIndex no-spurious-rewrite` (an unmodeled registry item must come back by
+  identity). Stage 1 ran at POST_INIT, i.e. before any remap, which is why nothing caught this.
+  In-game: Amethyst Cluster and Artifice ores drop their own items with `unifyDrops=true`.
+- **Follow-up (not a blocker):** the OD fallback can still resolve a stack that belongs to several modeled
+  containers (arbitrary, as before); `UniOreDictionary.stackToName` is likewise id-keyed but unused in production.
+
 ### 4. Docs ↔ HEAD sync (release-notes correctness)
 - **What:** bring every doc checkbox/at-a-glance in line with HEAD before tagging so release notes are accurate.
 - **Current state:** `STATUS.md`/`INTEGRATIONS.md`/`PLAN.md` lag the landed commits (GC compressor, Forestry crates+recycling, `UnifyDrops`, and the 2026-08-14 EIO/Railcraft/TE T3 regression). See the HEAD-status notes added in each file.
