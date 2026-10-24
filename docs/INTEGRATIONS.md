@@ -51,6 +51,10 @@ is expected to emit.
 Every `rewritten=N` value below is the number of outputs that **actually changed** (and, across the
 `LOAD_COMPLETE`/server-start re-runs, the sum of the per-pass deltas).
 
+**T3 on a server:** `./gradlew verifyServer` boots the dev dedicated server, runs the whole oracle and
+asserts the result (~35 s, no client/display). It covers every integration below except Immersive
+Engineering (compileOnly) and NEI hiding (client-only). See `TestPlan.md` §T3 automation.
+
 ### Cross-cutting module — `UnifyDrops` (landed, new — not from upstream)
 
 Registered in `IntegrationModule` **outside** the `Config.integrationModule()` master switch (gated only on its own `Config.unifyDrops()`, default on), `UnifyDrops` listens for `EntityJoinWorldEvent` and upgrades a dropped/generated `EntityItem`'s stack to the canonical entry of its unified resource. Runs at POST_INIT (after the `ResourceHandler` pipeline) and is server-side only (`world.isRemote` guard). Only **clean** stacks are replaced — any stack with an NBT tag compound (enchanted/tagged/lore) is left untouched, and already-canonical drops are returned by identity (no spurious re-writes). It reuses the exact resolver (`ResourceHandler.getMainItemStack`) the machine integrations use, so it stays implicitly coupled to whatever the resource model covers (e.g. if BB‑4 fuels land, drops unify fuels automatically). Because it is a runtime listener, its effect is currently reported by the log line in `call()`; a T3 `[unidict-verify]` gate does not exist yet and is a candidate to add.
@@ -486,7 +490,9 @@ M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integ
 - **Status (2026-10-24):** **not a UniDict defect and not something the mod ships.** The production
   modpack already widens the field; the access transformer kept under `src/main/resources/META-INF/` is
   **dev-only tooling** for booting a local full-stack client and is deliberately untracked/not published
-  (see `docs/CODE_REVIEW.md` BUG-2). Nothing to do for release.
+  (see `docs/CODE_REVIEW.md` BUG-2). RFG auto-detects ATs in that folder for dev runs ("Found and added
+  access transformers in the resources folder"); the built jar still has no `FMLAT`, so nothing ships.
+  Nothing to do for release.
 
 - **Symptom:** `java.lang.IllegalAccessError: tried to access field net.minecraft.world.World
   .collidingBoundingBoxes from class cofh.asmhooks.HooksCore` on the **first item-entity tick**

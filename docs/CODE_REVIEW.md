@@ -11,9 +11,10 @@
 Companion docs: [`TODO.md`](TODO.md) (known backlog) · [`INTEGRATIONS.md`](INTEGRATIONS.md) ·
 [`STATUS.md`](STATUS.md) · [`TestPlan.md`](TestPlan.md).
 
-> **Status:** three unit-tested batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2
-> (BUG-17, OPT-3, latent `maxCompat()` carry-over, cleanup) and batch 3 (OPT-1 remainder, OPT-5, OPT-6;
-> OPT-7 subsumed) — see §8 for the change lists and test coverage. Docs were synced in batch 3 as well.
+> **Status:** four batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
+> `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync)
+> and batch 4 (headless **`verifyServer`** T3 harness + BUG-15) — see §8 for the change lists and test
+> coverage.
 > **BUG-2 is closed as not-a-defect:** the access transformer is dev-only tooling for the local full-stack
 > client (the production pack already widens the field), so it must not ship with the mod. Everything else
 > below is still open, and the remaining items all need an in-game run to verify (or a larger refactor) —
@@ -87,6 +88,10 @@ stale containers. Add a T2 test: blacklist a resource, assert `getMainItemStack`
 **production modpack**; the AT in `src/main/resources/META-INF/` is only needed to boot a local full-stack
 dev client, and it is deliberately kept out of the repo and out of the published jar. This is not a bug
 and needs no code change.
+
+The dev path is confirmed: RFG auto-detects ATs placed in `src/main/resources/META-INF/` and applies
+them to dev runs ("Found and added access transformers in the resources folder"), while the built jar
+still has no `FMLAT` — exactly the dev/prod split intended.
 
 What the review originally observed (kept for context): `accessTransformersFile` is empty, the file is
 git-ignored/untracked, and the built jar has no `FMLAT`. That is the intended state — the only residual
@@ -484,16 +489,13 @@ does nothing.
 
 ---
 
-### BUG-15 — the furnace integration has no `[unidict-verify]` line (S3)
+### BUG-15 — the furnace integration has no `[unidict-verify]` line
 
-**Where:** `integration/FurnaceIntegration.java:44-58`
+**Status: fixed in batch 4** (`integration=furnace rewritten=N`, asserted by `verifyServer`).
 
-Every other integration emits `VerifyHarness.record(...)`; furnace only writes `RewriteJournal` and an
-INFO log. `INTEGRATIONS.md`'s table and `TestPlan.md`'s verify-line contract list
-`PASS integration=furnace …`, so a T3 grep for it fails / silently misses furnace coverage.
-
-**Fix:** add `VerifyHarness.record(true, "integration=furnace", "rewritten=" + rewritten)` (guarded by
-`isEnabled()`), matching the other integrations.
+**Where (original):** `integration/FurnaceIntegration.java`
+Every other integration emits `VerifyHarness.record(...)`; furnace only wrote `RewriteJournal` and an
+INFO log, so the T3 contract silently missed it.
 
 ---
 
@@ -885,6 +887,24 @@ container, no JVM seam), OPT-8 (report batching — pure pagination is testable,
 of multi-line components cannot be verified without a client), OPT-9 (warning aggregation — the
 collection lives in the MC-bound loop; only a trivial formatter would be testable).
 
+### Batch 4 — headless T3 harness (+ the first item it verifies)
+
+Verification: `./gradlew verifyServer` green — **271 stage-1 checks + 3 stage-2 checks, 0 failures,
+~35 s**, on a dedicated server with no display; `./gradlew build` still green (208 tests).
+
+| Item | Change | Verification |
+|---|---|---|
+| **T3 harness** | New `verifyServer` Gradle task: prepares `run/server/` (EULA + headless `server.properties`), boots the dev dedicated server with the verify switch and a new dev-only `unidict.verify.exitAfterStart` hook that stops the JVM after stage 2, captures the console to `build/unidict-verify-server.log`, then asserts the summaries, the report, every server-side `integration=` line and the `spikeA`/`resourceIndex` checks. RFG's console EULA/online-mode prompts are bypassed by a `prepareDevServer` dependency (it runs before RFG's own `doFirst`). | the task is the gate; **mutation-tested** — adding a bogus required line makes it fail with exit 1 and a named missing line |
+| **BUG-15** | Furnace now emits `[unidict-verify] PASS integration=furnace rewritten=N`, closing the one gap in the verify-line contract. | asserted by `verifyServer` (and the required-integration list) |
+| **Docs** | `TestPlan.md` gained the T3-automation section; `INTEGRATIONS.md` gotcha #2 records that RFG auto-detects the dev-only AT; this file and `STATUS.md` note the harness. | n/a |
+
+Coverage of the harness: the resource model/index **including the post-remap `FMLModIdMappingEvent`
+stage**, drops registration, crafting, furnace, IC2 (11 machines), AE2, Chest, TE, EIO, Railcraft,
+Forestry, TiC, Galacticraft (server-start), the transparency report and the server-start re-runs.
+Deliberately not covered: NEI's `API.hideItem` (client-only; its decision is still exercised via
+`hidden=N`), client rendering/GUI/chat, and Immersive Engineering (compileOnly, not on the dev runtime
+classpath).
+
 ### Behaviour changes to expect (all intended)
 
 1. **`rewritten=N` counts drop and are now authoritative.** They count outputs that actually changed, not
@@ -916,12 +936,15 @@ with `-PunidictDevVerify` and confirm `[unidict-verify] summary: … 0 failed`; 
 
 ### Still open (next batch candidates)
 
-**Requires an in-game run to verify** (no JVM-testable surface): BUG-8 (late-OD refresh — see the risk
-analysis in its section; **Phase A/B** are the low-risk entry points), BUG-9 (instanceof guards before
-accessor casts — a missing mixin is usually fatal earlier via `required: true`, so the payoff is small),
-BUG-12 (comparator cache lifecycle — needs a config-reload seam), BUG-13, BUG-14 (log-only), BUG-15
-(verify-line only), BUG-16 (EIO types not on the test classpath), BUG-18 (log-only), BUG-20 (mixin merge
-change).
+**Now verifiable with `./gradlew verifyServer`** (previously "needs an in-game run"): BUG-8 (late-OD
+refresh — Phase B's diagnostic line is assertable; Phase A is a schedule change the harness can validate),
+BUG-9 (accessor-cast guards — boot success; a missing mixin is usually fatal earlier via `required: true`,
+so the payoff is small), BUG-13 (Galacticraft journal line), BUG-14 (ignored-key log line), BUG-18
+(`kindDebugMode` log lines), BUG-20 (mixin method rename — a clean boot plus the full summary proves it).
+
+**Still needs a different seam:** BUG-12 (comparator cache lifecycle — needs a config-reload seam, which
+the harness cannot drive), BUG-16 (EIO multi-output — EIO types are not on the test classpath and a single
+boot cannot observe it).
 
 **Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
 rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no

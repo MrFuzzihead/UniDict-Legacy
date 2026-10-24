@@ -18,6 +18,7 @@ import net.minecraft.item.crafting.FurnaceRecipes;
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
+import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
@@ -50,6 +51,10 @@ final class FurnaceIntegration extends AbstractModuleThread {
                 RewriteJournal.record("furnace", "furnace", rewritten);
                 UniDict.LOG.info(
                     threadName + "rewrote outputs of " + rewritten + " furnace recipes to their canonical entries.");
+                // BB-1 / TestPlan verify-line contract: every kept rewrite has a matching line (the
+                // `verifyServer` harness asserts this one, docs/CODE_REVIEW.md BUG-15).
+                if (VerifyHarness.isEnabled())
+                    VerifyHarness.record(true, "integration=furnace", "rewritten=" + rewritten);
             }
         } catch (final Exception e) {
             UniDict.LOG.error(threadName, e);

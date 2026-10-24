@@ -37,6 +37,10 @@ Two review-driven batches landed on top of the above; the authoritative, severit
   the Ore Dictionary taxonomy moved into the pure, tested `OreNames` classifier (no per-name regex at
   load, proven equivalent to the old pipeline by a differential test); owner ranks are precomputed; and
   the canonical no-op check no longer allocates, so drops/crafting lookups/re-runs are allocation-free.
+- **Batch 4 (harness):** `./gradlew verifyServer` boots the dev **dedicated server**, runs the
+  `[unidict-verify]` stage-1 + stage-2 oracle and asserts the captured console (271 + 3 checks, 0
+  failures, ~35 s, no client). Furnace now emits its own verify line (BUG-15). This makes the remaining
+  server-side T3 work verifiable without a client — see `CODE_REVIEW.md` §8 and `TestPlan.md`.
 - **Decision:** the CoFH/TE access transformer is **dev-only tooling** (the production pack widens the
   field); it is intentionally not shipped, so the old "CoFH/TE release gate" is closed, not a defect.
 - **Still open** (needs an in-game run, a config seam, or a larger refactor): late-OD refresh, accessor

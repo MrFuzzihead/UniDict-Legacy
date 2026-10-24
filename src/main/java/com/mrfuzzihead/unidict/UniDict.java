@@ -9,6 +9,7 @@ import com.mrfuzzihead.unidict.nei.NEIHideModule;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
@@ -103,5 +104,23 @@ public class UniDict {
         // point at which an id-staleness regression in the resource index is observable — the drop-time
         // cross-wiring bug had no stage that could see it (docs/TODO.md #3b).
         VerifyHarness.runPostRemapChecks();
+        exitAfterVerificationIfRequested();
+    }
+
+    /**
+     * Dev-only server-harness terminator: when {@code -Dunidict.verify.exitAfterStart=true} is set (the
+     * {@code verifyServer} Gradle task does this), stop the JVM after stage 2 so the run is a single-shot
+     * assertion. The exit code already reflects the harness result, and the Gradle task additionally
+     * asserts the captured log, so a silent no-op cannot pass.
+     */
+    private static void exitAfterVerificationIfRequested() {
+        if (!VerifyHarness.shouldExitAfterChecks()) return;
+        final int failures = VerifyHarness.failureCount();
+        LOG.info(
+            "[unidict-verify] harness complete ({} passed, {} failed) — stopping the dev server.",
+            VerifyHarness.passCount(),
+            failures);
+        FMLCommonHandler.instance()
+            .exitJava(failures == 0 ? 0 : 1, false);
     }
 }

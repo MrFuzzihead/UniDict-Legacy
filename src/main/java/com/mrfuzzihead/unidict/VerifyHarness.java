@@ -55,6 +55,12 @@ public final class VerifyHarness {
     private static final Logger LOG = LogManager.getLogger("UniDict");
     private static final String SYS_PROP = "unidict.devVerify";
     private static final String ENV_VAR = "UNIDICT_DEV_VERIFY";
+    /**
+     * Dev-only companion switch for the dedicated-server harness: stop the JVM once the stage-2 checks have
+     * run, so {@code ./gradlew verifyServer} is a single-shot assertion instead of a long-running server.
+     * Ignored unless {@link #isEnabled()} (and therefore never active in a normal run).
+     */
+    private static final String EXIT_AFTER_PROP = "unidict.verify.exitAfterStart";
 
     /** How many offending stacks a FAIL line names before it just reports the count. */
     private static final int SAMPLE_LIMIT = 5;
@@ -72,6 +78,27 @@ public final class VerifyHarness {
      */
     public static boolean isEnabled() {
         return Boolean.parseBoolean(System.getProperty(SYS_PROP)) || Boolean.parseBoolean(System.getenv(ENV_VAR));
+    }
+
+    /** @return the number of PASS lines recorded this session (dev harness diagnostics). */
+    public static int passCount() {
+        return passed;
+    }
+
+    /** @return the number of FAIL lines recorded this session (dev harness diagnostics). */
+    public static int failureCount() {
+        return failed;
+    }
+
+    /**
+     * Whether the dev harness should stop the JVM after the stage-2 checks. Set by the server verification
+     * task ({@code -Dunidict.verify.exitAfterStart=true}); requires {@link #isEnabled()}, so it can never
+     * affect a normal game run.
+     *
+     * @return {@code true} when the harness should terminate the server once it has finished
+     */
+    public static boolean shouldExitAfterChecks() {
+        return isEnabled() && Boolean.getBoolean(EXIT_AFTER_PROP);
     }
 
     /** Log one PASS/FAIL verify line and update the counters. */

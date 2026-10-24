@@ -15,10 +15,37 @@ apply; a feature is **done** when its applicable gates are all green.
 
 ```
 .\gradlew.bat test build          # T1 + T2 + Spotless/Checkstyle
-.\gradlew.bat runClient -Dunidict.devVerify=true
+.\gradlew.bat verifyServer         # T3 (headless): dedicated server + assertions
+.\gradlew.bat runClient -PunidictDevVerify   # T3 (client): manual, for NEI/rendering paths
 grep "unidict-verify" logs/latest.log   # every line should end in PASS
 grep "unidict-verify.*FAIL" logs/latest.log  # must be empty
 ```
+
+### T3 automation — `./gradlew verifyServer` (2026-10-24)
+
+The verify oracle runs on a **dedicated server** too, so most of T3 no longer needs a client or a
+display. `verifyServer`:
+
+1. prepares `run/server/` (`eula.txt`, headless `server.properties`; `run/` is gitignored),
+2. boots the dev dedicated server with `-Dunidict.devVerify=true` and
+   `-Dunidict.verify.exitAfterStart=true` (a dev-only flag that stops the JVM right after the stage-2
+   checks — see `VerifyHarness#shouldExitAfterChecks`),
+3. captures the server console to `build/unidict-verify-server.log` (the verify lines go to the console
+   appender, not `logs/latest.log`),
+4. asserts: no `FAIL` line, a stage-1 and stage-2 summary with `0 failed` and `> 0` passes, the
+   `harness complete` line (exit hook ran), a non-empty `report summary=resources=… rewrites=…`, every
+   server-side `integration=…` line, and the `spikeA`/`resourceIndex …` checks.
+
+Current baseline: **271 stage-1 checks + 3 stage-2 checks, 0 failures, ~35 s**.
+
+**Covered:** the resource model/index (including the post-remap `FMLModIdMappingEvent` stage), drops
+registration, every machine/loot integration on the dev runtime (crafting, furnace, IC2, AE2, Chest, TE,
+EIO, Railcraft, Forestry, TiC, Galacticraft), the transparency report and the server-start re-runs.
+
+**Not covered by design:** NEI hiding (`API.hideItem` is client-only — the *hide decision* is still
+computed and reported as `hidden=N`, and `NEIHideThread.stacksToHide` has T2 coverage), client
+rendering/GUI/chat, and Immersive Engineering (it is `compileOnly`, so it is not on the dev **runtime**
+classpath). Adding a required line to the task is the way to make a new behaviour part of the gate.
 
 ## Verify-line contract
 
