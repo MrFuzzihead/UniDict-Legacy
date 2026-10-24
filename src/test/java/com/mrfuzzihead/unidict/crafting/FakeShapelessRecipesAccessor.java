@@ -15,12 +15,12 @@ public final class FakeShapelessRecipesAccessor extends ShapelessRecipes impleme
     }
 
     @Override
-    public ItemStack getRecipeOutput() {
+    public ItemStack unidict$getRecipeOutput() {
         return item;
     }
 
     @Override
-    public void setRecipeOutput(final ItemStack output) {
+    public void unidict$setRecipeOutput(final ItemStack output) {
         this.item = output;
     }
 }

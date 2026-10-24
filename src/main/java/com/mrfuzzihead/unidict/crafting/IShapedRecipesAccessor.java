@@ -3,17 +3,18 @@ package com.mrfuzzihead.unidict.crafting;
 import net.minecraft.item.ItemStack;
 
 /**
- * T2 seam over the vanilla ShapedRecipes#recipeOutput field
- * (private, SRG field_77572_b). Also covers every subclass --
- * notably ShapedOreRecipe which extends ShapedRecipes and
- * inherits the same field.
+ * T2 seam over the vanilla {@code ShapedRecipes#recipeOutput} field (private). Also covers every subclass
+ * — notably {@code ShapedOreRecipe}, which extends {@code ShapedRecipes} and inherits the same field.
  *
- * Live impl is ShapedRecipesMixin (mixins.early, remap=true);
- * T2 tests use FakeShapedRecipesAccessor.
+ * <p>
+ * Method names are {@code unidict$}-prefixed so the mixin adds <b>new</b> methods instead of shadowing the
+ * target's own {@code IRecipe#getRecipeOutput()} (docs/CODE_REVIEW.md BUG-20). Live impl is
+ * {@code ShapedRecipesMixin} ({@code mixins.early}, {@code remap=true}); T2 tests use
+ * {@code FakeShapedRecipesAccessor}.
  */
 public interface IShapedRecipesAccessor {
 
-    ItemStack getRecipeOutput();
+    ItemStack unidict$getRecipeOutput();
 
-    void setRecipeOutput(ItemStack output);
+    void unidict$setRecipeOutput(ItemStack output);
 }

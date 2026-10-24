@@ -17,7 +17,10 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
+import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
+import com.mrfuzzihead.unidict.pure.OreNames;
 import com.mrfuzzihead.unidict.pure.SelectionRules;
+import com.mrfuzzihead.unidict.pure.config.KindNames;
 import com.mrfuzzihead.unidict.report.UniDictReport;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
@@ -118,6 +121,8 @@ public final class VerifyHarness {
         LOG.info("[unidict-verify] harness enabled — running self-checks");
         checkOreDictionaryBridge();
         runResourceReport();
+        checkKindDiagnostics();
+        checkLateOd();
         runTransparencyReport();
         LOG.info("[unidict-verify] summary: {} passed, {} failed", passed, failed);
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
@@ -170,6 +175,51 @@ public final class VerifyHarness {
         Collections.sort(lines);
         for (final String line : lines) record(true, line);
         record(!lines.isEmpty(), "resource report", "resources=" + lines.size());
+    }
+
+    /**
+     * BUG-18: report the registered kind taxonomy and any configured kind name that resolved to nothing.
+     * A configured kind with no matching Ore Dictionary entries is legitimate (the pack simply has none),
+     * so this is informational — the {@code verifyServer} harness asserts the line exists, and
+     * {@code kindDebugMode} logs the same diagnostic on a normal run.
+     */
+    private static void checkKindDiagnostics() {
+        final List<String> registered = KindNames.sorted(Resource.getKinds());
+        final List<String> unknown = KindNames
+            .unknownKindNames(KindNames.configuredKindNames(Config.get()), registered);
+        record(true, "kindDiagnostics", "registered=" + registered, "unknown=" + unknown);
+    }
+
+    /**
+     * BUG-8 Phase B: report Ore Dictionary names that appeared after the model snapshot was taken. The
+     * model is a one-shot POST_INIT snapshot, so late registrations are invisible to selection, rewrites,
+     * drops and the report; this makes the size of that gap measurable at load-complete instead of
+     * silent. Informational (a pack can legitimately register late), with a WARN naming samples so the
+     * field report is actionable.
+     */
+    private static void checkLateOd() {
+        final ResourceHandler resourceHandler = UniDict.resourceHandler;
+        if (resourceHandler == null) return; // the missing-handler condition is reported above
+        final Set<String> snapshot = resourceHandler.getDictionarySnapshot();
+        if (snapshot.isEmpty()) return; // handler constructed without a snapshot (T2 tests)
+        final List<String> live = UniOreDictionary.instance()
+            .getOreNames();
+        final List<String> added = OreNames.additions(snapshot, live);
+        final List<String> sample = (added.size() <= SAMPLE_LIMIT) ? added : added.subList(0, SAMPLE_LIMIT);
+        final int modelled = OreNames
+            .modelledNameCount(added, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
+        record(
+            true,
+            "lateOd",
+            "added=" + added.size(),
+            "modelled=" + modelled,
+            "total=" + live.size(),
+            "sample=" + sample);
+        if (!added.isEmpty()) LOG.warn(
+            "[unidict-verify] {} Ore Dictionary name(s) appeared after the model snapshot and are not unified"
+                + " (docs/CODE_REVIEW.md BUG-8): {}",
+            added.size(),
+            sample);
     }
 
     /** BB-1 transparency report (docs/PLAN.md §BB-1): one PASS line per unified resource + per rewrite. */

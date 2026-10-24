@@ -125,9 +125,28 @@ public final class ResourceHandler {
     private final IdentityDamageIndex<UniAttributes<UniResourceContainer>> individualStackAttributes = new IdentityDamageIndex<>();
     private final Map<String, UniResourceContainer> containerMap = new HashMap<>();
     private final Map<String, Resource<UniResourceContainer>> resourceMap;
+    /**
+     * The live Ore Dictionary names captured when the model was built. The dev harness compares it with
+     * the current dictionary at load-complete to report late registrations the one-shot snapshot cannot
+     * see (docs/CODE_REVIEW.md BUG-8 Phase B). Empty when a handler is constructed without a snapshot
+     * (the T2 tests), in which case the check is skipped.
+     */
+    private final Set<String> dictionarySnapshot;
 
     ResourceHandler(@Nonnull final Map<String, Resource<UniResourceContainer>> resourceMap) {
+        this(resourceMap, java.util.Collections.emptyList());
+    }
+
+    ResourceHandler(@Nonnull final Map<String, Resource<UniResourceContainer>> resourceMap,
+        @Nonnull final Collection<String> dictionarySnapshot) {
         resources = (this.resourceMap = resourceMap).values();
+        this.dictionarySnapshot = java.util.Collections
+            .unmodifiableSet(new java.util.LinkedHashSet<>(dictionarySnapshot));
+    }
+
+    /** @return the unmodifiable Ore Dictionary names captured at model build time (see the field). */
+    public Set<String> getDictionarySnapshot() {
+        return dictionarySnapshot;
     }
 
     public boolean exists(final ItemStack thing) {

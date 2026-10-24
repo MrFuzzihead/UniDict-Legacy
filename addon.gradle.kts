@@ -130,6 +130,11 @@ tasks.register("verifyServer") {
             if (report.groupValues[2].toInt() <= 0) problems += "report summary reports rewrites=0"
         }
 
+        // 4b. The startup config report (BUG-14) logged the resolved preset and the ignored-key set.
+        if (!text.contains("[unidict] config preset=")) {
+            problems += "missing '[unidict] config preset=… ignoredKeys=…' log line"
+        }
+
         // 5. Every server-side integration actually ran. (IE is compileOnly and NEI is client-only, so
         //    neither is on the dev server runtime; NEI's hide decision is still covered by `hidden=` and T2.)
         val requiredIntegrations = listOf(
@@ -151,10 +156,18 @@ tasks.register("verifyServer") {
         // 6. The core oracle checks.
         for (check in listOf(
             "spikeA oredict-bridge",
+            "kindDiagnostics",
+            "lateOd",
             "resourceIndex coverage",
             "resourceIndex no-cross-wiring",
             "resourceIndex no-spurious-rewrite")) {
             if (!text.contains("[unidict-verify] PASS $check")) problems += "missing PASS '$check'"
+        }
+
+        // 7. Surface the late-Ore-Dictionary diagnostic (BUG-8 Phase B) rather than burying it in the log.
+        Regex("\\[unidict-verify] PASS lateOd added=(\\d+) modelled=(\\d+) total=(\\d+)").find(text)?.let {
+            logger.lifecycle(
+                "verifyServer: late-OD names added=${it.groupValues[1]} (modelled by this config: ${it.groupValues[2]}, dictionary total ${it.groupValues[3]})")
         }
 
         if (problems.isNotEmpty()) {

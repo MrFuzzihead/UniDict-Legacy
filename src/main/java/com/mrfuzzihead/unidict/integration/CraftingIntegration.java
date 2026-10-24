@@ -100,13 +100,13 @@ final class CraftingIntegration extends AbstractModuleThread {
 
             // Try shaped accessor (catches ShapedRecipes + subclasses like ShapedOreRecipe)
             if (recipe instanceof ShapedRecipes) {
-                ((IShapedRecipesAccessor) recipe).setRecipeOutput(canonical);
+                ((IShapedRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }
             // Try vanilla shapeless accessor (catches ShapelessRecipes + subclasses like ShapelessOreRecipe)
             if (recipe instanceof ShapelessRecipes) {
-                ((IShapelessRecipesAccessor) recipe).setRecipeOutput(canonical);
+                ((IShapelessRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }

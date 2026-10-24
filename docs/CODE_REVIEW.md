@@ -11,10 +11,10 @@
 Companion docs: [`TODO.md`](TODO.md) (known backlog) · [`INTEGRATIONS.md`](INTEGRATIONS.md) ·
 [`STATUS.md`](STATUS.md) · [`TestPlan.md`](TestPlan.md).
 
-> **Status:** four batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
-> `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync)
-> and batch 4 (headless **`verifyServer`** T3 harness + BUG-15) — see §8 for the change lists and test
-> coverage.
+> **Status:** five batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
+> `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync),
+> batch 4 (headless **`verifyServer`** T3 harness + BUG-15) and batch 5 (BUG-13/14/18/20, BUG-8 **Phase B**
+> diagnostic, harness in CI) — see §8 for the change lists and test coverage.
 > **BUG-2 is closed as not-a-defect:** the access transformer is dev-only tooling for the local full-stack
 > client (the production pack already widens the field), so it must not ship with the mod. Everything else
 > below is still open, and the remaining items all need an in-game run to verify (or a larger refactor) —
@@ -317,11 +317,28 @@ mod's `postInit` that runs later in the FML order, scripted/custom recipes, a la
 invisible to selection, rewrites, drops, NEI hiding and the report. It also blocks the deferred
 `/unidict reload` feature (TODO P2 #8), because there is no refresh path to re-use.
 
+**Status:** **Phase B (diagnostic) done in batch 5** — see below. Phase A (the actual fix) remains.
+
 **Fix:** (a) re-read the live OreDictionary list at the start of `populateIndividualStackAttributes`
 (or add a `refreshEntries()` that re-snapshots + re-sorts), and (b) call the re-index at `LOAD_COMPLETE`
 (before the verify pass) so late registrations are picked up; optionally subscribe to
 `OreDictionary.OreRegisterEvent` to append new members incrementally. Clear `containerMap` on
 re-index.
+
+#### Measured gap (dev pack, 2026-10-24) — this bug is real
+
+`verifyServer` now reports:
+
+```text
+[unidict-verify] PASS lateOd added=373 modelled=26 total=1002 sample=[blockAdamantine, …]
+```
+
+373 Ore Dictionary names were registered **after** the snapshot, and **26 of them would have been
+modelled** by the standard config (the sample is dominated by Tinkers' Construct / ExtraTiC alloy
+families, which register during their own `postInit` after UniDict's). So Phase A is not theoretical:
+it would add ~26 entries to the model in this pack alone. `OreNamesTest.modelledNameCountOnlyCounts…`
+pins the counting rule.
+
 
 #### Why this fix is higher risk than it looks
 
@@ -463,9 +480,12 @@ implement the referenced `nullify()` and call it after `Config.load`/reload.
 
 ---
 
-### BUG-13 — Galacticraft report line is frozen at the first run (S3)
+### BUG-13 — Galacticraft report line is frozen at the first run
 
-**Where:** `integration/GalacticraftIntegration.java:37,57-67`
+**Status: fixed in batch 5.** The `RAN_PER_STAGE` guard is gone; every server start records its delta into
+the accumulating journal (the harness asserts the `integration=Galacticraft` line).
+
+**Where (original):** `integration/GalacticraftIntegration.java`
 
 `RAN_PER_STAGE.add("compressor")` guards the journal/log/verify lines. The rewrite itself reruns on
 every `FMLServerStartedEvent` (world load), but the reported count never updates, so the second and
@@ -476,9 +496,13 @@ updates rather than appends.
 
 ---
 
-### BUG-14 — ignored/legacy config keys are collected but never logged (S3)
+### BUG-14 — ignored/legacy config keys are collected but never logged
 
-**Where:** `config/ForgeConfigIO.java:235-239`, `Config.java:41-53`
+**Status: fixed in batch 5.** `Config.load` now logs
+`[unidict] config preset=<name> ignoredKeys=[…]` (sorted, de-duplicated via the new
+`ConfigReader.describeIgnored`); `verifyServer` asserts the line.
+
+**Where (original):** `config/ForgeConfigIO.java`, `Config.java`
 
 `ConfigReader.parse` returns `Result.ignored`, but `ForgeConfigIO.load` throws it away. `TODO.md`
 and the `Config` javadoc both promise "removed-mod/deferred keys collected for INFO (never fatal)".
@@ -530,9 +554,15 @@ player. The per-container logic cannot see this.
 
 ---
 
-### BUG-18 — `kindDebugMode` is a dead config key (S3)
+### BUG-18 — `kindDebugMode` is a dead config key
 
-**Where:** `pure/config/ConfigData.java:48`, `config/ForgeConfigIO.java:78` (read), never consumed.
+**Status: fixed in batch 5.** `kindDebugMode` now logs
+`[unidict] kindDebug registered=[…] unknown=[…]`, and the diagnostic is **always** emitted as the
+`kindDiagnostics` verify line (asserted by `verifyServer`). `KindNames.unknownKindNames` /
+`configuredKindNames` / `sorted` are pure and T1-tested. (A configured kind with no matching dictionary
+entries is legitimate — e.g. `chunk` in the dev pack — so it is informational, not a FAIL.)
+
+**Where (original):** `pure/config/ConfigData.java`, `config/ForgeConfigIO.java`
 
 Documented as "Log kind information for the transparency report (BB-1)" and advertised in the
 `max-compat` preset / README. It does nothing. Given BUG-3, this is the natural place to emit
@@ -568,9 +598,14 @@ Verified-unused or misleading code:
 
 ---
 
-### BUG-20 — mixin method-name shadowing risk (S3)
+### BUG-20 — mixin method-name shadowing risk
 
-**Where:** `crafting/IShapedRecipesAccessor.java` / `IShapelessRecipesAccessor.java` +
+**Status: fixed in batch 5.** The accessors are now `unidict$getRecipeOutput()` / `unidict$setRecipeOutput()`
+(same prefix style as the Ore/IC2 accessors), so the mixins **add** methods instead of shadowing the
+target's `IRecipe#getRecipeOutput()`. Verified by a clean `verifyServer` boot plus every crafting rewrite
+line.
+
+**Where (original):** `crafting/IShapedRecipesAccessor.java` / `IShapelessRecipesAccessor.java` +
 `mixins/early/ShapedRecipesMixin` / `ShapelessRecipesMixin`
 
 The accessor interface declares `ItemStack getRecipeOutput()`, which is **the same signature as
@@ -905,6 +940,21 @@ Deliberately not covered: NEI's `API.hideItem` (client-only; its decision is sti
 `hidden=N`), client rendering/GUI/chat, and Immersive Engineering (compileOnly, not on the dev runtime
 classpath).
 
+### Batch 5 — the first batch behind the harness (bugs + CI)
+
+Verification: `./gradlew test` green (214 tests) and `./gradlew verifyServer` green —
+**273 stage-1 + 3 stage-2 checks, 0 failures, ~35 s**; the workflow `.github/workflows/verify-server.yml`
+now runs the harness on every PR/push (plus manual dispatch).
+
+| Item | Change | Verification |
+|---|---|---|
+| **BUG-14** | `Config.load` logs `[unidict] config preset=<name> ignoredKeys=[…]`; new pure `ConfigReader.describeIgnored` (sorted/de-duplicated). | `ConfigReaderTest.describeIgnoredRendersAStableSortedLine`; the harness asserts the log line |
+| **BUG-18** | `kindDebugMode` logs registered/unknown kinds; the same diagnostic is always emitted as `kindDiagnostics` (new pure `KindNames.unknownKindNames` / `configuredKindNames` / `sorted`). | `KindNamesTest` (unknown/blank/null/dedupe/sorting/config gathering); the harness asserts `PASS kindDiagnostics` |
+| **BUG-8 Phase B** | `ResourceHandler` carries the dictionary snapshot from build time; at load-complete the harness reports `lateOd added=N modelled=M total=T` (new pure `OreNames.additions` + `modelledNameCount`) and WARNs with samples. | `OreNamesTest.additions…` / `modelledNameCount…`; the harness asserts `PASS lateOd`. **Result: `added=373 modelled=26`** — Phase A's impact quantified |
+| **BUG-13** | Removed Galacticraft's `RAN_PER_STAGE` guard; every run records its delta into the accumulating journal. | harness `integration=Galacticraft` line; `RewriteJournalTest` for accumulation |
+| **BUG-20** | Accessor methods renamed to `unidict$getRecipeOutput()` / `unidict$setRecipeOutput()` so the mixins no longer shadow `IRecipe#getRecipeOutput()`. | clean `verifyServer` boot + all crafting rewrite lines; T2 fakes/crafting tests updated |
+| **CI** | New `verify-server.yml` job (JDK 25, Gradle cache, `./gradlew verifyServer`, harness-log artifact). | the job *is* the harness; the same command passes locally |
+
 ### Behaviour changes to expect (all intended)
 
 1. **`rewritten=N` counts drop and are now authoritative.** They count outputs that actually changed, not
@@ -936,15 +986,15 @@ with `-PunidictDevVerify` and confirm `[unidict-verify] summary: … 0 failed`; 
 
 ### Still open (next batch candidates)
 
-**Now verifiable with `./gradlew verifyServer`** (previously "needs an in-game run"): BUG-8 (late-OD
-refresh — Phase B's diagnostic line is assertable; Phase A is a schedule change the harness can validate),
-BUG-9 (accessor-cast guards — boot success; a missing mixin is usually fatal earlier via `required: true`,
-so the payoff is small), BUG-13 (Galacticraft journal line), BUG-14 (ignored-key log line), BUG-18
-(`kindDebugMode` log lines), BUG-20 (mixin method rename — a clean boot plus the full summary proves it).
+**Next up — BUG-8 Phase A** (build the model once at `LOAD_COMPLETE` instead of `POST_INIT`, moving the
+POST_INIT integrations and the NEI hide pass with it). The harness is the gate: `lateOd added` should drop
+to ~0 and `report summary=resources=` should grow by ~26 in this pack. It is a schedule change, so it gets
+its own batch.
 
-**Still needs a different seam:** BUG-12 (comparator cache lifecycle — needs a config-reload seam, which
-the harness cannot drive), BUG-16 (EIO multi-output — EIO types are not on the test classpath and a single
-boot cannot observe it).
+**Still needs a different seam:** BUG-9 (accessor-cast guards — boot success only; a missing mixin is
+usually fatal earlier, so the payoff is small), BUG-12 (comparator cache lifecycle — needs a config-reload
+seam the harness cannot drive), BUG-16 (EIO multi-output — EIO types are not on the test classpath and a
+single boot cannot observe it).
 
 **Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
 rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no

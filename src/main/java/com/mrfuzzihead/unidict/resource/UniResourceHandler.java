@@ -31,6 +31,8 @@ public final class UniResourceHandler {
 
     private final Map<String, Resource<UniResourceContainer>> resourceMap = new LinkedHashMap<>();
     private final Map<String, Resource<UniResourceContainer>> apiResourceMap = new LinkedHashMap<>();
+    /** The dictionary names this model was built from; published with the handler for the late-OD check. */
+    private final Set<String> dictionaryNames = new LinkedHashSet<>();
 
     private UniResourceHandler() {}
 
@@ -48,6 +50,8 @@ public final class UniResourceHandler {
         // OPT-5): no Matcher allocation per dictionary entry, and the same classification the T1 tests pin.
         final List<String> oreNames = UniOreDictionary.instance()
             .getOreNames();
+        dictionaryNames.clear();
+        dictionaryNames.addAll(oreNames);
         final List<String> allTheResourceNames = OreNames.metalResourceNames(oreNames);
         final Map<String, Set<String>> basicResourceMap = OreNames
             .kindsByResource(oreNames, allTheResourceNames, OreNames.EXCLUDED_KINDS);
@@ -87,6 +91,23 @@ public final class UniResourceHandler {
                     apiResourceMap.get(resourceName)
                         .filteredClone(childrenOfMetals)
                         .setSortOfChildren(true)));
+
+        logKindDiagnosticsIfEnabled();
+    }
+
+    /**
+     * {@code kindDebugMode} (docs/CODE_REVIEW.md BUG-18): log the registered kinds plus any configured kind
+     * name that resolved to nothing — a typo in {@code childrenOfMetals}/{@code hideInNEIBlackSet}/
+     * {@code ownerOfKind} used to be silently inert. The same diagnostic is always emitted as a
+     * {@code kindDiagnostics} verify line, so the harness covers the computation.
+     */
+    private void logKindDiagnosticsIfEnabled() {
+        if (!Config.get().kindDebugMode) return;
+        final List<String> registered = KindNames.sorted(Resource.getKinds());
+        UniDict.LOG.info(
+            "[unidict] kindDebug registered={} unknown={}",
+            registered,
+            KindNames.unknownKindNames(KindNames.configuredKindNames(Config.get()), registered));
     }
 
     /** Reconciles entries and builds + publishes the {@link ResourceHandler}. Sequential. */
@@ -100,7 +121,7 @@ public final class UniResourceHandler {
         // rewritten) through the canonical index and the container lookup — only the report/NEI view
         // lost it (docs/CODE_REVIEW.md BUG-1).
         applyResourceBlackList(resourceMap, apiResourceMap, Config.get().resourceBlackList);
-        final ResourceHandler resourceHandler = new ResourceHandler(resourceMap);
+        final ResourceHandler resourceHandler = new ResourceHandler(resourceMap, dictionaryNames);
         resourceHandler.populateIndividualStackAttributes();
         UniDict.resourceHandler = resourceHandler;
     }

@@ -18,12 +18,12 @@ public abstract class ShapedRecipesMixin implements IShapedRecipesAccessor {
     protected abstract void accessor$setRecipeOutput(final ItemStack output);
 
     @Override
-    public ItemStack getRecipeOutput() {
+    public ItemStack unidict$getRecipeOutput() {
         return accessor$getRecipeOutput();
     }
 
     @Override
-    public void setRecipeOutput(final ItemStack output) {
+    public void unidict$setRecipeOutput(final ItemStack output) {
         accessor$setRecipeOutput(output);
     }
 }

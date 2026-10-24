@@ -140,6 +140,17 @@ class ConfigReaderTest {
     }
 
     @Test
+    void describeIgnoredRendersAStableSortedLine() {
+        // BUG-14: the loader logs this; sorted + de-duplicated so the line is diffable.
+        assertEquals("ignoredKeys=[]", ConfigReader.describeIgnored(null));
+        assertEquals("ignoredKeys=[]", ConfigReader.describeIgnored(java.util.Collections.emptyList()));
+        assertEquals(
+            "ignoredKeys=[customUnifiedResources, mekanism, ownerOfEveryThing]",
+            ConfigReader.describeIgnored(
+                java.util.Arrays.asList("ownerOfEveryThing", "mekanism", "customUnifiedResources", "mekanism")));
+    }
+
+    @Test
     void ignoredKeysAreCollectedForReporting() {
         final Map<String, String> raw = new LinkedHashMap<>();
         raw.put("enableSpecificKindSort", "true"); // subsumed by the owner model

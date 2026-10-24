@@ -36,7 +36,12 @@ display. `verifyServer`:
    `harness complete` line (exit hook ran), a non-empty `report summary=resources=… rewrites=…`, every
    server-side `integration=…` line, and the `spikeA`/`resourceIndex …` checks.
 
-Current baseline: **271 stage-1 checks + 3 stage-2 checks, 0 failures, ~35 s**.
+Current baseline: **273 stage-1 checks + 3 stage-2 checks, 0 failures, ~35 s**. It also prints the
+late-Ore-Dictionary diagnostic (`lateOd added=… modelled=… total=…`), which is the BUG-8 Phase A gate.
+
+CI: `.github/workflows/verify-server.yml` runs `./gradlew verifyServer --no-daemon` on every PR/push to
+`master`/`main` (and on manual dispatch), with the Gradle cache and the captured harness log as an
+artifact.
 
 **Covered:** the resource model/index (including the post-remap `FMLModIdMappingEvent` stage), drops
 registration, every machine/loot integration on the dev runtime (crafting, furnace, IC2, AE2, Chest, TE,

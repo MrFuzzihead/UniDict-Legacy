@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+
+import com.mrfuzzihead.unidict.pure.config.KindNames;
 
 /**
  * Pure classification of Ore Dictionary names into the resource taxonomy: a metal resource name
@@ -208,6 +211,56 @@ public final class OreNames {
                 .add(kindName);
         }
         return basicResourceMap;
+    }
+
+    /**
+     * Ore Dictionary names that appeared <b>after</b> the model snapshot was taken — the late-registration
+     * diagnostic (docs/CODE_REVIEW.md BUG-8 Phase B). The resource model is a one-shot POST_INIT
+     * snapshot, so a name registered later (another mod's postInit, a script, a late-loaded mod) is
+     * invisible to selection/rewrites; this makes that measurable instead of silent.
+     *
+     * @param snapshot the dictionary names captured when the model was built
+     * @param live     the current dictionary names
+     * @return the names present in {@code live} but not in {@code snapshot}, sorted (never {@code null})
+     */
+    public static List<String> additions(final Collection<String> snapshot, final Collection<String> live) {
+        final List<String> added = new ArrayList<>();
+        if (live == null || live.isEmpty()) return added;
+        final Set<String> known = (snapshot == null) ? Collections.emptySet() : new HashSet<>(snapshot);
+        final Set<String> sorted = new TreeSet<>();
+        for (final String name : live) if (name != null && !known.contains(name)) sorted.add(name);
+        added.addAll(sorted);
+        return added;
+    }
+
+    /**
+     * How many of {@code oreNames} the current configuration would actually model — i.e. their resource is
+     * in {@code metalsToUnify} (case-insensitive) and their kind is in {@code childrenOfMetals}. Turns the
+     * late-registration diagnostic into decision data for BUG-8 Phase A: {@code added=373 modelled=0} means
+     * the late names are irrelevant to this pack, while a large {@code modelled} count means the snapshot
+     * gap is real.
+     *
+     * @param oreNames         the names to classify (typically the late additions)
+     * @param resourceUniverse every dictionary name, used to discover the resource names
+     * @param metalsToUnify    configured metal resource names (e.g. {@code Copper})
+     * @param childrenOfMetals configured kind names (e.g. {@code ingot})
+     * @return the number of {@code oreNames} entries that would be modelled
+     */
+    public static int modelledNameCount(final Collection<String> oreNames, final Collection<String> resourceUniverse,
+        final Collection<String> metalsToUnify, final Collection<String> childrenOfMetals) {
+        if (oreNames == null || oreNames.isEmpty()) return 0;
+        final List<String> resources = metalResourceNames(resourceUniverse);
+        if (resources.isEmpty()) return 0;
+        int modelled = 0;
+        for (final String name : oreNames) {
+            if (name == null || name.isEmpty()) continue;
+            final String resource = resourceOf(name, resources);
+            if (resource == null) continue;
+            if (!KindNames.containsIgnoreCase(metalsToUnify, resource)) continue;
+            if (!KindNames.containsIgnoreCase(childrenOfMetals, kindOf(name, resource))) continue;
+            modelled++;
+        }
+        return modelled;
     }
 
     /**

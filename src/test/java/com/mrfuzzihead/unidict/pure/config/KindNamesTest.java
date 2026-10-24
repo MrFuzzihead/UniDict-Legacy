@@ -51,6 +51,60 @@ class KindNamesTest {
     }
 
     @Test
+    void unknownKindNamesReportsOnlyUnmatchedEntriesSorted() {
+        // BUG-18: a configured kind that resolves to nothing is the typo case that used to be silent.
+        assertEquals(
+            java.util.Arrays.asList("OreTypo", "gemm"),
+            KindNames.unknownKindNames(java.util.Arrays.asList("ingot", "OreTypo", "gemm", "INGOT"), KIND_SET));
+        assertTrue(
+            KindNames.unknownKindNames(java.util.Arrays.asList("ingot", "ORE"), KIND_SET)
+                .isEmpty());
+        // Blanks and nulls are skipped; duplicates are collapsed.
+        assertTrue(
+            KindNames.unknownKindNames(java.util.Arrays.asList(null, "", "  ", "ingot"), KIND_SET)
+                .isEmpty());
+        assertEquals(
+            java.util.Arrays.asList("ghost"),
+            KindNames.unknownKindNames(java.util.Arrays.asList("ghost", "ghost", "Ghost"), KIND_SET));
+        assertTrue(
+            KindNames.unknownKindNames(null, KIND_SET)
+                .isEmpty());
+        assertTrue(
+            KindNames.unknownKindNames(java.util.Arrays.asList("ingot"), null)
+                .contains("ingot"));
+    }
+
+    @Test
+    void configuredKindNamesGathersEveryKindBearingSurface() {
+        final java.util.Map<String, java.util.List<String>> ownerOfKind = new java.util.LinkedHashMap<>();
+        ownerOfKind.put("ingot", java.util.Arrays.asList("minecraft"));
+        final ConfigData config = ConfigData.builder()
+            .childrenOfMetals(new LinkedHashSet<>(java.util.Arrays.asList("ore", "dustTiny")))
+            .hideInNEIBlackSet(new LinkedHashSet<>(java.util.Arrays.asList("gear")))
+            .ownerOfKind(ownerOfKind)
+            .build();
+
+        final java.util.List<String> configured = KindNames.configuredKindNames(config);
+        assertTrue(configured.contains("ore"));
+        assertTrue(configured.contains("dustTiny"));
+        assertTrue(configured.contains("gear"));
+        assertTrue(configured.contains("ingot"));
+        assertTrue(
+            KindNames.configuredKindNames(null)
+                .isEmpty());
+    }
+
+    @Test
+    void sortedDropsBlanksAndOrdersAsciiCaseSensitively() {
+        assertEquals(
+            java.util.Arrays.asList("Ore", "block", "dust", "ingot"),
+            KindNames.sorted(java.util.Arrays.asList("ingot", null, "dust", "", "  ", "Ore", "block")));
+        assertTrue(
+            KindNames.sorted(null)
+                .isEmpty());
+    }
+
+    @Test
     void lookupKeyIsLocaleIndependentLowercase() {
         assertEquals("dusttiny", KindNames.lookUpKey("DustTiny"));
         assertEquals("ingot", KindNames.lookUpKey("INGOT"));

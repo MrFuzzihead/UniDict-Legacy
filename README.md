@@ -127,7 +127,8 @@ UniDict is a small client-*and*-server-aware mod. You can drop it into a pack th
 ## Developer docs
 
 Verification: `./gradlew test` (unit + seam tests) and `./gradlew verifyServer` (headless dedicated-server
-run of the `[unidict-verify]` oracle — no display needed).
+run of the `[unidict-verify]` oracle — no display needed; wired into CI via
+`.github/workflows/verify-server.yml`).
 
 - [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam and verify line.
 - [`docs/PLAN.md`](docs/PLAN.md) — implementation plan and milestone gates.

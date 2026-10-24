@@ -183,6 +183,51 @@ class OreNamesTest {
     }
 
     @Test
+    void additionsReportsLiveNamesMissingFromTheSnapshotSorted() {
+        // BUG-8 Phase B: the model is a POST_INIT snapshot; later registrations are invisible to it.
+        final List<String> snapshot = Arrays.asList("ingotCopper", "oreCopper");
+
+        assertEquals(
+            Arrays.asList("ingotZinc", "oreZinc"),
+            OreNames.additions(snapshot, Arrays.asList("oreZinc", "ingotCopper", "ingotZinc", "oreCopper")));
+        assertTrue(
+            OreNames.additions(snapshot, snapshot)
+                .isEmpty());
+        // Null live names are ignored; a null snapshot means "everything is new".
+        assertEquals(Arrays.asList("ingotCopper"), OreNames.additions(null, Arrays.asList(null, "ingotCopper")));
+        assertTrue(
+            OreNames.additions(snapshot, null)
+                .isEmpty());
+        assertTrue(
+            OreNames.additions(snapshot, Collections.emptyList())
+                .isEmpty());
+    }
+
+    @Test
+    void modelledNameCountOnlyCountsConfiguredMetalKindNames() {
+        final List<String> live = Arrays
+            .asList("ingotTitanium", "oreTitanium", "blockAdamantine", "gearTitanium", "gemTitanium");
+        final List<String> added = live;
+        final Set<String> metals = new LinkedHashSet<>(Collections.singletonList("Titanium"));
+        final Set<String> kinds = new LinkedHashSet<>(Arrays.asList("ingot", "ore", "gear"));
+
+        // ingot/ore/gear Titanium count; Adamantine is not a configured metal; gem is not a configured kind.
+        assertEquals(3, OreNames.modelledNameCount(added, live, metals, kinds));
+        // Config matching is case-insensitive, like the rest of the kind/metal surfaces.
+        assertEquals(
+            3,
+            OreNames.modelledNameCount(
+                added,
+                live,
+                Collections.singletonList("titanium"),
+                Arrays.asList("INGOT", "Ore", "GEAR")));
+        // Degenerate inputs.
+        assertEquals(0, OreNames.modelledNameCount(added, live, Collections.emptySet(), kinds));
+        assertEquals(0, OreNames.modelledNameCount(Collections.emptyList(), live, metals, kinds));
+        assertEquals(0, OreNames.modelledNameCount(added, Collections.emptyList(), metals, kinds));
+    }
+
+    @Test
     void capitalisationOnlyTouchesTheFirstCharacter() {
         assertEquals("Copper", OreNames.capitalizeFirst("copper"));
         assertEquals("MeteoricIron", OreNames.capitalizeFirst("meteoricIron"));

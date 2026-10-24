@@ -67,6 +67,20 @@ public final class ConfigReader {
 
     private ConfigReader() {}
 
+    /**
+     * Renders the keys collected in {@link Result#ignored} as one stable, greppable token for the startup
+     * INFO line (`config preset=<name> ignoredKeys=[...]`). Sorted and de-duplicated so the line is
+     * diffable run-to-run; an empty list renders as {@code ignoredKeys=[]} (docs/CODE_REVIEW.md BUG-14).
+     *
+     * @param ignored the ignored key names (may be {@code null})
+     * @return e.g. {@code ignoredKeys=[customUnifiedResources, mekanism]}
+     */
+    public static String describeIgnored(final List<String> ignored) {
+        if (ignored == null || ignored.isEmpty()) return "ignoredKeys=[]";
+        final Set<String> sorted = new java.util.TreeSet<>(ignored);
+        return "ignoredKeys=" + new ArrayList<>(sorted);
+    }
+
     /** Result of a parse: the typed config plus any non-empty / legacy / unknown keys we ignored. */
     public static final class Result {
 

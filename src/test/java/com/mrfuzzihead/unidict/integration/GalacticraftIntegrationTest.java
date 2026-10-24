@@ -38,11 +38,13 @@ class GalacticraftIntegrationTest {
         final FakeShapedRecipesAccessor shaped = new FakeShapedRecipesAccessor(outA);
         final ItemStack canonicalA = new ItemStack(itemA, 9, 3);
 
-        final int rewritten = GalacticraftIntegration
-            .rewriteOutput(shaped::getRecipeOutput, shaped::setRecipeOutput, s -> (s == outA) ? canonicalA : s);
+        final int rewritten = GalacticraftIntegration.rewriteOutput(
+            shaped::unidict$getRecipeOutput,
+            shaped::unidict$setRecipeOutput,
+            s -> (s == outA) ? canonicalA : s);
 
         assertEquals(1, rewritten, "a resolvable shaped output should be rewritten");
-        assertSame(canonicalA, shaped.getRecipeOutput(), "output should be rewritten in place");
+        assertSame(canonicalA, shaped.unidict$getRecipeOutput(), "output should be rewritten in place");
     }
 
     @Test
@@ -71,8 +73,9 @@ class GalacticraftIntegrationTest {
         // Identity resolver: nothing resolves to a different main entry -> nothing changes.
         assertEquals(
             0,
-            GalacticraftIntegration.rewriteOutput(shaped::getRecipeOutput, shaped::setRecipeOutput, IDENTITY));
-        assertSame(unchanged, shaped.getRecipeOutput(), "unchanged output keeps its identity");
+            GalacticraftIntegration
+                .rewriteOutput(shaped::unidict$getRecipeOutput, shaped::unidict$setRecipeOutput, IDENTITY));
+        assertSame(unchanged, shaped.unidict$getRecipeOutput(), "unchanged output keeps its identity");
 
         // Null output is skipped (some GC recipes may expose a null output mid-load).
         final FakeShapelessOreRecipeAccessor shapeless = new FakeShapelessOreRecipeAccessor(null);
@@ -96,7 +99,9 @@ class GalacticraftIntegrationTest {
 
         final GalacticraftIntegration.AccessorPairFactory adapter = recipe -> {
             if (recipe instanceof FakeShapedRecipesAccessor shaped) {
-                return new GalacticraftIntegration.AccessorPair(shaped::getRecipeOutput, shaped::setRecipeOutput);
+                return new GalacticraftIntegration.AccessorPair(
+                    shaped::unidict$getRecipeOutput,
+                    shaped::unidict$setRecipeOutput);
             }
             if (recipe instanceof FakeShapelessOreRecipeAccessor shapeless) {
                 return new GalacticraftIntegration.AccessorPair(
@@ -113,7 +118,7 @@ class GalacticraftIntegrationTest {
         assertEquals(2, recipes.size(), "rewriting a list must never change its size (no remove)");
         assertSame(
             outA,
-            ((FakeShapedRecipesAccessor) recipes.get(0)).getRecipeOutput(),
+            ((FakeShapedRecipesAccessor) recipes.get(0)).unidict$getRecipeOutput(),
             "unchanged output keeps identity");
         assertSame(
             canonicalB,
@@ -131,7 +136,7 @@ class GalacticraftIntegrationTest {
 
         // Adapter returns null for the unknown element -> it is skipped, never a crash.
         final GalacticraftIntegration.AccessorPairFactory adapter = recipe -> (recipe instanceof FakeShapedRecipesAccessor shaped)
-            ? new GalacticraftIntegration.AccessorPair(shaped::getRecipeOutput, shaped::setRecipeOutput)
+            ? new GalacticraftIntegration.AccessorPair(shaped::unidict$getRecipeOutput, shaped::unidict$setRecipeOutput)
             : null;
 
         assertEquals(0, GalacticraftIntegration.rewriteOutputs(recipes, adapter, IDENTITY));

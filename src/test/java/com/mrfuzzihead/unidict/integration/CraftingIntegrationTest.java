@@ -63,8 +63,8 @@ class CraftingIntegrationTest {
 
         assertEquals(1, rewritten, "only the resolvable output should be rewritten");
         assertEquals(2, recipes.size(), "rewriting must never add or remove recipes");
-        assertSame(canonical, r1.getRecipeOutput());
-        assertSame(outB, r2.getRecipeOutput());
+        assertSame(canonical, r1.unidict$getRecipeOutput());
+        assertSame(outB, r2.unidict$getRecipeOutput());
     }
 
     @Test
@@ -85,8 +85,8 @@ class CraftingIntegrationTest {
 
         assertEquals(1, rewritten, "only the resolvable output should be rewritten");
         assertEquals(2, recipes.size(), "rewriting must never add or remove recipes");
-        assertSame(outA, r1.getRecipeOutput());
-        assertSame(canonical, r2.getRecipeOutput());
+        assertSame(outA, r1.unidict$getRecipeOutput());
+        assertSame(canonical, r2.unidict$getRecipeOutput());
     }
 
     @Test
@@ -101,7 +101,7 @@ class CraftingIntegrationTest {
 
         assertEquals(0, rewritten);
         assertEquals(1, recipes.size());
-        assertSame(out, recipe.getRecipeOutput());
+        assertSame(out, recipe.unidict$getRecipeOutput());
     }
 
     @Test
