@@ -16,12 +16,12 @@ In a large modpack, several mods each add their *own* version of the same thing 
 - ✅ **The crafting table** makes the main version.
 - ✅ **Chests and loot** will hand you the main version.
 - ✅ **Items you drop on the ground** turn into the main version.
-- ✅ **NEI/JEI item lists** hide the confusing duplicate entries, so you just see one.
+- ✅ **NEI item lists** hide the confusing duplicate entries, so you just see one. (An item that is itself the main version of *another* unified resource always stays visible.)
 
 The result: one copper ingot, one tin ingot, one iron ingot... they all stack, they all work together, and you can stop organizing your base's duplicates into "the ones that won't merge."
 
 ### Which metals?
-Out of the box UniDict unifies the usual suspects — **Iron, Gold, Copper, Tin, Silver, Lead, Nickel, Platinum, Aluminum/Aluminium, Ardite, Cobalt, Osmium, Mithril, Zinc, Invar, Steel, Bronze, Electrum, Brass, Titanium, Desh, and Meteoric Iron** — and for each one it covers the whole family: **ore, dust, tiny dust, chunks, nuggets, ingots, blocks, plates, and gears.**
+Out of the box UniDict unifies the usual suspects — **Iron, Gold, Copper, Tin, Silver, Lead, Nickel, Platinum, Aluminum/Aluminium, Ardite, Cobalt, Osmium, Mithril, Zinc, Invar, Steel, Bronze, Electrum, Brass, Titanium, Desh, Meteoric Iron, Tungsten, Uranium, and Magnesium** — and for each one it covers the whole family: **ore, dust, tiny dust, chunks, nuggets, ingots, blocks, plates, and gears.**
 
 > You can pick and choose exactly which metals (and which forms of them) you want unified in the config file — see below.
 
@@ -44,12 +44,15 @@ UniDict hooks straight into the machines of the mods below, so their outputs com
 | **Thermal Expansion**     | Redstone Furnace, Pulverizer, Induction Smelter                                                            |
 | **Forestry**              | Carpenter, Squeezer, Centrifuge (plus a couple of handy bonus recipes — see below)                         |
 | **Galacticraft**          | Ingot Compressor, Electric Ingot Compressor                                                                |
+| **Tinkers' Construct**    | Smeltery Casting Table and Casting Basin (melt/alloy stages produce fluids, so they have no item to unify)  |
+| **Storage Drawers**       | Compacting Drawers (the canonical block/ingot/nugget chains are seeded into the drawer tier registry)      |
 
 ### A few nice extras
 
 - **Forestry crate recipes.** If Forestry already knows a crate for a metal, UniDict wires up the matching "crate it" / "uncrate it" carpenter recipes using your unified metal.
 - **Bronze tool recycling.** Got broken bronze tools? With a unified bronze ingot, UniDict adds carpenter recipes to recycle them back into bronze ingots.
 - **Galacticraft's electric / arc furnaces** reuse the vanilla furnace recipes, so they're already covered for free.
+- **Dropped items** are converted on the ground too (only plain, untagged stacks — see below).
 
 ---
 
@@ -71,6 +74,8 @@ With the default settings, UniDict hides the duplicate "non-main" variants of un
 - Exempt a specific **mod** from hiding.
 - Protect specific **items** so they always show up.
 
+Only the *non-main* variants are hidden: an item that is the main version of some other unified resource is always kept visible, even if it loses to another variant elsewhere.
+
 ---
 
 ## Wondering what won? Run `/unidict report`
@@ -81,7 +86,7 @@ Everything UniDict does is transparent. Type this in the chat:
 /unidict report
 ```
 
-...and you'll see, for every unified resource, **which item won the "main" spot** and how many variants were merged. Too much text? Filter it down to one resource:
+...and you'll see, for every unified resource, **which item won the "main" spot** and how many variants were merged, plus a per-machine count of the outputs that were actually rewritten. Too much text? Filter it down to one resource:
 
 ```
 /unidict report ingotCopper
@@ -97,7 +102,7 @@ UniDict writes a normal config file to your `config` folder. There are three rea
 
 - **`minimal`** — vanilla-safe only (furnace + chest loot). The lightest touch.
 - **`standard`** *(default)* — all supported integrations on, full metal list. Most packs want this.
-- **`max-compat`** — standard, plus the aggressive extras (input replacement and kind debug logging). For maximum tidiness.
+- **`max-compat`** — standard, plus the extra diagnostics (kind debug logging). The `inputReplacement` key is reserved for a future release and currently has no effect.
 
 Beyond the preset you can individually toggle each mod integration, choose which metals and which forms (`ore`, `dust`, `ingot`, `block`, ...) to unify, set the **owner priority order** (which mod gets to be the "main" version), and protect specific items or resource tags from being unified.
 
@@ -116,6 +121,17 @@ Your settings are **never wiped** when the mod updates — UniDict only ever add
 | **Framework** | Built with the GTNH build toolchain |
 
 UniDict is a small client-*and*-server-aware mod. You can drop it into a pack that doesn't have any of the optional mods — the vanilla furnace, crafting table, and chest-loot support work on their own, and the mod-specific integrations simply activate only when their mod is present.
+
+---
+
+## Developer docs
+
+- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam and verify line.
+- [`docs/PLAN.md`](docs/PLAN.md) — implementation plan and milestone gates.
+- [`docs/STATUS.md`](docs/STATUS.md) — per-milestone tracker.
+- [`docs/TestPlan.md`](docs/TestPlan.md) — the T1/T2/T3 verification doctrine.
+- [`docs/TODO.md`](docs/TODO.md) — forward-looking backlog.
+- [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) — severity-ranked review findings and what has been fixed.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.mrfuzzihead.unidict.nei;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -30,6 +31,9 @@ import com.mrfuzzihead.unidict.resource.UniResourceHandler;
  * from hiding.</li>
  * <li><b>{@code protectedOreDictionaryNames}</b> (e.g. {@code "raw"} for raw metals) — exempts
  * specific variants from hiding so they coexist with the canonical entry.</li>
+ * <li><b>Canonical entries</b> — an item that is the main entry of <em>any</em> unified container is never
+ * hidden, even when it is a non-main variant of another container (multi-tag items). Otherwise NEI would
+ * hide something the machines actually hand the player (docs/CODE_REVIEW.md BUG-17).</li>
  * </ul>
  *
  * <p>
@@ -57,6 +61,15 @@ final class NEIHideThread extends AbstractModuleThread {
             }
             final boolean autoHideInNEI = Config.get().autoHideInNEI;
             final Set<Long> kindBlackSet = UniResourceHandler.getKindBlackSet();
+            // Every canonical entry in the whole model: a variant must never be hidden if it is the main
+            // entry of some other container (BUG-17).
+            final List<ItemStack> canonicalEntries = new ArrayList<>();
+            for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
+                for (final UniResourceContainer container : resource.getChildrenCollection())
+                    canonicalEntries.add(container.getMainEntry());
+            final Predicate<ItemStack> alwaysVisible = stack -> ResourceHandler.isProtected(stack)
+                || isCanonicalElsewhere(canonicalEntries, stack);
+
             int hidden = 0;
             for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
                 for (final UniResourceContainer container : resource.getChildrenCollection()) {
@@ -66,7 +79,7 @@ final class NEIHideThread extends AbstractModuleThread {
                         autoHideInNEI,
                         kindBlackSet,
                         ResourceHandler::isModBlacklisted,
-                        ResourceHandler::isProtected);
+                        alwaysVisible);
                     for (final ItemStack stack : toHide) if (stack != null) NEIHelper.hide(stack);
                     hidden += toHide.size();
                 }
@@ -79,6 +92,29 @@ final class NEIHideThread extends AbstractModuleThread {
     }
 
     /**
+     * Whether {@code stack} is the canonical (main) entry of <b>any</b> unified container. Such a stack is
+     * never hidden: hiding it would remove from NEI an item that machines/drops actually produce.
+     *
+     * <p>
+     * Matches by item identity and damage (not stack identity — the entries are snapshots/copies, and the
+     * candidate may be a different {@link ItemStack} instance for the same item). Package-private seam so
+     * the decision is T2-testable without a game instance.
+     *
+     * @param canonicalEntries the main entry of every container in the model
+     * @param stack            the variant being considered for hiding
+     * @return {@code true} when the stack already is some container's canonical entry
+     */
+    static boolean isCanonicalElsewhere(final Collection<ItemStack> canonicalEntries, final ItemStack stack) {
+        if (canonicalEntries == null || stack == null || stack.getItem() == null) return false;
+        for (final ItemStack canonical : canonicalEntries) {
+            if (canonical == null || canonical.getItem() == null) continue;
+            if (canonical.getItem() == stack.getItem() && canonical.getItemDamage() == stack.getItemDamage())
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * The hide-decision seam (T2, TODO.md P0 #1 "hide-set builder fed by fakes"): returns the ordered
      * entry stacks that should be hidden, driven purely by {@link SelectionRules#hiddenIndices}. It
      * touches no MC statics, so a test can drive it with plain {@link ItemStack} fakes.
@@ -88,7 +124,8 @@ final class NEIHideThread extends AbstractModuleThread {
      * @param autoHideInNEI  {@code Config.autoHideInNEI}
      * @param kindBlackSet   {@code hideInNEIBlackSet} as kind bits
      * @param modBlacklisted recognises an exempt {@code autoHideInNEIModBlackList} owner-mod entry
-     * @param alwaysVisible  recognises a protected entry (e.g. raw metal) that must stay visible
+     * @param alwaysVisible  recognises an entry that must stay visible regardless — a protected item or a
+     *                       canonical entry of another container (see {@link #isCanonicalElsewhere})
      */
     static List<ItemStack> stacksToHide(final List<ItemStack> entries, final long kind, final boolean autoHideInNEI,
         final Set<Long> kindBlackSet, final Predicate<? super ItemStack> modBlacklisted,

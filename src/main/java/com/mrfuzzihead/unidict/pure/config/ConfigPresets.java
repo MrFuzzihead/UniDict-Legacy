@@ -159,7 +159,20 @@ public final class ConfigPresets {
 
     /** Max-compat: standard plus the aggressive unification features. */
     public static ConfigData maxCompat() {
-        final ConfigData standard = standard();
+        return maxCompatFrom(standard());
+    }
+
+    /**
+     * Package-private derivation seam: builds the max-compat surface on top of an arbitrary "standard"
+     * surface. Public callers always pass {@link #standard()}; the seam exists so the carry-over contract
+     * (every shared collection is inherited verbatim, e.g. {@code protectedItemNames}) is unit-testable
+     * with a non-empty standard instead of the all-defaults real one.
+     *
+     * <p>
+     * The aggressive switches (input replacement, kind debug, every integration) are deliberately pinned
+     * on here rather than inherited — that is what "max-compat" means.
+     */
+    static ConfigData maxCompatFrom(final ConfigData standard) {
         final Map<String, List<String>> maxOwners = new LinkedHashMap<>();
         standard.ownerOfKind.forEach(maxOwners::put);
         return ConfigData.builder()
@@ -172,6 +185,7 @@ public final class ConfigPresets {
             .autoHideInNEIModBlackSet(standard.autoHideInNEIModBlackSet)
             .hideInNEIBlackSet(standard.hideInNEIBlackSet)
             .protectedOreDictionaryNames(standard.protectedOreDictionaryNames)
+            .protectedItemNames(standard.protectedItemNames)
             .canonicalItemNames(standard.canonicalItemNames)
             .metalsToUnify(standard.metalsToUnify)
             .childrenOfMetals(standard.childrenOfMetals)

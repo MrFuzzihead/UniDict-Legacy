@@ -76,4 +76,35 @@ class ModuleHandlerTest {
             executor.add(new FakeModuleThread(name, log));
         }
     }
+
+    /** A module that registers NO threads and counts its {@code init()} calls. */
+    private static final class EmptyCountingModule extends AbstractModule {
+
+        int inits;
+
+        EmptyCountingModule() {
+            super("empty");
+        }
+
+        @Override
+        protected void init() {
+            inits++;
+        }
+    }
+
+    @Test
+    void moduleRegisteringNoThreadsIsInitialisedOnceNotPerStage() {
+        // Regression guard for docs/CODE_REVIEW.md BUG-11: "executor is empty" was used as the
+        // lazy-init sentinel, so a module that legitimately registers nothing had init() re-run at
+        // every stage (and a module that registered something could never re-init).
+        final ModuleHandler handler = new ModuleHandler();
+        final EmptyCountingModule module = new EmptyCountingModule();
+        handler.addModule(module);
+
+        handler.startModules(LoadStage.POST_INIT);
+        handler.startModules(LoadStage.LOAD_COMPLETE);
+        handler.startModules(LoadStage.POST_INIT);
+
+        assertEquals(1, module.inits, "init() must run exactly once even when the module registers nothing");
+    }
 }

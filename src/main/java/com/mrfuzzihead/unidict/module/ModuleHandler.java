@@ -29,7 +29,7 @@ public final class ModuleHandler {
     public void startModules(final LoadStage loadStage) {
         if (loadStage == null || modules.isEmpty()) return;
         for (final AbstractModule module : modules) {
-            if (module.isEmpty()) module.init();
+            module.initOnce();
             module.start(loadStage);
         }
     }

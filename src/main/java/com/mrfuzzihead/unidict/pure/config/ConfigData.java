@@ -48,7 +48,10 @@ public final class ConfigData {
     public final boolean kindDebugMode;
     /** Mod-level NEI-hide exemption (per owner mod). */
     public final Set<String> autoHideInNEIModBlackSet;
-    /** Kind-level NEI-hide exemption (e.g. {@code ore}). */
+    /**
+     * Kind-level NEI-hide exemption (e.g. {@code ore}). Matched against registered kind names ignoring
+     * case, so any casing is accepted here.
+     */
     public final Set<String> hideInNEIBlackSet;
     /**
      * OD-name substrings protecting an item from canonicalization and NEI hiding. An item that is a
@@ -79,12 +82,23 @@ public final class ConfigData {
 
     // ---- resources / owners ------------------------------------------
     public final Set<String> metalsToUnify;
+    /** Child kinds to unify; matched against registered kind names ignoring case. */
     public final Set<String> childrenOfMetals;
     public final List<String> resourceBlackList;
     /** Global owner priority (dedupes upstream {@code ownerOfEveryThing}); unmodifiable ordered list. */
     public final List<String> ownerPriorities;
-    /** Per-kind owner override, keyed by kind name (dedupes {@code ownerOfEvery<Kind>} + the sort toggle). */
+    /**
+     * Per-kind owner override, keyed by the configured kind name (its spelling is preserved).
+     * Look-ups are case-insensitive — use {@link #ownerOfKindFor(String)} / {@link #hasOwnerOverride(String)}.
+     * Dedupes {@code ownerOfEvery<Kind>} + the sort toggle.
+     */
     public final Map<String, List<String>> ownerOfKind;
+    /** Case-insensitive lookup view over {@link #ownerOfKind}; see {@link #ownerOfKindFor(String)}. */
+    private final Map<String, List<String>> ownerOfKindIndex;
+    /** Precomputed positions in {@link #ownerPriorities}; see {@link #globalOwnerRank(String)}. */
+    private final Map<String, Integer> ownerRanks;
+    /** Precomputed positions for each non-empty per-kind override, keyed by lowercased kind. */
+    private final Map<String, Map<String, Integer>> ownerRanksOfKind;
 
     // ---- integrations -------------------------------------------------
     /** Master switch for the integration module (all integrations off when false). */
@@ -145,6 +159,9 @@ public final class ConfigData {
         this.resourceBlackList = Collections.unmodifiableList(new ArrayList<>(b.resourceBlackList));
         this.ownerPriorities = Collections.unmodifiableList(new ArrayList<>(b.ownerPriorities));
         this.ownerOfKind = copyOwnerOfKind(b.ownerOfKind);
+        this.ownerOfKindIndex = indexOwnerOfKind(this.ownerOfKind);
+        this.ownerRanks = rankMap(this.ownerPriorities);
+        this.ownerRanksOfKind = rankMapsOfKind(this.ownerOfKindIndex);
 
         this.integrationModuleEnabled = b.integrationModuleEnabled;
         this.furnaceIntegration = b.furnaceIntegration;
@@ -166,6 +183,98 @@ public final class ConfigData {
         final Map<String, List<String>> copy = new LinkedHashMap<>();
         source.forEach((kind, owners) -> copy.put(kind, Collections.unmodifiableList(new ArrayList<>(owners))));
         return Collections.unmodifiableMap(copy);
+    }
+
+    /**
+     * Case-insensitive view of {@link #ownerOfKind}, so the documented {@code ownerOfKind.INGOT}
+     * spelling — and the legacy {@code ownerOfEveryIngot} alias, which {@link ConfigReader} turns into
+     * {@code ownerOfKind.Ingot} — resolve against the lowercase kind names the taxonomy actually
+     * registers ({@code ingotCopper} -> kind {@code ingot}). Previously the lookup was case-sensitive,
+     * so those keys silently matched nothing (docs/CODE_REVIEW.md BUG-3).
+     *
+     * <p>
+     * Keys keep the user's spelling (the public {@link #ownerOfKind} map is unchanged); only the
+     * lookup is normalised. When two keys differ solely by case, the first configured one wins.
+     */
+    private static Map<String, List<String>> indexOwnerOfKind(final Map<String, List<String>> source) {
+        final Map<String, List<String>> index = new LinkedHashMap<>();
+        source.forEach((kind, owners) -> { if (kind != null) index.putIfAbsent(KindNames.lookUpKey(kind), owners); });
+        return Collections.unmodifiableMap(index);
+    }
+
+    /**
+     * @param kindName a kind name in any case (e.g. {@code INGOT}, {@code Ingot} or the registered
+     *                 {@code ingot})
+     * @return the configured per-kind owner order, or {@code null} when none is configured
+     */
+    public List<String> ownerOfKindFor(final String kindName) {
+        return kindName == null ? null : ownerOfKindIndex.get(KindNames.lookUpKey(kindName));
+    }
+
+    /**
+     * @param kindName a kind name in any case
+     * @return {@code true} when a per-kind owner override is configured for that kind
+     */
+    public boolean hasOwnerOverride(final String kindName) {
+        return ownerOfKindFor(kindName) != null;
+    }
+
+    /**
+     * Position of {@code modName} in the effective owner order for a kind: the per-kind override when
+     * configured, else the global order. {@code 0} is the highest priority.
+     *
+     * <p>
+     * The ranks are precomputed once in the constructor (docs/CODE_REVIEW.md OPT-6) so a sort comparison
+     * is two map lookups instead of two {@code List.indexOf} scans — and, like {@link #ownerOfKindFor}, the
+     * kind lookup ignores case.
+     *
+     * @param kindName a kind name in any case ({@code INGOT}/{@code ingot}), or {@code null}
+     * @param modName  the mod id to rank, or {@code null}
+     * @return the rank, or {@link OwnerOrder#NOT_LISTED} when the mod is not in the effective order
+     */
+    public long ownerRank(final String kindName, final String modName) {
+        final Map<String, Integer> perKind = kindName == null ? null
+            : ownerRanksOfKind.get(KindNames.lookUpKey(kindName));
+        return rankIn((perKind != null) ? perKind : ownerRanks, modName);
+    }
+
+    /**
+     * Position of {@code modName} in the global {@link #ownerPriorities} order.
+     *
+     * @param modName the mod id to rank, or {@code null}
+     * @return the rank, or {@link OwnerOrder#NOT_LISTED} when the mod is not listed
+     */
+    public long globalOwnerRank(final String modName) {
+        return rankIn(ownerRanks, modName);
+    }
+
+    private static long rankIn(final Map<String, Integer> ranks, final String modName) {
+        if (modName == null) return OwnerOrder.NOT_LISTED;
+        final Integer rank = ranks.get(modName);
+        return rank == null ? OwnerOrder.NOT_LISTED : rank;
+    }
+
+    /** First occurrence wins, matching {@code List.indexOf} semantics for duplicate entries. */
+    private static Map<String, Integer> rankMap(final List<String> owners) {
+        final Map<String, Integer> ranks = new LinkedHashMap<>();
+        for (int i = 0; i < owners.size(); i++) ranks.putIfAbsent(owners.get(i), i);
+        return Collections.unmodifiableMap(ranks);
+    }
+
+    private static Map<String, Map<String, Integer>> rankMapsOfKind(final Map<String, List<String>> ownersByKind) {
+        final Map<String, Map<String, Integer>> ranks = new LinkedHashMap<>();
+        ownersByKind
+            .forEach((kind, owners) -> { if (owners != null && !owners.isEmpty()) ranks.put(kind, rankMap(owners)); });
+        return Collections.unmodifiableMap(ranks);
+    }
+
+    /**
+     * Crafting-table output canonicalisation is active: the crafting integration is on <b>and</b> the
+     * integration master switch is on. Single source of truth for the {@code CraftingIntegration} run
+     * gate and the {@code CraftingManagerMixin} read-side hook (docs/CODE_REVIEW.md BUG-5).
+     */
+    public boolean craftingUnificationEnabled() {
+        return craftingIntegration && integrationModuleEnabled;
     }
 
     public static Builder builder() {

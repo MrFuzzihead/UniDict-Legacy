@@ -104,9 +104,10 @@ final class TinkersConstructIntegration extends AbstractModuleThread {
 
     /**
      * Rewrites the Casting Table and Casting Basin recipe outputs to the canonical (main) entry of their
-     * unified resource. Runs at LOAD_COMPLETE and again at server start; idempotent by construction
-     * (the shared core only writes when the mapped stack differs by reference from the current one, and
-     * {@link RewriteJournal#record} updates rather than appends on a re-run).
+     * unified resource. Runs at LOAD_COMPLETE and again at server start; idempotent by construction —
+     * the shared core only writes when the mapped stack differs by identity from the current one (an
+     * already-canonical output is returned unchanged), and {@link RewriteJournal#record} accumulates the
+     * per-pass deltas into one line per machine.
      *
      * @return the number of casting outputs rewritten on this pass
      */

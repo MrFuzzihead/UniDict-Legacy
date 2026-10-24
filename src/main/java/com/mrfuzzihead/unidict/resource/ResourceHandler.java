@@ -23,6 +23,7 @@ import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.CanonicalRules;
 import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
 import com.mrfuzzihead.unidict.pure.config.ConfigData;
 
@@ -172,7 +173,8 @@ public final class ResourceHandler {
 
     /**
      * The canonical ("main") entry for a stack, preserving its stack size. Returns the stack itself
-     * when it is not part of any unified resource.
+     * (by identity) when it is not part of any unified resource, when it already <em>is</em> the
+     * canonical entry, or when it carries NBT.
      *
      * <p>
      * Two resolution paths:
@@ -186,16 +188,39 @@ public final class ResourceHandler {
      * ingotCopper} member maps to that resource's main entry. This is what makes drop-time
      * unification robust.</li>
      * </ol>
+     *
+     * <p>
+     * The final substitution decision is delegated to the pure {@link CanonicalRules#shouldReplace}
+     * so the no-op and data-preservation guarantees are T1-tested: an already-canonical stack is
+     * returned <b>by identity</b> (making every integration's reference check, the report counts and
+     * the server-start re-runs correct) and an NBT-bearing stack is never replaced (the canonical
+     * entry cannot carry its tag).
      */
     public ItemStack getMainItemStack(final ItemStack thing) {
+        if (thing == null || thing.getItem() == null) return thing;
         // Protected items (e.g. EtF raw copper via the default "raw" OD-name substring) are never
         // canonicalized — a mined raw-metal drop stays raw instead of becoming a mod's ore block
         // (TODO.md P0 #1). This also shields protected items from machine input/output rewrites.
         if (isProtected(thing)) return thing;
+        final UniResourceContainer container = containerOf(thing);
+        if (container == null) return thing;
+        // Decide without allocating first: only build the canonical stack when it will actually replace the
+        // input. A canonical drop (or a re-run over already-rewritten recipes) therefore costs nothing
+        // beyond the index lookups (docs/CODE_REVIEW.md OPT-1).
+        if (!CanonicalRules.shouldReplace(
+            thing.hasTagCompound(),
+            thing.getItem(),
+            thing.getItemDamage(),
+            container.getMainEntryItem(),
+            container.getMainEntryDamage())) return thing;
+        return container.getMainEntry(thing.stackSize);
+    }
+
+    /** Resolves a stack to its modelled container: exact index first, then the OD-name fallback. */
+    private UniResourceContainer containerOf(final ItemStack thing) {
         final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        if (attributesOfThing != null) return attributesOfThing.uniResourceContainer.getMainEntry(thing.stackSize);
-        final UniResourceContainer byOreName = containerForOreName(thing);
-        return (byOreName != null) ? byOreName.getMainEntry(thing.stackSize) : thing;
+        if (attributesOfThing != null) return attributesOfThing.uniResourceContainer;
+        return containerForOreName(thing);
     }
 
     /**
@@ -246,11 +271,13 @@ public final class ResourceHandler {
 
     /**
      * Maps every variant to its resource/container so {@link #getMainItemStack} can resolve, keyed by
-     * item identity + damage (see {@link #individualStackAttributes}). Safe to re-run: the index is
-     * cleared first, so a later re-index cannot leave duplicate/stale keys behind.
+     * item identity + damage (see {@link #individualStackAttributes}). Safe to re-run: the index and
+     * the container lookup are cleared first, so a later re-index (or a resource removed before the
+     * first index) cannot leave duplicate/stale keys behind.
      */
     void populateIndividualStackAttributes() {
         individualStackAttributes.clear();
+        containerMap.clear();
         for (final Resource<UniResourceContainer> resource : new ArrayList<>(resources)) {
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 containerMap.put(container.name, container);

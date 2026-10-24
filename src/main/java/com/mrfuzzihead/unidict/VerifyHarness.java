@@ -327,6 +327,9 @@ public final class VerifyHarness {
         if (stack == null || stack.getItem() == null) return "none";
         final String registryName = GameData.getItemRegistry()
             .getNameForObject(stack.getItem());
+        // A stack without a registry name has no owner to describe; report the same sentinel as the
+        // owner lookup instead of throwing while rendering a report (docs/CODE_REVIEW.md BUG-7).
+        if (registryName == null) return Util.UNKNOWN_MOD;
         final String owner = Util.getModName(stack);
         // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
         return registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;

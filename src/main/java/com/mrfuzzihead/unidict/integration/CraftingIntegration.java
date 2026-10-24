@@ -67,8 +67,9 @@ final class CraftingIntegration extends AbstractModuleThread {
     static void runCraftingRewrite() {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
         if (resourceHandler == null || resourceHandler.resources.isEmpty()
-            || !Config.crafting()
-            || !Config.integrationModule()) return;
+            || !Config.get()
+                .craftingUnificationEnabled())
+            return;
         @SuppressWarnings("unchecked")
         final List<IRecipe> recipes = CraftingManager.getInstance()
             .getRecipeList();

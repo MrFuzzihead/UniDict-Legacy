@@ -19,6 +19,14 @@ public abstract class AbstractModule {
 
     protected final LoadStageExecutor executor;
 
+    /**
+     * Whether {@link #init()} has run. An explicit flag, not "executor is empty": a module may
+     * legitimately register nothing (all integrations off), and using the executor's emptiness as the
+     * lazy-init sentinel re-ran {@code init()} at every stage for such modules, while a module that
+     * registered something could never re-init (docs/CODE_REVIEW.md BUG-11).
+     */
+    private boolean initialized;
+
     protected AbstractModule(@Nonnull final String moduleName) {
         this.executor = new LoadStageExecutor(moduleName);
     }
@@ -26,8 +34,11 @@ public abstract class AbstractModule {
     /** Registers the module's {@link AbstractModuleThread}s; called once, lazily. */
     protected abstract void init();
 
-    final boolean isEmpty() {
-        return executor.isEmpty();
+    /** Runs {@link #init()} at most once, regardless of how many threads it registers. */
+    final void initOnce() {
+        if (initialized) return;
+        initialized = true;
+        init();
     }
 
     final void start(@Nonnull final LoadStage loadStage) {

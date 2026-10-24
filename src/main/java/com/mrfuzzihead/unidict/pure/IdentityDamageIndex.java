@@ -16,9 +16,11 @@ package com.mrfuzzihead.unidict.pure;
  * (recipe/cumulative keys); it must never be the key of a map that outlives postInit.
  */
 
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 /**
  * A two-level index: an identity-keyed outer map (the item itself, compared by {@code ==}) and a
@@ -34,7 +36,7 @@ import java.util.Map;
 public final class IdentityDamageIndex<V> {
 
     /** Outer key is the item instance — {@link IdentityHashMap} compares with {@code ==}, never {@code equals}. */
-    private final Map<Object, Map<Integer, V>> byKey = new IdentityHashMap<>();
+    private final Map<Object, TIntObjectMap<V>> byKey = new IdentityHashMap<>();
 
     /**
      * Stores {@code value} under {@code (key, damage)}. Null keys and values are ignored so a
@@ -46,9 +48,11 @@ public final class IdentityDamageIndex<V> {
      */
     public void put(final Object key, final int damage, final V value) {
         if (key == null || value == null) return;
-        Map<Integer, V> byDamage = byKey.get(key);
+        TIntObjectMap<V> byDamage = byKey.get(key);
         if (byDamage == null) {
-            byDamage = new HashMap<>(4);
+            // Primitive keys: the damage value is never boxed on this hot resolver path (docs/CODE_REVIEW.md
+            // OPT-3). At most a handful of damages per item, so a small initial capacity is right.
+            byDamage = new TIntObjectHashMap<>(4);
             byKey.put(key, byDamage);
         }
         byDamage.put(damage, value);
@@ -63,7 +67,7 @@ public final class IdentityDamageIndex<V> {
      */
     public V get(final Object key, final int damage) {
         if (key == null) return null;
-        final Map<Integer, V> byDamage = byKey.get(key);
+        final TIntObjectMap<V> byDamage = byKey.get(key);
         if (byDamage == null) return null;
         final V exact = byDamage.get(damage);
         return (exact != null) ? exact : byDamage.get(MetaKey.WILDCARD);

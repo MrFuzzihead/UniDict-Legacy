@@ -87,6 +87,23 @@ public final class UniOreDictionary {
                 .get(oreDictName));
     }
 
+    /**
+     * Every registered Ore Dictionary name, in the live map's iteration order.
+     *
+     * <p>
+     * Used by the resource pipeline (docs/CODE_REVIEW.md OPT-5): one ordered snapshot is classified twice
+     * (discover metal resources, then group every name under its resource) by the pure
+     * {@code OreNames} helper instead of running a regex over every name. Returns a copy — the live map can
+     * change while the dictionary is being populated.
+     *
+     * @return the registered names (never {@code null}; empty when nothing is registered)
+     */
+    public List<String> getOreNames() {
+        return new ArrayList<>(
+            accessor.getNameToId()
+                .keySet());
+    }
+
     public List<ItemStack> get(final Integer oreDictId) {
         return checkId(oreDictId) ? accessor.getIdToStack()
             .get(oreDictId) : null;

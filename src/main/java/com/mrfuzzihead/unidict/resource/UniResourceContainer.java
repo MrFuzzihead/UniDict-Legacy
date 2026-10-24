@@ -67,6 +67,30 @@ public final class UniResourceContainer implements IResourceContainer {
         return new ItemStack(mainEntryItem, size, mainEntryMeta);
     }
 
+    /**
+     * The canonical entry's {@code Item}, without allocating a stack.
+     *
+     * <p>
+     * The resolver's no-op check reads this (and {@link #getMainEntryDamage()}) instead of calling
+     * {@link #getMainEntry(int)}, so an already-canonical drop or a re-run over already-rewritten recipes
+     * costs no allocation on the hot path (docs/CODE_REVIEW.md OPT-1). Package-private: both the container
+     * and {@code ResourceHandler} live in this package, and the value is what {@link #getMainEntry()} uses.
+     *
+     * @return the main entry's item (set by {@link #updateEntries()}); {@code null} only before that runs
+     */
+    Item getMainEntryItem() {
+        return mainEntryItem;
+    }
+
+    /**
+     * The canonical entry's damage value, without allocating a stack.
+     *
+     * @return the main entry's item damage / metadata; see {@link #getMainEntryItem()}
+     */
+    int getMainEntryDamage() {
+        return mainEntryMeta;
+    }
+
     /** A defensive copy of the snapshot entries (never the live / internal list). */
     public List<ItemStack> getEntries() {
         return new ArrayList<>(entries);
@@ -102,9 +126,9 @@ public final class UniResourceContainer implements IResourceContainer {
     }
 
     public Comparator<ItemStack> getComparator() {
-        // Kind-specific owner override when configured (BB-2 model), else the global owner order.
-        if (kindName != null && Config.get().ownerOfKind.containsKey(kindName))
-            return SpecificKindItemStackComparator.getComparatorFor(kindName);
+        // Kind-specific owner override when configured (BB-2 model; case-insensitive), else the global order.
+        if (Config.get()
+            .hasOwnerOverride(kindName)) return SpecificKindItemStackComparator.getComparatorFor(kindName);
         return Util.itemStackComparatorByModName();
     }
 

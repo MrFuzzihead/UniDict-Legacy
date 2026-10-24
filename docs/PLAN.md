@@ -20,6 +20,11 @@
 > `UnifyDrops` module. The remaining scope, which is **non-mod-integration feature work**, is tracked
 > in [`TODO.md`](TODO.md) (P0: NEI variant hiding, `keepOneEntry` via NEI hiding, the CoFH/TE runtime
 > gate, docs sync). Read any "deferred"/"M5"/"crates" wording below through that lens.
+>
+> **Update 2026-10-24:** the CoFH/TE gate is closed (dev-only tooling; the production pack widens the
+> field) and docs are synced. The **live, severity-ranked backlog is [`CODE_REVIEW.md`](CODE_REVIEW.md)**
+> (two fix batches landed); `TODO.md` keeps the feature view. Note that `rewritten=` counts are now
+> authoritative deltas, so historical figures quoted in this plan are not comparable.
 
 ## ⚠ Scope rework — 2026-08-12 (decision; supersedes the scope above and re-scopes the milestones below)
 
