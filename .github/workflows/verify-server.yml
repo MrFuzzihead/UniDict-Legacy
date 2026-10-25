@@ -35,7 +35,11 @@ jobs:
           cache: gradle
 
       - name: Run the headless verify harness
-        run: ./gradlew verifyServer --no-daemon --stacktrace
+        # chmod is a safeguard for contributors on filesystems without a POSIX exec bit (the repo tracks
+        # gradlew as executable, but a re-added copy could lose it and fail CI instantly).
+        run: |
+          chmod +x gradlew
+          ./gradlew verifyServer --no-daemon --stacktrace
 
       - name: Upload the captured harness log
         if: always()
