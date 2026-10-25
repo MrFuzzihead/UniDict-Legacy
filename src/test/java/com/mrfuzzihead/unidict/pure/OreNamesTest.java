@@ -225,6 +225,13 @@ class OreNamesTest {
         assertEquals(0, OreNames.modelledNameCount(added, live, Collections.emptySet(), kinds));
         assertEquals(0, OreNames.modelledNameCount(Collections.emptyList(), live, metals, kinds));
         assertEquals(0, OreNames.modelledNameCount(added, Collections.emptyList(), metals, kinds));
+        // The name list follows the same rule, sorted, and names the actionable late entries.
+        assertEquals(
+            Arrays.asList("gearTitanium", "ingotTitanium", "oreTitanium"),
+            OreNames.modelledNames(added, live, metals, kinds));
+        assertTrue(
+            OreNames.modelledNames(null, live, metals, kinds)
+                .isEmpty());
     }
 
     @Test

@@ -327,17 +327,22 @@ re-index.
 
 #### Measured gap (dev pack, 2026-10-24) — this bug is real
 
-`verifyServer` now reports:
+`verifyServer` now reports the added names and, separately, the ones the **configured** taxonomy would
+have modelled (the raw 373 also include unconfigured alloys such as Adamantine):
 
 ```text
-[unidict-verify] PASS lateOd added=373 modelled=26 total=1002 sample=[blockAdamantine, …]
+[unidict-verify] PASS lateOd added=373 modelled=26 total=1002
+  example=[blockBrass, blockOsmium, blockZinc, dustBrass, dustMagnesium, dustOsmium, dustSteel,
+           dustTitanium, dustTungsten, dustZinc, ingotBrass, ingotDesh, ingotMagnesium, ingotOsmium,
+           ingotTungsten, ingotUranium, ingotZinc, oreBronze, oreElectrum, oreInvar, oreMagnesium,
+           oreOsmium, oreSteel, oreTitanium, oreTungsten, oreZinc]
 ```
 
-373 Ore Dictionary names were registered **after** the snapshot, and **26 of them would have been
-modelled** by the standard config (the sample is dominated by Tinkers' Construct / ExtraTiC alloy
-families, which register during their own `postInit` after UniDict's). So Phase A is not theoretical:
-it would add ~26 entries to the model in this pack alone. `OreNamesTest.modelledNameCountOnlyCounts…`
-pins the counting rule.
+So in this pack **configured metals and kinds are missing from the model**: ore/dust/ingot/block variants
+of Brass, Osmium, Zinc, Magnesium, Steel, Titanium, Tungsten, Uranium and Desh. (Thermal Foundation and
+Galacticraft register their Ore Dictionary entries during their own `postInit`, which runs after UniDict's;
+TiC/ExtraTiC add alloy families the same way.) None of those entries get unified, hidden in NEI or counted
+in the report today. Phase A is therefore not theoretical — `OreNamesTest.modelledNames…` pins the rule.
 
 
 #### Why this fix is higher risk than it looks

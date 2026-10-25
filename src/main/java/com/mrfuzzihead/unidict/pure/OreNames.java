@@ -248,18 +248,32 @@ public final class OreNames {
      */
     public static int modelledNameCount(final Collection<String> oreNames, final Collection<String> resourceUniverse,
         final Collection<String> metalsToUnify, final Collection<String> childrenOfMetals) {
-        if (oreNames == null || oreNames.isEmpty()) return 0;
+        return modelledNames(oreNames, resourceUniverse, metalsToUnify, childrenOfMetals).size();
+    }
+
+    /**
+     * The {@code oreNames} entries the current configuration would model, sorted (the same rule as
+     * {@link #modelledNameCount}). Used to name the actionable entries in the late-registration
+     * diagnostic instead of an alphabetical sample.
+     *
+     * @return the modelled names, sorted (never {@code null})
+     */
+    public static List<String> modelledNames(final Collection<String> oreNames,
+        final Collection<String> resourceUniverse, final Collection<String> metalsToUnify,
+        final Collection<String> childrenOfMetals) {
+        final List<String> modelled = new ArrayList<>();
+        if (oreNames == null || oreNames.isEmpty()) return modelled;
         final List<String> resources = metalResourceNames(resourceUniverse);
-        if (resources.isEmpty()) return 0;
-        int modelled = 0;
+        if (resources.isEmpty()) return modelled;
         for (final String name : oreNames) {
             if (name == null || name.isEmpty()) continue;
             final String resource = resourceOf(name, resources);
             if (resource == null) continue;
             if (!KindNames.containsIgnoreCase(metalsToUnify, resource)) continue;
             if (!KindNames.containsIgnoreCase(childrenOfMetals, kindOf(name, resource))) continue;
-            modelled++;
+            modelled.add(name);
         }
+        java.util.Collections.sort(modelled);
         return modelled;
     }
 

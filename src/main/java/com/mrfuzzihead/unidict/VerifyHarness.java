@@ -206,15 +206,19 @@ public final class VerifyHarness {
             .getOreNames();
         final List<String> added = OreNames.additions(snapshot, live);
         final List<String> sample = (added.size() <= SAMPLE_LIMIT) ? added : added.subList(0, SAMPLE_LIMIT);
-        final int modelled = OreNames
-            .modelledNameCount(added, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
+        final List<String> modelledNames = OreNames
+            .modelledNames(added, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
+        final List<String> modelledSample = (modelledNames.size() <= SAMPLE_LIMIT) ? modelledNames
+            : modelledNames.subList(0, SAMPLE_LIMIT);
+        // The modelled entries are the actionable ones for Phase A; the raw alphabetical sample only shows
+        // up in the WARN, so the verify line stays short and decision-oriented.
         record(
             true,
             "lateOd",
             "added=" + added.size(),
-            "modelled=" + modelled,
+            "modelled=" + modelledNames.size(),
             "total=" + live.size(),
-            "sample=" + sample);
+            "example=" + modelledSample);
         if (!added.isEmpty()) LOG.warn(
             "[unidict-verify] {} Ore Dictionary name(s) appeared after the model snapshot and are not unified"
                 + " (docs/CODE_REVIEW.md BUG-8): {}",
