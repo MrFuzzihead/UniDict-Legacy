@@ -31,6 +31,8 @@ public class UniDict {
 
     /** Sequential driver for every module (M2): modules are registered explicitly, never discovered. */
     private final ModuleHandler moduleHandler = new ModuleHandler();
+    /** Kept so the dev seam self-checks can be run after the integration module has initialised. */
+    private final IntegrationModule integrationModule = new IntegrationModule();
 
     /**
      * The resource model published by the selection core once its pipeline runs at load-complete
@@ -43,7 +45,7 @@ public class UniDict {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         proxy.preInit(event);
-        moduleHandler.addModule(new IntegrationModule());
+        moduleHandler.addModule(integrationModule);
         // P0 #1+#2: NEI variant hiding + keepOneEntry via hiding. Client-only, and only when
         // NotEnoughItems is actually present — so NEIHelper (which references codechicken.nei.api.API)
         // is never loaded on a dedicated server or an NEI-less client.
@@ -73,6 +75,8 @@ public class UniDict {
         // published. BB-1: the verify/report pass runs after the modules, so every rewrite is captured.
         runResourcePipeline();
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        // Dev-only: verify every mixin-seam the registered integrations rely on (docs/CODE_REVIEW.md BUG-9).
+        integrationModule.checkSeams();
         proxy.loadComplete(event);
     }
 

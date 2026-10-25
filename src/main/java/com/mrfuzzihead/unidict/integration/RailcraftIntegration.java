@@ -11,6 +11,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.railcraft.IBlastFurnaceCraftingManagerAccessor;
@@ -50,6 +51,14 @@ final class RailcraftIntegration extends AbstractModuleThread {
         super("Railcraft", "Integration");
     }
 
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam(
+            "railcraft/blastFurnaceCraftingManager",
+            IBlastFurnaceCraftingManagerAccessor.class,
+            BlastFurnaceCraftingManager.class);
+    }
+
     @Override
     public String call() {
         try {
@@ -74,8 +83,14 @@ final class RailcraftIntegration extends AbstractModuleThread {
     /** Blast Furnace: single final output, rebuilt and replaced at its index (non-destructive). */
     private int rewriteBlastFurnace(final ResourceHandler resourceHandler) {
         final IBlastFurnaceCraftingManager manager = BlastFurnaceCraftingManager.getInstance();
+        final IBlastFurnaceCraftingManagerAccessor accessor = Accessors
+            .as(manager, IBlastFurnaceCraftingManagerAccessor.class);
+        if (accessor == null) {
+            UniDict.LOG.warn(threadName + "BlastFurnaceCraftingManager accessor not applied; blast furnace skipped.");
+            return 0;
+        }
         @SuppressWarnings("unchecked")
-        final List<BlastFurnaceCraftingManager.BlastFurnaceRecipe> recipes = (List<BlastFurnaceCraftingManager.BlastFurnaceRecipe>) ((IBlastFurnaceCraftingManagerAccessor) manager)
+        final List<BlastFurnaceCraftingManager.BlastFurnaceRecipe> recipes = (List<BlastFurnaceCraftingManager.BlastFurnaceRecipe>) accessor
             .getRecipes();
         if (recipes == null) return 0;
         final int n = rewriteRecipes(recipes, BLAST_VIEW, resourceHandler::getMainItemStack);

@@ -8,6 +8,8 @@ import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.ShapedRecipes;
 import net.minecraft.item.crafting.ShapelessRecipes;
+import net.minecraftforge.oredict.ShapedOreRecipe;
+import net.minecraftforge.oredict.ShapelessOreRecipe;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,6 +28,8 @@ import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
+
+import cpw.mods.fml.common.Loader;
 
 /**
  * Crafting-table output rewrite (M5), non-destructive output-only (BB-3).
@@ -46,6 +50,22 @@ final class CraftingIntegration extends AbstractModuleThread {
 
     CraftingIntegration() {
         super("Crafting", "Integration");
+    }
+
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam("crafting/shapedRecipes", IShapedRecipesAccessor.class, ShapedRecipes.class);
+        VerifyHarness.checkSeam("crafting/shapelessRecipes", IShapelessRecipesAccessor.class, ShapelessRecipes.class);
+        VerifyHarness.checkSeam("crafting/shapedOreRecipe", IShapedOreRecipeAccessor.class, ShapedOreRecipe.class);
+        VerifyHarness
+            .checkSeam("crafting/shapelessOreRecipe", IShapelessOreRecipeAccessor.class, ShapelessOreRecipe.class);
+        if (Loader.isModLoaded("IC2")) {
+            VerifyHarness.checkSeam("crafting/ic2AdvRecipe", IAdvRecipeAccessor.class, ic2.core.AdvRecipe.class);
+            VerifyHarness.checkSeam(
+                "crafting/ic2AdvShapelessRecipe",
+                IAdvShapelessRecipeAccessor.class,
+                ic2.core.AdvShapelessRecipe.class);
+        }
     }
 
     @Override

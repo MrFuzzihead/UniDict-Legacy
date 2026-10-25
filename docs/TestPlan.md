@@ -36,7 +36,8 @@ display. `verifyServer`:
    `harness complete` line (exit hook ran), a non-empty `report summary=resources=… rewrites=…`, every
    server-side `integration=…` line, and the `spikeA`/`resourceIndex …` checks.
 
-Current baseline: **281 stage-1 checks + 5 stage-2 checks, 0 failures, ~40 s**. It also enforces the
+Current baseline: **298 stage-1 checks + 5 stage-2 checks, 0 failures, ~35 s** (including **17
+`PASS seam=…`** mixin-seam checks, BUG-9). It also enforces the
 BUG-8 Phase A gate in three steps: stage-1 `lateOd added=0` (the model was built from the complete
 dictionary), `lateOdServer withEntries=0` (nothing with entries appeared later) and
 `resourceIndex model-complete expected=… missing=0` (every modelled name and live entry is in the model).

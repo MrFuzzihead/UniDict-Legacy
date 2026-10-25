@@ -106,6 +106,22 @@ public final class VerifyHarness {
         return isEnabled() && Boolean.getBoolean(EXIT_AFTER_PROP);
     }
 
+    /**
+     * Dev seam self-check (docs/CODE_REVIEW.md BUG-9): record whether the mixin-added interface is actually
+     * present on the target class. A {@code FAIL seam=…} fails the dev harness and the {@code verifyServer}
+     * run, turning "an integration silently stopped working" into a diagnosed boot-time condition.
+     *
+     * @param name           short seam name, e.g. {@code te/furnaceManager}
+     * @param mixinInterface the interface the accessor mixin adds to {@code target}
+     * @param target         the class the mixin targets
+     */
+    public static void checkSeam(final String name, final Class<?> mixinInterface, final Class<?> target) {
+        if (!isEnabled()) return;
+        final boolean applied = mixinInterface != null && target != null && mixinInterface.isAssignableFrom(target);
+        if (applied) record(true, "seam=" + name);
+        else record(false, "seam=" + name, "not applied to", (target == null) ? "null" : target.getName());
+    }
+
     /** Log one PASS/FAIL verify line and update the counters. */
     public static void record(boolean pass, @Nonnull String feature, String... detail) {
         final String suffix = detail.length == 0 ? "" : " " + String.join(" ", detail);

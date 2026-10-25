@@ -49,6 +49,11 @@ Two review-driven batches landed on top of the above; the authoritative, severit
   mod's postInit), and every model consumer (all integrations, drops, NEI hide) moved with it. The harness
   enforces `lateOd added=0` and `resourceIndex model-complete expected=107 missing=0`; the late-OD
   diagnostic now reports `withEntries=` because 1.7.10 `getOreID` reservations have empty entry lists.
+- **Batch 7 (last correctness items):** mixin-seam access is defensive (`Accessors.as`) and each integration
+  emits `PASS/FAIL seam=…` self-checks (17/17 PASS, required by `verifyServer`); the per-kind comparator
+  follows the live config (reload-safe) instead of freezing a snapshot; Ender IO output rewrites use a
+  neutral weighted core that maps **every** output 1:1 with chance/experience preserved (alloy smelter no
+  longer drops outputs; SAG no longer loses fluid outputs). 225 tests.
 - **Decision:** the CoFH/TE access transformer is **dev-only tooling** (the production pack widens the
   field); it is intentionally not shipped, so the old "CoFH/TE release gate" is closed, not a defect.
 - **Still open** (needs an in-game run, a config seam, or a larger refactor): late-OD refresh, accessor

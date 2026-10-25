@@ -34,6 +34,13 @@ final class GalacticraftIntegration {
 
     private GalacticraftIntegration() {}
 
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam("galacticraft/shapedRecipes", IShapedRecipesAccessor.class, ShapedRecipes.class);
+        VerifyHarness
+            .checkSeam("galacticraft/shapelessOreRecipe", IShapelessOreRecipeAccessor.class, ShapelessOreRecipe.class);
+    }
+
     static int runCompressor() {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
         // Early-skip: with no unified resource the canonical lookup is a no-op, so skip the walk.

@@ -14,6 +14,7 @@ import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.chest.IChestGenHooksAccessor;
 import com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
@@ -60,7 +61,22 @@ final class ChestIntegration extends AbstractModuleThread {
      * only sets the category) suffices to reach the static field. Mirrors the M3 {@code OreDictionaryBridge}.
      */
     static Map<String, ChestGenHooks> getChestInfo() {
-        return ((IChestGenHooksAccessor) (Object) new ChestGenHooks("unidict$chorus")).getChestInfo();
+        final IChestGenHooksAccessor accessor = Accessors
+            .as(new ChestGenHooks("unidict$chorus"), IChestGenHooksAccessor.class);
+        if (accessor == null) {
+            UniDict.LOG.warn("Chest Integration: ChestGenHooks accessor not applied; chest loot is left untouched.");
+            return null;
+        }
+        return accessor.getChestInfo();
+    }
+
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam("chest/chestGenHooks", IChestGenHooksAccessor.class, ChestGenHooks.class);
+        VerifyHarness.checkSeam(
+            "chest/weightedRandomChestContent",
+            IWeightedRandomChestContentAccessor.class,
+            WeightedRandomChestContent.class);
     }
 
     /** Non-destructive rewrite of a single chest category's loot table, via {@link #rewriteContents}. */

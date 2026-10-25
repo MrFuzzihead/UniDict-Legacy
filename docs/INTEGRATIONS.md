@@ -91,6 +91,12 @@ compacting drawer and confirm the block tier is EtF's.
 
 ## The pattern every landed integration follows
 
+Every accessor seam is also **self-checked**: the integration exposes a `checkSeams()` that
+`IntegrationModule` runs at load-complete, and `VerifyHarness.checkSeam` emits `PASS/FAIL seam=…`
+(`isAssignableFrom(target)`, required by `verifyServer`). Production casts go through
+`common/Accessors.as(...)`, so a missing mixin skips one machine with a named warning instead of aborting
+the whole integration (docs/CODE_REVIEW.md BUG-9).
+
 Every landed integration shares the same shape (established by M2/M4/M6), which is exactly what a
 new M7 integration must replicate:
 

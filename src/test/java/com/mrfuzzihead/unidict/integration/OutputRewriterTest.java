@@ -271,4 +271,68 @@ class OutputRewriterTest {
             machineCache.items.get(0),
             "the shared record the machine reads must now yield the canonical item");
     }
+
+    /** Weighted-output holder for the BUG-16 core (neutral: no Ender IO types). */
+    private static final class WeightedHolder {
+
+        final List<OutputRewriter.WeightedOutput> outputs;
+
+        WeightedHolder(final List<OutputRewriter.WeightedOutput> outputs) {
+            this.outputs = outputs;
+        }
+    }
+
+    private static final OutputRewriter.WeightedView<WeightedHolder> WEIGHTED_VIEW = new OutputRewriter.WeightedView<WeightedHolder>() {
+
+        @Override
+        public List<OutputRewriter.WeightedOutput> getOutputs(final WeightedHolder recipe) {
+            return recipe.outputs;
+        }
+
+        @Override
+        public WeightedHolder rebuild(final WeightedHolder original, final List<OutputRewriter.WeightedOutput> mapped) {
+            return new WeightedHolder(new ArrayList<>(mapped));
+        }
+    };
+
+    @Test
+    void weightedCoreRemapsEveryOutputPreservingChanceExperienceAndCount() {
+        // BUG-16: a multi-output recipe must keep every output, in order, with its chance/experience intact.
+        final Item item = new Item();
+        final ItemStack first = new ItemStack(item, 1, 0);
+        final ItemStack second = new ItemStack(item, 1, 1);
+        final ItemStack third = new ItemStack(item, 1, 2);
+
+        final List<WeightedHolder> recipes = new ArrayList<>();
+        recipes.add(
+            new WeightedHolder(
+                new ArrayList<>(
+                    Arrays.asList(
+                        new OutputRewriter.WeightedOutput(first, 1f, 0f),
+                        new OutputRewriter.WeightedOutput(second, 0.25f, 1.5f),
+                        new OutputRewriter.WeightedOutput(third, 0.75f, 2.5f)))));
+
+        final ItemStack canonical = new ItemStack(item, 4, 7);
+        final int rewritten = OutputRewriter
+            .rewriteWeightedList(recipes, WEIGHTED_VIEW, s -> (s == second) ? canonical : s);
+
+        assertEquals(1, rewritten, "only the recipe with a changed output is rebuilt");
+        final List<OutputRewriter.WeightedOutput> outputs = recipes.get(0).outputs;
+        assertEquals(3, outputs.size(), "no output may be lost");
+        assertSame(first, outputs.get(0).stack);
+        assertSame(canonical, outputs.get(1).stack);
+        assertSame(third, outputs.get(2).stack);
+        assertEquals(1f, outputs.get(0).chance);
+        assertEquals(0.25f, outputs.get(1).chance);
+        assertEquals(0.75f, outputs.get(2).chance);
+        assertEquals(1.5f, outputs.get(1).experience);
+        assertEquals(2.5f, outputs.get(2).experience);
+
+        // Nothing resolves -> no rebuild, the same instance stays in the list.
+        final WeightedHolder unchanged = new WeightedHolder(
+            new ArrayList<>(Arrays.asList(new OutputRewriter.WeightedOutput(first, 1f, 0f))));
+        final List<WeightedHolder> untouched = new ArrayList<>(Arrays.asList(unchanged));
+        assertEquals(0, OutputRewriter.rewriteWeightedList(untouched, WEIGHTED_VIEW, UnaryOperator.identity()));
+        assertSame(unchanged, untouched.get(0));
+    }
 }

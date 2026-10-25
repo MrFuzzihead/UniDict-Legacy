@@ -17,6 +17,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.forestry.ICarpenterRecipeAdder;
 import com.mrfuzzihead.unidict.forestry.ICentrifugeRecipeAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
@@ -128,6 +129,12 @@ final class ForestryIntegration extends AbstractModuleThread {
         super("Forestry", "Integration");
     }
 
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam("forestry/shapedOreRecipe", IShapedOreRecipeAccessor.class, ShapedOreRecipe.class);
+        VerifyHarness.checkSeam("forestry/centrifugeRecipe", ICentrifugeRecipeAccessor.class, CentrifugeRecipe.class);
+    }
+
     @Override
     public String call() {
         try {
@@ -178,7 +185,12 @@ final class ForestryIntegration extends AbstractModuleThread {
             // Only Forestry's ShapedRecipeCustom (= a ShapedOreRecipe) has the mutable output field we
             // rewrite; a foreign ICarpenterRecipe impl is safely skipped rather than crashing the walk.
             if (!(grid instanceof ShapedOreRecipe)) continue;
-            gridRecipes.add((IShapedOreRecipeAccessor) (Object) grid);
+            final IShapedOreRecipeAccessor accessor = Accessors.as(grid, IShapedOreRecipeAccessor.class);
+            if (accessor == null) {
+                UniDict.LOG.warn(threadName + "ShapedOreRecipe accessor not applied; carpenter outputs skipped.");
+                continue;
+            }
+            gridRecipes.add(accessor);
         }
         final int n = rewriteCarpenterOutputs(gridRecipes, resolveMain);
         RewriteJournal.record("forestry", "carpenter", n);
@@ -221,7 +233,12 @@ final class ForestryIntegration extends AbstractModuleThread {
         int rewritten = 0;
         for (final ICentrifugeRecipe recipe : recipes) {
             if (recipe == null || !(recipe instanceof CentrifugeRecipe)) continue; // foreign impl: no accessor
-            final Map<ItemStack, Float> products = ((ICentrifugeRecipeAccessor) (Object) recipe).unidict$getProducts();
+            final ICentrifugeRecipeAccessor accessor = Accessors.as(recipe, ICentrifugeRecipeAccessor.class);
+            if (accessor == null) {
+                UniDict.LOG.warn(threadName + "CentrifugeRecipe accessor not applied; centrifuge outputs skipped.");
+                break;
+            }
+            final Map<ItemStack, Float> products = accessor.unidict$getProducts();
             if (products == null) continue; // defensive: the field is set in the constructor
             try {
                 rewritten += rewriteCentrifugeProducts(products, resolveMain);

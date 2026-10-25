@@ -162,7 +162,24 @@ tasks.register("verifyServer") {
             "resourceIndex coverage",
             "resourceIndex no-cross-wiring",
             "resourceIndex no-spurious-rewrite",
-            "resourceIndex model-complete ")) {
+            "resourceIndex model-complete ",
+            "seam=crafting/shapedRecipes",
+            "seam=crafting/shapelessRecipes",
+            "seam=crafting/shapedOreRecipe",
+            "seam=crafting/shapelessOreRecipe",
+            "seam=crafting/ic2AdvRecipe",
+            "seam=crafting/ic2AdvShapelessRecipe",
+            "seam=chest/chestGenHooks",
+            "seam=chest/weightedRandomChestContent",
+            "seam=forestry/shapedOreRecipe",
+            "seam=forestry/centrifugeRecipe",
+            "seam=enderio/oreDictionaryPreferences",
+            "seam=railcraft/blastFurnaceCraftingManager",
+            "seam=te/furnaceManager",
+            "seam=te/pulverizerManager",
+            "seam=te/smelterManager",
+            "seam=galacticraft/shapedRecipes",
+            "seam=galacticraft/shapelessOreRecipe")) {
             if (!text.contains("[unidict-verify] PASS $check")) problems += "missing PASS '$check'"
         }
 

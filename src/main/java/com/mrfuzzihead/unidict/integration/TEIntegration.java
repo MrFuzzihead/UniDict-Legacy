@@ -29,6 +29,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
@@ -108,6 +109,13 @@ final class TEIntegration extends AbstractModuleThread {
         super("Thermal Expansion", "Integration");
     }
 
+    /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
+    static void checkSeams() {
+        VerifyHarness.checkSeam("te/furnaceManager", IFurnaceManagerAccessor.class, FurnaceManager.class);
+        VerifyHarness.checkSeam("te/pulverizerManager", IPulverizerManagerAccessor.class, PulverizerManager.class);
+        VerifyHarness.checkSeam("te/smelterManager", ISmelterManagerAccessor.class, SmelterManager.class);
+    }
+
     @Override
     public String call() {
         try {
@@ -133,7 +141,12 @@ final class TEIntegration extends AbstractModuleThread {
 
     @SuppressWarnings("unchecked")
     private int fixRedstoneFurnace(final UnaryOperator<ItemStack> resolveMain) {
-        final Map<FurnaceManager.ComparableItemStackFurnace, FurnaceManager.RecipeFurnace> recipes = (Map<FurnaceManager.ComparableItemStackFurnace, FurnaceManager.RecipeFurnace>) ((IFurnaceManagerAccessor) (Object) new FurnaceManager())
+        final IFurnaceManagerAccessor accessor = Accessors.as(new FurnaceManager(), IFurnaceManagerAccessor.class);
+        if (accessor == null) {
+            UniDict.LOG.warn(threadName + "FurnaceManager accessor not applied; redstone furnace skipped.");
+            return 0;
+        }
+        final Map<FurnaceManager.ComparableItemStackFurnace, FurnaceManager.RecipeFurnace> recipes = (Map<FurnaceManager.ComparableItemStackFurnace, FurnaceManager.RecipeFurnace>) accessor
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, FURNACE_VIEW, resolveMain);
@@ -145,7 +158,13 @@ final class TEIntegration extends AbstractModuleThread {
 
     @SuppressWarnings("unchecked")
     private int fixPulverizer(final UnaryOperator<ItemStack> resolveMain) {
-        final Map<PulverizerManager.ComparableItemStackPulverizer, PulverizerManager.RecipePulverizer> recipes = (Map<PulverizerManager.ComparableItemStackPulverizer, PulverizerManager.RecipePulverizer>) ((IPulverizerManagerAccessor) (Object) new PulverizerManager())
+        final IPulverizerManagerAccessor accessor = Accessors
+            .as(new PulverizerManager(), IPulverizerManagerAccessor.class);
+        if (accessor == null) {
+            UniDict.LOG.warn(threadName + "PulverizerManager accessor not applied; pulverizer skipped.");
+            return 0;
+        }
+        final Map<PulverizerManager.ComparableItemStackPulverizer, PulverizerManager.RecipePulverizer> recipes = (Map<PulverizerManager.ComparableItemStackPulverizer, PulverizerManager.RecipePulverizer>) accessor
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, PULVERIZER_VIEW, resolveMain);
@@ -157,7 +176,12 @@ final class TEIntegration extends AbstractModuleThread {
 
     @SuppressWarnings("unchecked")
     private int fixInductionSmelter(final UnaryOperator<ItemStack> resolveMain) {
-        final Map<List<SmelterManager.ComparableItemStackSmelter>, SmelterManager.RecipeSmelter> recipes = (Map<List<SmelterManager.ComparableItemStackSmelter>, SmelterManager.RecipeSmelter>) ((ISmelterManagerAccessor) (Object) new SmelterManager())
+        final ISmelterManagerAccessor accessor = Accessors.as(new SmelterManager(), ISmelterManagerAccessor.class);
+        if (accessor == null) {
+            UniDict.LOG.warn(threadName + "SmelterManager accessor not applied; induction smelter skipped.");
+            return 0;
+        }
+        final Map<List<SmelterManager.ComparableItemStackSmelter>, SmelterManager.RecipeSmelter> recipes = (Map<List<SmelterManager.ComparableItemStackSmelter>, SmelterManager.RecipeSmelter>) accessor
             .getRecipeMap();
         if (recipes == null) return 0;
         final int n = rewriteOutputs(recipes, SMELTER_VIEW, resolveMain);

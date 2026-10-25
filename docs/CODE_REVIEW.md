@@ -11,11 +11,13 @@
 Companion docs: [`TODO.md`](TODO.md) (known backlog) · [`INTEGRATIONS.md`](INTEGRATIONS.md) ·
 [`STATUS.md`](STATUS.md) · [`TestPlan.md`](TestPlan.md).
 
-> **Status:** six batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
+> **Status:** seven batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
 > `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync),
 > batch 4 (headless **`verifyServer`** T3 harness + BUG-15), batch 5 (BUG-13/14/18/20, BUG-8 **Phase B**
-> diagnostic, harness in CI) and batch 6 (**BUG-8 Phase A** — the model is built at LOAD_COMPLETE, with a
-> CI-enforced completeness invariant) — see §8 for the change lists and test coverage.
+> diagnostic, harness in CI), batch 6 (**BUG-8 Phase A** — build at LOAD_COMPLETE, CI completeness
+> invariant) and batch 7 (BUG-9 seam guards + self-checks, BUG-12 live-config comparator, BUG-16 weighted
+> multi-output core) — see §8 for the change lists and test coverage. The bug list is now **empty except
+> BUG-19's dead-code sweep**; BUG-8 Phase C stays deferred (the harness reports `missing=0`).
 > **BUG-2 is closed as not-a-defect:** the access transformer is dev-only tooling for the local full-stack
 > client (the production pack already widens the field), so it must not ship with the mod. Everything else
 > below is still open, and the remaining items all need an in-game run to verify (or a larger refactor) —
@@ -418,11 +420,17 @@ already consumed the old one**. Concrete failure modes, in order of severity:
 
 ---
 
-### BUG-9 — hard accessor casts abort a whole integration when a mixin did not apply (S2)
+### BUG-9 — hard accessor casts abort a whole integration when a mixin did not apply
 
-**Where:** `integration/ForestryIntegration.java:222-223` (and the same pattern in
-`EIOIntegration:105`, `TEIntegration:130-166`, `RailcraftIntegration:87-90`,
-`ChestIntegration.getChestInfo:75-76`)
+**Status: fixed in batch 7.** Every cast site goes through the new pure `common/Accessors.as(candidate,
+type)` (T1-tested), so a missing seam skips that machine with a named WARN instead of aborting the whole
+integration. In addition, each integration exposes `checkSeams()`, collected by `IntegrationModule` next to
+registration and run at load-complete: `VerifyHarness.checkSeam` emits `PASS/FAIL seam=…` for every
+mixin-added interface (`isAssignableFrom` on the target class), so a missing seam now fails `verifyServer`/
+CI with a named line. Dev pack: **17/17 seams PASS** (shipped as required checks in the Gradle task).
+
+**Where (original):** `integration/ForestryIntegration`, `EIOIntegration`, `TEIntegration`,
+`RailcraftIntegration`, `ChestIntegration.getChestInfo`
 
 ```java
 if (!(grid instanceof ShapedOreRecipe)) continue;
@@ -479,9 +487,15 @@ re-init. Today this is benign (a re-init registers nothing new), but it is exact
 
 ---
 
-### BUG-12 — per-kind comparator cache captures the `ConfigData` forever (S3)
+### BUG-12 — per-kind comparator cache captures the `ConfigData` forever
 
-**Where:** `common/SpecificKindItemStackComparator.java:31,42-44`; `UniDict.java:71`
+**Status: fixed in batch 7.** `SpecificKindItemStackComparator` now holds a `Supplier<ConfigData>` (read on
+every comparison) and an injected owner resolver instead of a captured snapshot; production injects
+`Config::get` / `Util::getModName`, so cached per-kind comparators follow `Config.load(...)` by construction.
+`SpecificKindItemStackComparatorTest` proves liveness with a mutable config holder (same instance, flipped
+order), plus per-kind override and null/unlisted-owner cases — no config file or registry needed.
+
+**Where (original):** `common/SpecificKindItemStackComparator.java`
 
 `CACHE.computeIfAbsent(kindName, k -> new SpecificKindItemStackComparator(k, Config.get()))` captures
 the config instance at first use, whereas the global comparator (`Util.itemStackComparatorByModName`)
@@ -537,9 +551,17 @@ INFO log, so the T3 contract silently missed it.
 
 ---
 
-### BUG-16 — EIO alloy rebuild drops extra outputs (S3)
+### BUG-16 — EIO alloy rebuild drops extra outputs
 
-**Where:** `integration/EIOIntegration.java:52-70` (`ALLOY_VIEW`)
+**Status: fixed in batch 7.** New neutral weighted core `OutputRewriter.rewriteWeightedList` +
+`WeightedOutput`/`WeightedView`: every item output is remapped 1:1 with its **chance and experience**
+preserved, only rebuilt when a stack actually changed, and the recipe is replaced at its index. Both EIO
+views (alloy **and** SAG) now use it; the EIO adapter converts `RecipeOutput[]` and keeps fluid outputs
+untouched (the old SAG rebuild would also have turned fluid outputs into empty item outputs). Tests:
+`OutputRewriterTest` weighted-core case (3 outputs, ordered, chances/xp preserved, identity for unchanged)
+and `EIOIntegrationTest` multi-output case (no output lost) via the neutral view.
+
+**Where (original):** `integration/EIOIntegration.java` (`ALLOY_VIEW`)
 
 `getItems()` returns only `recipe.getOutput()` (the first output) and `rebuild()` constructs a new
 `Recipe` with a single `RecipeOutput`. If an alloy-smelter recipe has more than one output, the
@@ -980,6 +1002,18 @@ Verification: full `./gradlew build` green (214 tests) and `./gradlew verifyServ
 | **Diagnostic accuracy** | The late-OD line now reports `withEntries=` and only counts names that actually have entries: 1.7.10 mods *reserve* names via `OreDictionary.getOreID(...)` with an empty list, which inflated the first reading (373/26 were mostly reserved-empty). The entry-level check was replaced by `resourceIndex model-complete` (expected/missing over every modelled name + its live entries). | `OreNamesTest`/`ConfigDataTest` unchanged; the harness prints and asserts the new counters |
 | **Docs** | `TestPlan.md` baseline + gate description; `STATUS.md` batch 6; this file. | n/a |
 
+### Batch 7 — the last three correctness items (BUG-9/12/16)
+
+Verification: full `./gradlew build` green (**225 tests**) and `./gradlew verifyServer` green —
+**298 stage-1 + 5 stage-2 checks, 0 failures, ~35 s**, including **17/17 `seam=` checks** which the Gradle
+task requires by name.
+
+| Item | Change | Verification |
+|---|---|---|
+| **BUG-9** | New pure `common/Accessors.as(candidate, type)`; every hard accessor cast (Forestry carpenter/centrifuge, EIO preferences, TE ×3 managers, Railcraft blast furnace, chest loot) now skips the machine with a named WARN instead of aborting the integration. `VerifyHarness.checkSeam` records `PASS/FAIL seam=…` (`isAssignableFrom`); each integration exposes `checkSeams()`, collected by `IntegrationModule` alongside registration and run at load-complete. | `AccessorsTest`, `VerifyHarnessSeamTest`; the harness asserts all 17 seam names and **fails** if any mixin seam is missing |
+| **BUG-12** | `SpecificKindItemStackComparator` now takes a `Supplier<ConfigData>` and an owner resolver (`Config::get` / `Util::getModName` in production), so cached comparators follow a config reload instead of freezing the first snapshot. | `SpecificKindItemStackComparatorTest`: same instance follows a swapped config (both directions), per-kind override, unlisted/null owners |
+| **BUG-16** | New neutral weighted core (`OutputRewriter.rewriteWeightedList` + `WeightedOutput`/`WeightedView`): map **all** item outputs 1:1, preserve each chance/experience, rebuild only when changed, replace at the index. Both EIO views (alloy **and** SAG) use it; the adapter preserves fluid outputs untouched. | `OutputRewriterTest` weighted case (3 outputs, ordered, chances/xp preserved, unchanged identity) and `EIOIntegrationTest` multi-output case (no output lost) |
+
 ### Behaviour changes to expect (all intended)
 
 1. **`rewritten=N` counts drop and are now authoritative.** They count outputs that actually changed, not
@@ -1015,10 +1049,8 @@ with `-PunidictDevVerify` and confirm `[unidict-verify] summary: … 0 failed`; 
 the harness reports `model-complete missing=N` (currently **0** in the dev pack), so there is no measured
 need yet. Implement it only if a real pack shows `missing > 0`.
 
-**Still needs a different seam:** BUG-9 (accessor-cast guards — boot success only; a missing mixin is
-usually fatal earlier, so the payoff is small), BUG-12 (comparator cache lifecycle — needs a config-reload
-seam the harness cannot drive), BUG-16 (EIO multi-output — EIO types are not on the test classpath and a
-single boot cannot observe it).
+**Cleanup only:** the rest of BUG-19 (unused `MetaItem`/`UniOreDictionary`/`ResourceHandler` surface,
+root `META-INF/` leftovers). No behavioural findings remain open.
 
 **Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
 rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no
