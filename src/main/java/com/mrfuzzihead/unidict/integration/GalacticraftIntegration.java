@@ -1,6 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -86,33 +85,4 @@ final class GalacticraftIntegration {
         return 0;
     }
 
-    /** List-backed convenience over {@link #rewriteOutput}; {@code @return} outputs changed. */
-    static int rewriteOutputs(final List<?> recipes, final AccessorPairFactory adapter,
-        final UnaryOperator<ItemStack> resolveMain) {
-        int rewritten = 0;
-        for (final Object recipe : recipes) {
-            final AccessorPair pair = adapter.create(recipe);
-            if (pair == null) continue;
-            rewritten += rewriteOutput(pair.getter, pair.setter, resolveMain);
-        }
-        return rewritten;
-    }
-
-    /** Small adapter that wires a recipe object to its output getter/setter (see {@link #rewriteOutputs}). */
-    interface AccessorPairFactory {
-
-        AccessorPair create(Object recipe);
-    }
-
-    /** A getter/setter pair bound to a recipe's mutable output field. */
-    static final class AccessorPair {
-
-        final Supplier<ItemStack> getter;
-        final Consumer<ItemStack> setter;
-
-        AccessorPair(final Supplier<ItemStack> getter, final Consumer<ItemStack> setter) {
-            this.getter = getter;
-            this.setter = setter;
-        }
-    }
 }

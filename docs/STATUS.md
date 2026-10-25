@@ -54,6 +54,10 @@ Two review-driven batches landed on top of the above; the authoritative, severit
   follows the live config (reload-safe) instead of freezing a snapshot; Ender IO output rewrites use a
   neutral weighted core that maps **every** output 1:1 with chance/experience preserved (alloy smelter no
   longer drops outputs; SAG no longer loses fluid outputs). 225 tests.
+- **Batch 8 (dead-code sweep, BUG-19):** removed the dead name-hashing glue (`MetaItem`, `MetaItemProvider`,
+  the unused `UniOreDictionary` helpers and their maps), the unused `ResourceHandler` bulk helpers, the
+  test-only Galacticraft `AccessorPair` machinery, and the untracked root `META-INF/`. 220 tests; harness
+  unchanged (298 + 5).
 - **Decision:** the CoFH/TE access transformer is **dev-only tooling** (the production pack widens the
   field); it is intentionally not shipped, so the old "CoFH/TE release gate" is closed, not a defect.
 - **Still open** (needs an in-game run, a config seam, or a larger refactor): late-OD refresh, accessor

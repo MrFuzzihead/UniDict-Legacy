@@ -11,13 +11,14 @@
 Companion docs: [`TODO.md`](TODO.md) (known backlog) · [`INTEGRATIONS.md`](INTEGRATIONS.md) ·
 [`STATUS.md`](STATUS.md) · [`TestPlan.md`](TestPlan.md).
 
-> **Status:** seven batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
+> **Status:** eight batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
 > `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync),
 > batch 4 (headless **`verifyServer`** T3 harness + BUG-15), batch 5 (BUG-13/14/18/20, BUG-8 **Phase B**
 > diagnostic, harness in CI), batch 6 (**BUG-8 Phase A** — build at LOAD_COMPLETE, CI completeness
-> invariant) and batch 7 (BUG-9 seam guards + self-checks, BUG-12 live-config comparator, BUG-16 weighted
-> multi-output core) — see §8 for the change lists and test coverage. The bug list is now **empty except
-> BUG-19's dead-code sweep**; BUG-8 Phase C stays deferred (the harness reports `missing=0`).
+> invariant), batch 7 (BUG-9 seam guards + self-checks, BUG-12 live-config comparator, BUG-16 weighted
+> multi-output core) and batch 8 (BUG-19 dead-code sweep) — see §8 for the change lists and test coverage.
+> **No findings remain open**; BUG-8 Phase C stays deferred (the harness reports `missing=0`, and §9
+> explains how to check a real pack).
 > **BUG-2 is closed as not-a-defect:** the access transformer is dev-only tooling for the local full-stack
 > client (the production pack already widens the field), so it must not ship with the mod. Everything else
 > below is still open, and the remaining items all need an in-game run to verify (or a larger refactor) —
@@ -609,7 +610,26 @@ README/preset mentions.
 
 ---
 
-### BUG-19 — dead code and stale comments (S3)
+### BUG-19 — dead code and stale comments
+
+**Status: fixed in batch 8.** Removed, after confirming zero production callers:
+`MetaItem` + `MetaItemProvider` (and the `UniOreDictionary` name-hashing helpers `getName`,
+`getFirstEntry`, `getLastEntry`, `get(ItemStack)`, `get(Collection)`, `getThoseThatMatches` plus their
+`entryToName`/`stackToName` maps and the provider constructor arg); `ResourceHandler`'s unused
+`getResource`/`getContainerName`/`getMainItemStackList`/`setMainItemStacks`/`getMainItemStacks`/
+`getResources`; `Resource.getChildrenMap()`; `UniResourceContainer.id` (inlined);
+`GalacticraftIntegration.rewriteOutputs` + `AccessorPair`/`AccessorPairFactory` (test-only); the stale
+`MetaItem` javadoc references; the root `META-INF/` leftovers (untracked). Tests updated/trimmed
+(`UniOreDictionaryTest` now covers the retained minimal surface, `GalacticraftIntegrationTest` keeps the
+`rewriteOutput` cases).
+
+**Deliberately kept** (documented rather than deleted): `SelectionRules.shouldResort` + the
+`UniResourceContainer.initialSize` field are the (currently unreachable) hook for BUG-8 Phase C's
+incremental re-sort; the five-field `IOreDictionaryAccessor` seam stays complete; the pure `Resource`
+taxonomy API (`register`/`getResources`) is tested and is the substrate for future features.
+
+**Where (original):** `MetaItem`, `UniOreDictionary`, `ResourceHandler`, `Resource`,
+`UniResourceContainer`, `GalacticraftIntegration`
 
 Verified-unused or misleading code:
 
@@ -1014,6 +1034,15 @@ task requires by name.
 | **BUG-12** | `SpecificKindItemStackComparator` now takes a `Supplier<ConfigData>` and an owner resolver (`Config::get` / `Util::getModName` in production), so cached comparators follow a config reload instead of freezing the first snapshot. | `SpecificKindItemStackComparatorTest`: same instance follows a swapped config (both directions), per-kind override, unlisted/null owners |
 | **BUG-16** | New neutral weighted core (`OutputRewriter.rewriteWeightedList` + `WeightedOutput`/`WeightedView`): map **all** item outputs 1:1, preserve each chance/experience, rebuild only when changed, replace at the index. Both EIO views (alloy **and** SAG) use it; the adapter preserves fluid outputs untouched. | `OutputRewriterTest` weighted case (3 outputs, ordered, chances/xp preserved, unchanged identity) and `EIOIntegrationTest` multi-output case (no output lost) |
 
+### Batch 8 — BUG-19 (dead-code sweep)
+
+Verification: full `./gradlew build` green (**220 tests** — the removed-only tests were deleted) and
+`./gradlew verifyServer` green (**298 stage-1 + 5 stage-2 checks, 0 failures**).
+
+| Item | Change | Verification |
+|---|---|---|
+| **BUG-19** | Removed the dead name-hashing glue (`MetaItem`, `MetaItemProvider`, `UniOreDictionary.getName/getFirstEntry/getLastEntry/get(ItemStack)/get(Collection)/getThoseThatMatches` and their maps), the unused `ResourceHandler` bulk helpers and `getResource`/`getContainerName`, `Resource.getChildrenMap()`, `UniResourceContainer.id` (inlined), `GalacticraftIntegration.rewriteOutputs` + `AccessorPair` machinery, the stale `MetaItem` javadoc notes, and the untracked root `META-INF/`. | `UniOreDictionaryTest` rewritten around the retained surface; `GalacticraftIntegrationTest` trimmed to the production `rewriteOutput` path; full build + harness green |
+
 ### Behaviour changes to expect (all intended)
 
 1. **`rewritten=N` counts drop and are now authoritative.** They count outputs that actually changed, not
@@ -1049,8 +1078,9 @@ with `-PunidictDevVerify` and confirm `[unidict-verify] summary: … 0 failed`; 
 the harness reports `model-complete missing=N` (currently **0** in the dev pack), so there is no measured
 need yet. Implement it only if a real pack shows `missing > 0`.
 
-**Cleanup only:** the rest of BUG-19 (unused `MetaItem`/`UniOreDictionary`/`ResourceHandler` surface,
-root `META-INF/` leftovers). No behavioural findings remain open.
+**No findings remain open.** The remaining work is the feature backlog (GT5 integration first) and BUG-8
+Phase C, which is only worth implementing if a real pack shows `model-complete missing > 0` — §9 explains
+how to check that in a production pack without the dev harness.
 
 **Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
 rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no
@@ -1083,3 +1113,56 @@ Items the review intentionally did **not** count as new bugs because they are al
 deferred in `TODO.md`/`PLAN.md`: `keepOneEntry`, `inputReplacement`, `customUnifiedResources`,
 BB-4 fuels/fluids, the API surface, Forestry crate-item creation, and the `CoFH/TE` decision itself
 (the finding above is that the repo *state* cannot ship the chosen fix).
+
+---
+
+## 9. Checking a production pack for BUG-8 Phase C
+
+Phase A builds the model at `LOAD_COMPLETE`; Phase C (incremental refresh for entries registered *after*
+that) is only needed if a pack actually registers modelled entries later. The dev harness already reports
+this as `resourceIndex model-complete expected=E missing=M`. The same diagnostic runs in a **normal pack**:
+it is gated by the dev switch, not by the Gradle harness.
+
+### Procedure
+
+1. Enable the oracle for one launch — either source works:
+   - launcher JVM args: `-Dunidict.devVerify=true`
+   - environment variable: `UNIDICT_DEV_VERIFY=true`
+2. Start the game / server and get to the point where the world has loaded:
+   - single-player: join the world (the integrated server fires `FMLServerStartedEvent`);
+   - dedicated server: just start it (the stage-2 check runs at server start, before any player joins);
+   - **do not** set `-Dunidict.verify.exitAfterStart` in a normal pack (that is the dev harness self-exit).
+   - Check the log of the side that actually runs the machines: a dedicated server's log, or the
+     single-player process log (both sides share the JVM there). A remote client's log only reflects the
+     client's own model.
+3. Grep the log (console output and/or `logs/latest.log`):
+
+   ```bash
+   grep -E "unidict-verify.*(lateOd|model-complete)" logs/latest.log
+   ```
+
+   ```powershell
+   Select-String -Path .\logs\latest.log -Pattern "unidict-verify.*(lateOd|model-complete)"
+   ```
+
+4. Read the three lines:
+
+   | Line | Meaning |
+   |---|---|
+   | `PASS lateOd added=0 …` | the model was built from the complete dictionary at `LOAD_COMPLETE` (Phase A working) |
+   | `PASS lateOdServer added=N withEntries=M modelled=K …` | names registered later; **only `withEntries`/`modelled` matter** (1.7.10 `getOreID` reservations have empty lists) |
+   | `PASS resourceIndex model-complete expected=E missing=M sample=[…]` | **the decisive line**: `M` modelled name(s) with live entries are not (fully) in the model |
+
+5. Decide:
+   - `missing=0` → **Phase C is not needed** for this pack. Nothing to do.
+   - `missing>0` → the sample names the affected `kind+metal` entries. Phase C (incremental
+     `OreRegisterEvent` refresh: append late entries to the containers, rebuild the index atomically,
+     re-run the idempotent rewrites and extend the NEI hide set) is the fix. Record the sample and the
+     registering mod before implementing — the fix is only worth its risk if the entries matter for the
+     pack's configured metals.
+
+6. Remove the dev-switch flag afterwards (it only adds logging; leaving it on is harmless but noisy).
+
+If a dedicated server cannot take JVM args, set `UNIDICT_DEV_VERIFY=true` in the service environment — the
+harness reads either source. The lines are emitted by the same `VerifyHarness` code that `verifyServer`
+asserts, so the production read-out is directly comparable to the CI baseline.

@@ -32,7 +32,6 @@ public final class UniResourceContainer implements IResourceContainer {
     public final long kind;
 
     private final String kindName;
-    private final int id;
     /** Private snapshot of the live Ore Dictionary list — never the live list itself (BB-3). */
     private final List<ItemStack> entries;
     private final int initialSize;
@@ -45,7 +44,7 @@ public final class UniResourceContainer implements IResourceContainer {
         this.kindName = Resource.getNameOfKind(kind);
         this.name = name;
         this.kind = kind;
-        this.id = UniOreDictionary.instance()
+        final int id = UniOreDictionary.instance()
             .getId(name);
         final List<ItemStack> live = UniOreDictionary.instance()
             .getUn(id);

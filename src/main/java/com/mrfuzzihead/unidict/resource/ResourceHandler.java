@@ -10,10 +10,8 @@ package com.mrfuzzihead.unidict.resource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -167,15 +165,6 @@ public final class ResourceHandler {
         return (item == null) ? null : individualStackAttributes.get(item, item.getDamage(thing));
     }
 
-    public Resource<UniResourceContainer> getResource(final String resourceName) {
-        return resourceMap.get(resourceName);
-    }
-
-    public Resource<UniResourceContainer> getResource(final ItemStack thing) {
-        final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        return (attributesOfThing != null) ? attributesOfThing.resource : null;
-    }
-
     public UniResourceContainer getContainer(final String name) {
         return containerMap.get(name);
     }
@@ -183,11 +172,6 @@ public final class ResourceHandler {
     public UniResourceContainer getContainer(final ItemStack thing) {
         final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
         return (attributesOfThing != null) ? attributesOfThing.uniResourceContainer : null;
-    }
-
-    public String getContainerName(final ItemStack thing) {
-        final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        return (attributesOfThing != null) ? attributesOfThing.uniResourceContainer.name : null;
     }
 
     /**
@@ -258,34 +242,6 @@ public final class ResourceHandler {
             // Never let a resolution miss abort the caller (drop / machine rewrite).
         }
         return null;
-    }
-
-    public List<ItemStack> getMainItemStackList(@Nonnull final Collection<ItemStack> things) {
-        return things.stream()
-            .map(this::getMainItemStack)
-            .collect(Collectors.toList());
-    }
-
-    public void setMainItemStacks(@Nonnull final List<ItemStack> thingList) {
-        for (int i = 0; i < thingList.size(); i++) thingList.set(i, getMainItemStack(thingList.get(i)));
-    }
-
-    public ItemStack[] getMainItemStacks(@Nonnull final ItemStack[] things) {
-        for (int i = 0; i < things.length; i++) things[i] = getMainItemStack(things[i]);
-        return things;
-    }
-
-    public void setMainItemStacks(@Nonnull final Object[] things) {
-        for (int i = 0; i < things.length; i++)
-            if (things[i] instanceof ItemStack) things[i] = getMainItemStack((ItemStack) things[i]);
-    }
-
-    public List<Resource<?>> getResources(final long kinds) {
-        return Resource.getResources(resources, kinds);
-    }
-
-    public List<Resource<?>> getResources(final long... kinds) {
-        return Resource.getResources(resources, kinds);
     }
 
     /**
