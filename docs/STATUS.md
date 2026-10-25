@@ -58,6 +58,9 @@ Two review-driven batches landed on top of the above; the authoritative, severit
   the unused `UniOreDictionary` helpers and their maps), the unused `ResourceHandler` bulk helpers, the
   test-only Galacticraft `AccessorPair` machinery, and the untracked root `META-INF/`. 220 tests; harness
   unchanged (298 + 5).
+- **After the bug work:** verification is automated in CI (`verify-server.yml`), a production-pack log pair
+  confirms 136 resources / 0 FAIL / 17 seams with only 5 late Railcraft plates missing from the model
+  (NEI-only impact), and the prioritized feature plan is in `TODO.md` §"Next feature batch (2026-10-25)".
 - **Decision:** the CoFH/TE access transformer is **dev-only tooling** (the production pack widens the
   field); it is intentionally not shipped, so the old "CoFH/TE release gate" is closed, not a defect.
 - **Still open** (needs an in-game run, a config seam, or a larger refactor): late-OD refresh, accessor

@@ -769,7 +769,9 @@ class) and include the count in the report.
 
 ## 3. Features / integrations not yet added
 
-Ordered by value for the stated target pack (GTNH, 1.7.10).
+Ordered by value for the stated target pack (GTNH, 1.7.10). **The prioritized, effort/verification-tagged
+"next feature batch" now lives in [`TODO.md`](TODO.md#next-feature-batch-2026-10-25)**; this section keeps the
+review's original rationale.
 
 ### 3.1 GregTech 5 machine rewrites (highest-value missing integration)
 
@@ -813,6 +815,9 @@ sub-items whose metadata encodes the material).
 2. **`/unidict list`** — configured metals, kinds, resolved owner order, and the *valid* kind names
    (mitigates BUG-3/BUG-18).
 3. **JSON report export** (`/unidict report json` or a file in `logs/`) for pack authors / CI diffing.
+3b. **NEI live-entries pass** — hide non-canonical *live* OD entries for modelled names at world join, so
+   late registrations (measured: 5 Railcraft plates in the production pack) stop showing as NEI duplicates.
+   The model is unchanged, so this is a small, low-risk alternative to BUG-8 Phase C.
 4. **Config GUI** (`GuiFactory`) for presets and toggles — 1.7.10 supports it; a `.cfg` with 30 keys is
    unfriendly.
 5. **Tooltip / NEI overlay** showing "unified → `main` entry" and the variant's owner priority.
@@ -827,10 +832,13 @@ sub-items whose metadata encodes the material).
 
 ### 3.5 CI / verification
 
-- **No automated T3.** CI runs `test` + `build` only; the `[unidict-verify]` oracle needs a client
-  launch. A headless `runClient`/`runServer` job (or a small "harness mod" integration test) that
-  asserts `summary: N passed, 0 failed` would have caught BUG-1/BUG-6-class regressions. The
-  `VerifyHarness` is already deterministic and greppable; it just needs a driver.
+- **Server-side T3 is automated** (batch 4/5): `.github/workflows/verify-server.yml` runs
+  `./gradlew verifyServer` on every PR/push — a dedicated-server run that asserts the whole oracle
+  (298 stage-1 + 5 stage-2 checks incl. 17 seams). **Client-side T3 remains open**: NEI hiding, GUI,
+  tooltips and chat rendering need a display (virtual display or a Windows runner).
+- **Production validation (2026-10-25):** a real pack's single-player + dedicated-server logs show
+  `report summary=resources=136`, 0 FAIL, 17/17 seams, `lateOd added=0`, and `model-complete missing=5`
+  (the 5 late Railcraft plate entries described in §9) — i.e. the remaining gap is cosmetic (NEI).
 - **Open T3 gates** recorded in `TODO.md`/`INTEGRATIONS.md`: NEI `hidden=N`, Galacticraft compressor,
   StorageDrawers, TiC casting, and the docs sync (P0 #4). `STATUS.md` still has an unchecked
   `./gradlew build` checkbox from M4.

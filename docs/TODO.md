@@ -1,11 +1,14 @@
 # UniDict-Legacy — Remaining Work (TODO)
 
-Living backlog of everything **not yet done** for an initial release, as of `main` @ `551d86b` + the 2026-10-24 code-review batches. It replaces the old `docs/To do.txt`.
+Living backlog of everything **not yet done** for an initial release, as of `feature-Refactor` @ `a839a60` (2026-10-25). It replaces the old `docs/To do.txt`.
 
-> **Status update (2026-10-24):** [`CODE_REVIEW.md`](CODE_REVIEW.md) is now the **authoritative, severity-ranked backlog** (findings, fixed batches, risk notes). This file keeps the forward-looking *feature* view. Two batches of review fixes landed (see `CODE_REVIEW.md` §8):
-> - `resourceBlackList` really excludes resources; kind config is case-insensitive; NBT is preserved;
->   `rewritten=` counts are authoritative deltas; the crafting result hook honours its toggle;
->   NEI never hides a canonical entry; plus a trove/perf change and defensive `getModName`.
+> **Status update (2026-10-25):** the **bug backlog is empty** — all findings from [`CODE_REVIEW.md`](CODE_REVIEW.md)
+> are fixed across batches 1–8 (the review file keeps the severity-ranked history). Verification is now
+> automated: `.github/workflows/verify-server.yml` runs `./gradlew verifyServer` (298 stage-1 + 5 stage-2
+> checks, 0 failures) on every PR/push, and a production-pack pair of logs (single-player client +
+> dedicated server) confirms the same: **136 unified resources, 0 FAIL, 17/17 seam checks**, with only
+> **5 late Railcraft plate entries** (`plateCopper/Lead/Iron/Steel/Tin`) not in the model — they already
+> unify at runtime via the OD fallback and only show as NEI duplicates (see the *NEI live-entries pass* below).
 > - **Decision:** the CoFH/TE field widening is provided by the production pack — the access transformer
 >   is dev-only tooling and is **not** shipped, so item #3 below is closed, not a blocker.
 
@@ -27,6 +30,59 @@ Living backlog of everything **not yet done** for an initial release, as of `mai
 | **Storage Drawers** compacting-drawer compat (seeds the canonical block/ingot/nugget chains) | DONE (impl + T1/T2; T3 to confirm) |
 
 **Everything below this line is the remaining scope.** Prioritisation is P0 → P2; "dropped" items are deliberately out of scope.
+
+---
+
+## Next feature batch (2026-10-25)
+
+The prioritized **feature** plan for the next development cycle (bug work is done). "Harness" = covered by
+`./gradlew verifyServer`; "client" = needs one NEI/GUI run.
+
+### Tier 1 — highest value for the target GTNH pack
+
+| Feature | What it adds | State | Effort / risk | Verification |
+|---|---|---|---|---|
+| **GregTech 5 machine rewrites** | GT is the largest source of dusts/plates/ingots and has **no integration** today (GT items only unify via the OD fallback). Rewrite `GT_Recipe.mOutputs` for macerator, centrifuge, ore washer, electrolyzer, chemical reactor, alloy smelter, forming press, … | not started — research spike first (`GT_Recipe` per machine, `GT_MetaGenerated` outputs, compileOnly GT types) | L / medium | per-machine verify lines + harness |
+| **`inputReplacement`** | Rewrite machine *inputs* so a non-canonical ingot no longer produces a non-canonical result. Config key exists but is inert. | parsed, no behaviour | M / medium | T2 per-machine input seam + harness |
+| **NEI live-entries pass** | Hide non-canonical **live** OD entries for modelled names at world join, so late registrations (the 5 Railcraft plates) stop appearing as NEI duplicates. Model unchanged; no re-writes. | not started (production logs quantify it) | S–M / low | T2 hide decision + one client boot |
+| **`customUnifiedResources`** | User-defined equivalence classes (e.g. `Obsidian:dustTiny\|dust`, pack aliases) beyond the metal taxonomy. | key accepted-but-ignored | S–M / low | pure model T1 + harness |
+| **`/unidict why <item>`** | Item-centric diagnostic: container, canonical entry, owner rank, and why a stack was protected/blacklisted/left alone. | not started (report is resource-centric) | S / low | console dispatch + harness |
+| **`/unidict list`** | Configured metals/kinds, resolved owner order, valid kind names and unresolved config entries (extends `kindDiagnostics`). | not started | S / low | pure formatter T1 + harness |
+
+### Tier 2 — semantic extensions
+
+| Feature | What it adds | State | Effort / risk | Verification |
+|---|---|---|---|---|
+| **BB-4 fuels / coke** | First non-OD equivalence class: single stackable coal coke (Railcraft + IE emit `fuelCoke`), with per-item burn-time semantics (not naive tag equality). | deferred (prioritized) | M / medium | pure classifier T1 + burn-time harness check |
+| **Fluid outputs** | Forestry still/fermenter/squeezer, GC refinery, TiC melt/alloy — needs a 1.7.10 fluid-equivalence model. | deferred (#10) | L / high | design + harness |
+| **`keepOneEntry`** | Strict one-entry collapse beyond NEI hiding. Currently redundant with `autoHideInNEI`; decide: implement a functional collapse **or** drop the key. | parsed, not wired (#2) | S (drop) / L (implement) | T2 decision + client |
+| **Forestry crate items** | Create `ItemCrated` at runtime for metals Forestry doesn't ship (recipes for existing crates are wired). | deferred (#9 details) | M / high | harness + client |
+| **GC circuit fabricator** | The other GC machine with cross-mod-unifiable wafer outputs. | deferred (#11) | S–M / medium | harness |
+| **Storage Drawers QA** | Registry seeding is implemented; confirm the Compact Drawer shows the canonical (EtF) block in-game and close #13. | implemented, T3 pending | S / none | one client check |
+
+### Tier 3 — UX / polish
+
+| Feature | What it adds | Effort | Verification |
+|---|---|---|---|
+| **Localization** (`assets/unidict/lang`) | No lang file exists at all; command messages and user-facing text are hardcoded English. | S | key-presence T1 + client |
+| **Config GUI** (`GuiFactory`) | Change presets/toggles without editing a 30-key `.cfg`. | M | client |
+| **NEI tooltip/overlay** | Show "unified → `main` entry" and owner rank on hover. | M | client |
+| **Report pagination/formatting** | 100–200 chat lines today; page/batch them (pure paginator testable). | S | T1 + client |
+| **JSON report export** | `/unidict report json` or a file under `logs/` for pack authors/CI diffing. | S | T1 + harness |
+| **Dry-run mode** | Log what *would* be rewritten without mutating recipes — useful while adding GT/inputs. | S–M | T2 + harness |
+| **Icon + optional-dep metadata** | `logoFile` is empty; `mcmod.info` says nothing about the optional integrations. | S | n/a |
+
+### Tier 4 — API / ecosystem / verification
+
+| Feature | What it adds | State | Effort |
+|---|---|---|---|
+| **`UniDictAPI` + helpers** | Public API so mods/scripts can query or extend the unified model (upstream's Forestry/Furnace/IE/TCon helpers). | deferred (#9) | M |
+| **CraftTweaker/MineTweaker bridge** | Pack scripts can add equivalences/blacklist entries at load without a config edit — high value where MineTweaker is present. | not started | S–M |
+| **Client-side T3 in CI** | The server-side oracle is in CI; NEI/GUI/tooltip paths still need a display (virtual display or Windows runner). | not started | M |
+| **Harness extensions** | Synthetic `EntityItem` (drop listener), console-driven `/unidict report`, NEI hide-count assertions. | not started | S |
+| **Publishing docs** | JitPack is configured; add a "use as a dependency" README section + versioning notes. | — | S |
+
+**Suggested order:** GT5 spike/integration → `inputReplacement` → NEI live-entries + `why`/`list`/JSON → fuels (BB-4) → `customUnifiedResources` → UX/API items as appetite allows.
 
 ---
 
