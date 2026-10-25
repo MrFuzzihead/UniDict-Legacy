@@ -9,10 +9,12 @@ import java.util.function.Predicate;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.helper.NEIHelper;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.pure.SelectionRules;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
@@ -45,6 +47,7 @@ import com.mrfuzzihead.unidict.resource.UniResourceHandler;
  * module is only registered on a client with NotEnoughItems, so {@code API.hideItem} runs on the
  * client main thread (the historical crash source is calling it from worker threads).
  */
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class NEIHideThread extends AbstractModuleThread {
 
     NEIHideThread() {

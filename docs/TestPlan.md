@@ -36,8 +36,12 @@ display. `verifyServer`:
    `harness complete` line (exit hook ran), a non-empty `report summary=resources=… rewrites=…`, every
    server-side `integration=…` line, and the `spikeA`/`resourceIndex …` checks.
 
-Current baseline: **273 stage-1 checks + 3 stage-2 checks, 0 failures, ~35 s**. It also prints the
-late-Ore-Dictionary diagnostic (`lateOd added=… modelled=… total=…`), which is the BUG-8 Phase A gate.
+Current baseline: **281 stage-1 checks + 5 stage-2 checks, 0 failures, ~40 s**. It also enforces the
+BUG-8 Phase A gate in three steps: stage-1 `lateOd added=0` (the model was built from the complete
+dictionary), `lateOdServer withEntries=0` (nothing with entries appeared later) and
+`resourceIndex model-complete expected=… missing=0` (every modelled name and live entry is in the model).
+`lateOd` also reports `withEntries=` because 1.7.10 mods can reserve names via `getOreID(...)` with no
+entries.
 
 CI: `.github/workflows/verify-server.yml` runs `./gradlew verifyServer --no-daemon` on every PR/push to
 `master`/`main` (and on manual dispatch), with the Gradle cache and the captured harness log as an

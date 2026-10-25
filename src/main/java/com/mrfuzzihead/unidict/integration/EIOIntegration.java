@@ -1,24 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and tightened) from wanion.unidict.integration.EnderIOIntegration (WanionCane, MPL-2.0) as the
- * M7 Ender IO machine rewrite (docs/PLAN.md §M7 #1). Two concerns:
- * <ul>
- * <li><b>Machine output rewrites (flagship).</b> The Alloy Smelter ({@code IManyToOneRecipe} list) and
- * SAG Mill ({@code Recipe} list) outputs are rewritten to the canonical (main) entry of their unified
- * resource. Ender IO's recipe types are immutable value objects, so each affected recipe is <b>rebuilt</b>
- * and replaced <em>at its index</em> via {@link OutputRewriter#rewriteList} ({@code List.set}) — the entry
- * count and order are preserved and no recipe is removed, no global registry mutated (BB-3).
- * Upstream's {@code FixedSizeList} staging + {@code Iterator.remove()} + {@code addAll} is dropped.</li>
- * <li><b>OreDictionary preferences held in check.</b> {@code fixOreDictPreferences} reads Ender IO's
- * {@code OreDictionaryPreferences.preferences} map through the M7 accessor seam
- * ({@link com.mrfuzzihead.unidict.enderio.IOreDictionaryPreferencesAccessor} realised by
- * {@code OreDictionaryPreferencesMixin}) and clears it, so Ender IO yields the canonical ore-dict entry
- * rather than a player-configured favourite that would fight unification. This is the one non-machine
- * behaviour, ported as-is (the M7 plan asks for exactly this accessor).</li>
- * </ul>
- */
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -27,10 +8,12 @@ import java.util.function.UnaryOperator;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.enderio.IOreDictionaryPreferencesAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
@@ -42,6 +25,7 @@ import crazypants.enderio.machine.recipe.Recipe;
 import crazypants.enderio.machine.recipe.RecipeOutput;
 import crazypants.enderio.material.OreDictionaryPreferences;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class EIOIntegration extends AbstractModuleThread {
 
     /**

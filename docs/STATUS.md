@@ -42,9 +42,13 @@ Two review-driven batches landed on top of the above; the authoritative, severit
   failures, ~35 s, no client). Furnace now emits its own verify line (BUG-15). This makes the remaining
   server-side T3 work verifiable without a client — see `CODE_REVIEW.md` §8 and `TestPlan.md`.
 - **Batch 5 (harness-driven fixes + CI):** config startup report (BUG-14), real `kindDebugMode` +
-  `kindDiagnostics` (BUG-18), late-Ore-Dictionary diagnostic (BUG-8 Phase B — measured `added=373
-  modelled=26` in the dev pack), Galacticraft journal accumulation (BUG-13), accessor method rename so the
-  mixins stop shadowing `getRecipeOutput` (BUG-20), and the `verify-server.yml` GitHub workflow.
+  `kindDiagnostics` (BUG-18), late-Ore-Dictionary diagnostic (BUG-8 Phase B), Galacticraft journal
+  accumulation (BUG-13), accessor method rename so the mixins stop shadowing `getRecipeOutput` (BUG-20),
+  and the `verify-server.yml` GitHub workflow.
+- **Batch 6 (BUG-8 Phase A):** the resource model is built at the start of `LOAD_COMPLETE` (after every
+  mod's postInit), and every model consumer (all integrations, drops, NEI hide) moved with it. The harness
+  enforces `lateOd added=0` and `resourceIndex model-complete expected=107 missing=0`; the late-OD
+  diagnostic now reports `withEntries=` because 1.7.10 `getOreID` reservations have empty entry lists.
 - **Decision:** the CoFH/TE access transformer is **dev-only tooling** (the production pack widens the
   field); it is intentionally not shipped, so the old "CoFH/TE release gate" is closed, not a defect.
 - **Still open** (needs an in-game run, a config seam, or a larger refactor): late-OD refresh, accessor

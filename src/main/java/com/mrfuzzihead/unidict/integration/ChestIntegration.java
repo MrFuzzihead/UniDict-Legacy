@@ -1,21 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and adapted) from wanion.unidict.integration.ChestIntegration (WanionCane, MPL-2.0) as the
- * M6 Chest / loot rewrite (docs/PLAN.md §M6 #5). Rewrites the ITEM of every Forge chest-loot entry
- * (the WeightedRandomChestContent the game can drop from dungeons, mineshafts, villages, strongholds,
- * bonus chests, ...) to the canonical (main) entry of its unified resource.
- * <p>Unlike the machine integrations we do not rebuild a recipe — each loot entry's item is rewritten
- * <b>in place</b> through the {@link com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor}
- * seam: only the private {@code theItemId} reference changes, so the contents list keeps its exact
- * count and order and every entry keeps its weights/min/max — fully non-destructive (BB-3), faithful to
- * upstream which mutated {@code theItemId} directly. This is the "best-effort, minor" integration.
- * <p>Two accessor seams underpin it (interface + fake, rule 1): {@code ChestGenHooksMixin} (this plan's
- * first accessor: the static {@code chestInfo} registry + each instance's {@code contents}) and
- * {@code WeightedRandomChestContentMixin} (the {@code theItemId} field, which is {@code private} in
- * MC 1.7.10 — a 1.7.10-necessitated extension, see docs/STATUS.md). No reflection remains.
- */
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
@@ -25,14 +9,17 @@ import net.minecraft.util.WeightedRandomChestContent;
 import net.minecraftforge.common.ChestGenHooks;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.chest.IChestGenHooksAccessor;
 import com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class ChestIntegration extends AbstractModuleThread {
 
     ChestIntegration() {

@@ -1,23 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and tightened) from wanion.unidict.integration.RailcraftIntegration (WanionCane, MPL-2.0) as
- * the M7 Railcraft machine rewrite (docs/PLAN.md §M7 #3). Rewrites every Railcraft machine OUTPUT to the
- * canonical (main) entry of its unified resource across two machines:
- * <ul>
- * <li><b>Blast Furnace</b> — single output; {@code BlastFurnaceRecipe} is an immutable value object
- * ({@code final} output field), so each affected recipe is <b>rebuilt</b> and replaced <em>at its
- * index</em> via {@link OutputRewriter#rewriteList} ({@code List.set}), read through the M7 accessor
- * seam ({@code BlastFurnaceCraftingManagerMixin}).</li>
- * <li><b>Rock Crusher</b> — multi-output, per-output <em>chance</em>; {@code IRockCrusherRecipe#getOutputs()}
- * exposes the live {@code List<Map.Entry<ItemStack, Float>>} directly (public API — no accessor mixin),
- * so each changed output entry is rewritten <em>in place</em> via
- * {@link OutputRewriter#rewriteChanceOutputs} ({@code List.set}), preserving count/order/chance.</li>
- * </ul>
- * Both are non-destructive (BB-3): no recipe is ever removed, no global registry is mutated. Upstream's
- * {@code FixedSizeList} staging + {@code Iterator.remove()} + {@code addAll} is dropped.
- */
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,9 +8,11 @@ import java.util.function.UnaryOperator;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.railcraft.IBlastFurnaceCraftingManagerAccessor;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
@@ -39,6 +23,7 @@ import mods.railcraft.api.crafting.IRockCrusherRecipe;
 import mods.railcraft.common.util.crafting.BlastFurnaceCraftingManager;
 import mods.railcraft.common.util.crafting.RockCrusherCraftingManager;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class RailcraftIntegration extends AbstractModuleThread {
 
     /** Blast Furnace: single final output, rebuilt and replaced at its index (non-destructive). */

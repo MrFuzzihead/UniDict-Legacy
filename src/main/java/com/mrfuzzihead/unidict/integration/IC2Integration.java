@@ -1,30 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and extended) from wanion.unidict.integration.IC2Integration (WanionCane, MPL-2.0) as the
- * M6 IC2 machine rewrite (docs/PLAN.md §M6 #3).
- * <p>The flagship unification behavior — rewrite each machine's recipe OUTPUTS to the canonical
- * (main) entry of their unified resource — is implemented NON-DESTRUCTIVELY (BB-3): we only ever
- * rebuild a RecipeOutput's item list and setValue it on the map, never remove a recipe and never
- * mutate a global registry (via the shared {@link OutputRewriter} core). IC2's {@code inputReplacement}
- * branch from the furnace port is the same craft-rewrite territory as upstream's and is not touched.
- * <p>Coverage &amp; improvements over upstream:
- * <ul>
- * <li><b>10 {@code Recipes.*} machine-manager maps</b> — upstream covered five
- * (centrifuge, metalformerRolling, blastfurance, compressor, macerator); we add extractor,
- * metalformerExtruding, metalformerCutting, blockcutter and oreWashing. ({@code recycler} is
- * excluded: its {@code RecyclerRecipeManager} is a randomizer whose {@code getRecipes()} returns
- * null — there are no outputs to unify.)</li>
- * <li>A generic machine-key seam makes the core {@link OutputRewriter} logic purely T2-testable
- * without fabricating {@code IRecipeInput} stubs (no Mockito in this project's test sources).</li>
- * <li>Per-machine dev-verify lines ({@code integration=ic2 machine=&lt;name&gt;}) plus a summary,
- * so each machine is independently diffable across runs (M6 gate + BB-1 transparency).</li>
- * <li>An early-skip guard: when the resource model is empty there is nothing to unify, so we skip
- * the machine-map walks entirely; a defensive null-guard means no single machine map can ever
- * abort the module.</li>
- * </ul>
- */
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +8,11 @@ import java.util.function.UnaryOperator;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
@@ -43,6 +20,7 @@ import ic2.api.recipe.IRecipeInput;
 import ic2.api.recipe.RecipeOutput;
 import ic2.api.recipe.Recipes;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class IC2Integration extends AbstractModuleThread {
 
     /** Adapts IC2's {@link RecipeOutput}s to the shared {@link OutputRewriter} core. */

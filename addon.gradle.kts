@@ -157,18 +157,50 @@ tasks.register("verifyServer") {
         for (check in listOf(
             "spikeA oredict-bridge",
             "kindDiagnostics",
-            "lateOd",
+            "lateOd ",
+            "lateOdServer ",
             "resourceIndex coverage",
             "resourceIndex no-cross-wiring",
-            "resourceIndex no-spurious-rewrite")) {
+            "resourceIndex no-spurious-rewrite",
+            "resourceIndex model-complete ")) {
             if (!text.contains("[unidict-verify] PASS $check")) problems += "missing PASS '$check'"
         }
 
-        // 7. Surface the late-Ore-Dictionary diagnostic (BUG-8 Phase B) rather than burying it in the log.
-        Regex("\\[unidict-verify] PASS lateOd added=(\\d+) modelled=(\\d+) total=(\\d+)").find(text)?.let {
+        // 7. BUG-8 Phase A gate: the model is built at LOAD_COMPLETE, so the stage-1 late-name check must
+        //    see a complete dictionary. Any late name here means the model was built too early again.
+        val lateOd = Regex(
+            "\\[unidict-verify] PASS lateOd added=(\\d+) withEntries=(\\d+) modelled=(\\d+) total=(\\d+)")
+            .find(text)
+        if (lateOd == null) {
+            problems += "missing the stage-1 'lateOd' line"
+        } else {
+            val added = lateOd.groupValues[1].toInt()
+            val withEntries = lateOd.groupValues[2].toInt()
+            val modelled = lateOd.groupValues[3].toInt()
+            if (added != 0 || withEntries != 0 || modelled != 0) {
+                problems += "the model is missing $added late Ore Dictionary name(s) ($withEntries with entries, " +
+                    "$modelled modelled by the config) — BUG-8 Phase A regressed (build at LOAD_COMPLETE)"
+            }
             logger.lifecycle(
-                "verifyServer: late-OD names added=${it.groupValues[1]} (modelled by this config: ${it.groupValues[2]}, dictionary total ${it.groupValues[3]})")
+                "verifyServer: late-OD names added=$added withEntries=$withEntries modelled=$modelled " +
+                    "(dictionary total ${lateOd.groupValues[4]})")
         }
+
+        // 8. Post-LOAD_COMPLETE residue (registrations after the model build) + the accurate completeness
+        //    check: every modelled name that has entries must be fully present in the model.
+        Regex(
+            "\\[unidict-verify] PASS lateOdServer added=(\\d+) withEntries=(\\d+) modelled=(\\d+) total=(\\d+)")
+            .find(text)?.let {
+                logger.lifecycle(
+                    "verifyServer: post-load-complete OD names added=${it.groupValues[1]} " +
+                        "(with entries: ${it.groupValues[2]}, modelled: ${it.groupValues[3]})")
+            }
+        Regex("\\[unidict-verify] PASS resourceIndex model-complete expected=(\\d+) missing=(\\d+)")
+            .find(text)?.let {
+                logger.lifecycle(
+                    "verifyServer: model completeness — ${it.groupValues[1]} modelled names expected, " +
+                        "missing=${it.groupValues[2]}")
+            }
 
         if (problems.isNotEmpty()) {
             throw GradleException(

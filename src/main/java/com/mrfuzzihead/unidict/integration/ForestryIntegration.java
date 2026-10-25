@@ -1,50 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and strictly scoped) from wanion.unidict.integration.ForestryIntegration (WanionCane, MPL-2.0)
- * as the M7 Forestry machine rewrite (docs/PLAN.md §M7 #2). Three non-destructive machine rewrites:
- * <ul>
- * <li><b>Carpenter</b> — each grid recipe's OUTPUT is canonicalised <em>in place</em>: Forestry's
- * {@code ShapedRecipeCustom} extends Forge's {@code ShapedOreRecipe}, so writing that private
- * {@code output} field (via the early {@code ShapedOreRecipeMixin} accessor) is all a rewrite is.
- * The manager's {@code Collections.unmodifiableSet} is only <em>iterated</em>, never mutated (BB-3).</li>
- * <li><b>Squeezer (container recipes)</b> — each {@code SqueezerRecipeManager.containerRecipes} value's
- * {@code remnants} byproduct is canonicalised by replacing the value for the SAME key
- * ({@code Map.Entry.setValue}) — the key (empty container) and entry count are preserved (BB-3). The
- * container-recipe map is Forestry's public static {@code ItemStackMap}, so no mixin is needed.</li>
- * <li><b>Centrifuge</b> — each recipe's product map ({@code CentrifugeRecipe.outputs}, a private final
- * {@code Map<ItemStack, Float>}) is canonicalised <em>in place</em> (clear + putAll canonical keys) via
- * the late {@code CentrifugeRecipeMixin} accessor. {@code getAllProducts()} returns an
- * {@code ImmutableMap} <em>copy</em>, but {@code getProducts(Random)} — what the machine rolls — reads
- * the original map, so rewriting its contents is all it takes; the recipe is never removed (BB-3). This
- * is what unifies a bee-comb → metal output when a pack adds such a recipe.</li>
- * </ul>
- * Two small <em>additive</em> complements are implemented here (upstream's {@code bronzeThings()} and
- * crate-recipe wiring, ported through Forestry's <em>supported</em> {@code
- * RecipeManagers.carpenterManager.addRecipe} — never the reflective {@code Set.add} upstream used):
- * <ul>
- * <li><b>Bronze-tool recycling</b> — when a unified {@code ingotBronze} container exists, an
- * {@code addSingleRecipe} per registered broken Bronze tool (pickaxe → 2 × canonical ingot, shovel →
- * 1 × canonical ingot) is added. Only ever additive (BB-3); the canonical output is baked in at add
- * time, so no carpenter-output rewrite is needed for these two recipes.</li>
- * <li><b>Crate wiring</b> — for every unified {@code ingot} resource whose <em>already-registered</em>
- * Forestry crate item ({@code Forestry:crated&lt;Name&gt;}) resolves, the two reciprocal carpenter
- * recipes (9 × ingot → crate via OreDictionary; crate → 9 × canonical ingot) are added through the
- * public manager. Only <em>recipes</em> for crates Forestry already ships are wired; creating a new
- * {@code ItemCrated} at POST_INIT is NOT attempted (see below).</li>
- * </ul>
- * Deliberately NOT implemented here (see docs/INTEGRATIONS.md §Forestry):
- * <ul>
- * <li><b>Crate-item creation</b> (runtime {@code ItemCrated} + {@code GameRegistry.registerItem} +
- * {@code PluginStorage.registerCrate}) — deferred (fragile: item registration is post-lock at
- * POST_INIT and Forestry's {@code createCrateRecipes()} drain has already run; BB-3). Only recipes
- * for crates that exist are wired.</li>
- * <li><b>Fluid outputs</b> (squeezer/fermenter/still) — fluid equivalence has no OreDictionary-style
- * model in 1.7.10 (BB-4 territory, deferred).</li>
- * <li><b>NEI hiding</b> — deferred (single guarded {@code NEIHelper} site, unused).</li>
- * </ul>
- */
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -59,12 +14,14 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.oredict.ShapedOreRecipe;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.forestry.ICarpenterRecipeAdder;
 import com.mrfuzzihead.unidict.forestry.ICentrifugeRecipeAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
@@ -81,6 +38,7 @@ import forestry.factory.recipes.ISqueezerContainerRecipe;
 import forestry.factory.recipes.SqueezerContainerRecipe;
 import forestry.factory.recipes.SqueezerRecipeManager;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class ForestryIntegration extends AbstractModuleThread {
 
     /**

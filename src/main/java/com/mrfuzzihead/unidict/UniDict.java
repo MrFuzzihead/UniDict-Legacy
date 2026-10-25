@@ -33,7 +33,8 @@ public class UniDict {
     private final ModuleHandler moduleHandler = new ModuleHandler();
 
     /**
-     * The resource model published by the M4 selection core once its pipeline runs at post-init.
+     * The resource model published by the selection core once its pipeline runs at load-complete
+     * (docs/CODE_REVIEW.md BUG-8 Phase A).
      * Integrations (furnace) and the transparency report (BB-1) read the canonical lookups through
      * this (rework: "expose ResourceHandler directly via UniDict statics").
      */
@@ -58,15 +59,19 @@ public class UniDict {
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         proxy.postInit(event);
-        runResourcePipeline();
-        moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        // Deliberately nothing else: the resource model AND every module that consumes it run at
+        // LOAD_COMPLETE (see loadComplete). Building the model here was a one-shot snapshot taken before
+        // other mods' postInit, so their late Ore Dictionary registrations (TF/GC/TiC all do this) never
+        // entered it (docs/CODE_REVIEW.md BUG-8 Phase A).
     }
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
-        // BB-1: run LOAD_COMPLETE-stage modules (e.g. the TE integration, @SpecifiedLoadStage) BEFORE
-        // the verify/report pass, so the transparency report and [unidict-verify] summary capture every
-        // kept rewrite (docs/PLAN.md §BB-1 gate: every kept rewrite has a matching report line).
+        // BUG-8 Phase A: build the model AFTER every mod's postInit — the latest single point that still
+        // precedes world load — so the model sees the complete Ore Dictionary. Every integration, the NEI
+        // hide pass and the drop listener are LOAD_COMPLETE modules, so they still run after the handler is
+        // published. BB-1: the verify/report pass runs after the modules, so every rewrite is captured.
+        runResourcePipeline();
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
         proxy.loadComplete(event);
     }

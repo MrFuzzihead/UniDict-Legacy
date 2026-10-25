@@ -11,10 +11,11 @@
 Companion docs: [`TODO.md`](TODO.md) (known backlog) · [`INTEGRATIONS.md`](INTEGRATIONS.md) ·
 [`STATUS.md`](STATUS.md) · [`TestPlan.md`](TestPlan.md).
 
-> **Status:** five batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
+> **Status:** six batches have landed — batch 1 (BUG-1/3/4/5/6/7/11), batch 2 (BUG-17, OPT-3, latent
 > `maxCompat()` carry-over, cleanup), batch 3 (OPT-1 remainder, OPT-5, OPT-6; OPT-7 subsumed, docs sync),
-> batch 4 (headless **`verifyServer`** T3 harness + BUG-15) and batch 5 (BUG-13/14/18/20, BUG-8 **Phase B**
-> diagnostic, harness in CI) — see §8 for the change lists and test coverage.
+> batch 4 (headless **`verifyServer`** T3 harness + BUG-15), batch 5 (BUG-13/14/18/20, BUG-8 **Phase B**
+> diagnostic, harness in CI) and batch 6 (**BUG-8 Phase A** — the model is built at LOAD_COMPLETE, with a
+> CI-enforced completeness invariant) — see §8 for the change lists and test coverage.
 > **BUG-2 is closed as not-a-defect:** the access transformer is dev-only tooling for the local full-stack
 > client (the production pack already widens the field), so it must not ship with the mod. Everything else
 > below is still open, and the remaining items all need an in-game run to verify (or a larger refactor) —
@@ -317,7 +318,9 @@ mod's `postInit` that runs later in the FML order, scripted/custom recipes, a la
 invisible to selection, rewrites, drops, NEI hiding and the report. It also blocks the deferred
 `/unidict reload` feature (TODO P2 #8), because there is no refresh path to re-use.
 
-**Status:** **Phase B (diagnostic) done in batch 5** — see below. Phase A (the actual fix) remains.
+**Status:** **Phase A (build at `LOAD_COMPLETE`) and Phase B (diagnostic) both done (batches 5/6).**
+Phase C (incremental refresh for post-load-complete registrations) remains deferred — the harness reports
+whether any pack actually needs it (see below).
 
 **Fix:** (a) re-read the live OreDictionary list at the start of `populateIndividualStackAttributes`
 (or add a `refreshEntries()` that re-snapshots + re-sorts), and (b) call the re-index at `LOAD_COMPLETE`
@@ -325,25 +328,31 @@ invisible to selection, rewrites, drops, NEI hiding and the report. It also bloc
 `OreDictionary.OreRegisterEvent` to append new members incrementally. Clear `containerMap` on
 re-index.
 
-#### Measured gap (dev pack, 2026-10-24) — this bug is real
+#### Phase A implemented (batch 6) — with a completeness invariant
 
-`verifyServer` now reports the added names and, separately, the ones the **configured** taxonomy would
-have modelled (the raw 373 also include unconfigured alloys such as Adamantine):
+The model is now built at the **start of `FMLModLoadCompleteEvent`**, after every mod's `postInit`, and
+every model consumer (all integrations, `UnifyDrops`, the NEI hide pass) is a `LOAD_COMPLETE` module, so
+the handler is still published before anything reads it. `verifyServer` enforces the result:
 
 ```text
-[unidict-verify] PASS lateOd added=373 modelled=26 total=1002
-  example=[blockBrass, blockOsmium, blockZinc, dustBrass, dustMagnesium, dustOsmium, dustSteel,
-           dustTitanium, dustTungsten, dustZinc, ingotBrass, ingotDesh, ingotMagnesium, ingotOsmium,
-           ingotTungsten, ingotUranium, ingotZinc, oreBronze, oreElectrum, oreInvar, oreMagnesium,
-           oreOsmium, oreSteel, oreTitanium, oreTungsten, oreZinc]
+PASS lateOd added=0 withEntries=0 modelled=0 total=1002          # model built from the complete dictionary
+PASS lateOdServer added=603 withEntries=0 modelled=0 total=1605  # nothing with entries appeared later
+PASS resourceIndex model-complete expected=107 missing=0         # every modelled name + entry is present
+report summary=resources=107 rewrites=28                          # was 103 before Phase A
 ```
 
-So in this pack **configured metals and kinds are missing from the model**: ore/dust/ingot/block variants
-of Brass, Osmium, Zinc, Magnesium, Steel, Titanium, Tungsten, Uranium and Desh. (Thermal Foundation and
-Galacticraft register their Ore Dictionary entries during their own `postInit`, which runs after UniDict's;
-TiC/ExtraTiC add alloy families the same way.) None of those entries get unified, hidden in NEI or counted
-in the report today. Phase A is therefore not theoretical — `OreNamesTest.modelledNames…` pins the rule.
+**The earlier `373/26` reading was misleading, and the diagnostic now prevents that.** In 1.7.10 a mod can
+**reserve** an Ore Dictionary name with `OreDictionary.getOreID(...)` long before it registers a stack:
+the name exists with an *empty* entry list. Almost all of the 373/603 "late names" in this pack are such
+reserved-empty placeholders (ExtraPlanets/GC do this at server start). The check therefore now reports
+`withEntries=` alongside `added=`, and `modelled` is computed only from names that actually have entries.
+Phase A's real effect here is smaller than the first reading suggested (103 → 107 containers, the
+Desh/Titanium/Uranium entries that existed at load-complete), but it replaces a snapshot guess with a
+**provable invariant**: `model-complete expected=107 missing=0` at server start, enforced by CI.
 
+If a future pack (or script) registers entries *after* `LOAD_COMPLETE`, the same line reports
+`missing > 0` with samples — that is the signal to implement **Phase C** (incremental `OreRegisterEvent`
+refresh, or a build at `FMLServerStarting`), which stays deferred until a pack actually needs it.
 
 #### Why this fix is higher risk than it looks
 
@@ -955,10 +964,21 @@ now runs the harness on every PR/push (plus manual dispatch).
 |---|---|---|
 | **BUG-14** | `Config.load` logs `[unidict] config preset=<name> ignoredKeys=[…]`; new pure `ConfigReader.describeIgnored` (sorted/de-duplicated). | `ConfigReaderTest.describeIgnoredRendersAStableSortedLine`; the harness asserts the log line |
 | **BUG-18** | `kindDebugMode` logs registered/unknown kinds; the same diagnostic is always emitted as `kindDiagnostics` (new pure `KindNames.unknownKindNames` / `configuredKindNames` / `sorted`). | `KindNamesTest` (unknown/blank/null/dedupe/sorting/config gathering); the harness asserts `PASS kindDiagnostics` |
-| **BUG-8 Phase B** | `ResourceHandler` carries the dictionary snapshot from build time; at load-complete the harness reports `lateOd added=N modelled=M total=T` (new pure `OreNames.additions` + `modelledNameCount`) and WARNs with samples. | `OreNamesTest.additions…` / `modelledNameCount…`; the harness asserts `PASS lateOd`. **Result: `added=373 modelled=26`** — Phase A's impact quantified |
+| **BUG-8 Phase B** | `ResourceHandler` carries the dictionary snapshot from build time; at load-complete the harness reports `lateOd added=N modelled=M total=T` (new pure `OreNames.additions` + `modelledNameCount`) and WARNs with samples. | `OreNamesTest.additions…` / `modelledNameCount…`; the harness asserts `PASS lateOd`. First result: `added=373 modelled=26` — **later refined in batch 6**: 1.7.10 `getOreID` reservations have empty entry lists, so `withEntries=` was added and the real Phase A effect is smaller (see the BUG-8 section) |
 | **BUG-13** | Removed Galacticraft's `RAN_PER_STAGE` guard; every run records its delta into the accumulating journal. | harness `integration=Galacticraft` line; `RewriteJournalTest` for accumulation |
 | **BUG-20** | Accessor methods renamed to `unidict$getRecipeOutput()` / `unidict$setRecipeOutput()` so the mixins no longer shadow `IRecipe#getRecipeOutput()`. | clean `verifyServer` boot + all crafting rewrite lines; T2 fakes/crafting tests updated |
 | **CI** | New `verify-server.yml` job (JDK 25, Gradle cache, `./gradlew verifyServer`, harness-log artifact). | the job *is* the harness; the same command passes locally |
+
+### Batch 6 — BUG-8 Phase A (build the model at LOAD_COMPLETE)
+
+Verification: full `./gradlew build` green (214 tests) and `./gradlew verifyServer` green —
+**281 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**; CI runs it on every PR/push.
+
+| Item | Change | Verification |
+|---|---|---|
+| **Phase A** | `runResourcePipeline()` moved from `postInit` to the start of `loadComplete` (after every mod's `postInit`), and every model consumer moved to `LOAD_COMPLETE`: AE2, IC2, IE, Chest, EIO, Railcraft, Forestry, Storage Drawers, `UnifyDrops` and the NEI hide pass (crafting/furnace/TE/TiC were already there). The `POST_INIT` dispatch is gone, so module init also happens after the pipeline. | harness: stage-1 `lateOd added=0` (hard gate), `resourceIndex model-complete expected=107 missing=0`, all integration lines still present, 0 failures |
+| **Diagnostic accuracy** | The late-OD line now reports `withEntries=` and only counts names that actually have entries: 1.7.10 mods *reserve* names via `OreDictionary.getOreID(...)` with an empty list, which inflated the first reading (373/26 were mostly reserved-empty). The entry-level check was replaced by `resourceIndex model-complete` (expected/missing over every modelled name + its live entries). | `OreNamesTest`/`ConfigDataTest` unchanged; the harness prints and asserts the new counters |
+| **Docs** | `TestPlan.md` baseline + gate description; `STATUS.md` batch 6; this file. | n/a |
 
 ### Behaviour changes to expect (all intended)
 
@@ -991,10 +1011,9 @@ with `-PunidictDevVerify` and confirm `[unidict-verify] summary: … 0 failed`; 
 
 ### Still open (next batch candidates)
 
-**Next up — BUG-8 Phase A** (build the model once at `LOAD_COMPLETE` instead of `POST_INIT`, moving the
-POST_INIT integrations and the NEI hide pass with it). The harness is the gate: `lateOd added` should drop
-to ~0 and `report summary=resources=` should grow by ~26 in this pack. It is a schedule change, so it gets
-its own batch.
+**BUG-8 Phase C** (incremental refresh for entries registered *after* `LOAD_COMPLETE`) stays deferred:
+the harness reports `model-complete missing=N` (currently **0** in the dev pack), so there is no measured
+need yet. Implement it only if a real pack shows `missing > 0`.
 
 **Still needs a different seam:** BUG-9 (accessor-cast guards — boot success only; a missing mixin is
 usually fatal earlier, so the payoff is small), BUG-12 (comparator cache lifecycle — needs a config-reload

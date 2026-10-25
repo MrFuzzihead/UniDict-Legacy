@@ -1,25 +1,5 @@
 package com.mrfuzzihead.unidict.drops;
 
-/*
- * UnifyDrops — drop-time unification (docs/PLAN.md BB-3 spirit, non-destructive).
- * Converts a dropped/generated ItemEntity's ItemStack to the canonical ("main") entry of its
- * unified resource, so an ingot dropped from a lower-priority mod becomes the highest-priority
- * variant (per the configured owner order) on the ground. Server-side only (world.isRemote guard)
- * and gated behind the Config.unifyDrops toggle (default true, ConfigData.unifyDrops).
- * Only "clean" stacks are replaced: any stack carrying an NBT tag compound is left untouched, so
- * enchanted/tagged/lore items are never lost or mutated (matches Yunifier's conservative rule).
- * <p>Resolution runs through {@code ResourceHandler#getMainItemStack} — the exact same canonical
- * resolver the machine/integration rewrites (furnace, EIO, AE2, ...) use — so dropped items unify
- * to precisely the same set of resources the integrations unify. That coupling is intentional: if
- * the resource model ever extends beyond metals (e.g. BB-4 fuels), drops follow automatically and
- * there is no divergence between what the ground unifies and what machines unify.
- * <p>Efficiency: {@code getMainItemStack} returns a freshly-allocated stack even for an
- * already-canonical drop, so {@link #unifyDrop} short-circuits on a <em>semantic</em> (item+damage)
- * equality and returns the original identity when the drop is already priority — never touching the
- * {@code EntityItem} and never re-writing an equivalent stack. The core seam is T2-testable with
- * zero MC statics; the event handler is a thin adapter.
- */
-
 import java.util.function.UnaryOperator;
 
 import net.minecraft.entity.item.EntityItem;
@@ -28,8 +8,10 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -42,6 +24,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  * readiness for safety. Safe on both sides because the {@code world.isRemote} guard confines actual
  * conversion to the logical server.
  */
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 public final class UnifyDrops extends AbstractModuleThread {
 
     /** Public because {@code IntegrationModule} (a different package) constructs it. */

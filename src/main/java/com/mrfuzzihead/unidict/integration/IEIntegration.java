@@ -1,22 +1,5 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and tightened) from wanion.unidict.integration.IEIntegration (WanionCane, MPL-2.0) as the
- * M6 IE machine rewrite (docs/PLAN.md §M6 #4). Rewrites every Immersive Engineering machine recipe
- * OUTPUT to the canonical (main) entry of its unified resource.
- * <p>Scope: the four machines with cross-mod unifiable (metal) outputs — the Arc Furnace, Blast
- * Furnace, Crusher and Metal Press. This is the complete IE crafting API surface that matters for
- * unification; the remaining {@code api.crafting} recipe types (Coke Oven, Bottling Machine,
- * Blueprint Crafting) produce mod-specific / non-metal outputs, so they are intentionally untouched.
- * <p>IE recipes are <b>immutable value objects</b> ({@code output} is a {@code final} field), so we
- * cannot mutate the output in place like Furnace/IC2. Instead each affected recipe is rebuilt with
- * the canonical output and replaced <em>at its index</em> in its recipe list
- * ({@link OutputRewriter#rewriteList} → {@code List.set}): the entry count and order are preserved
- * and no recipe is ever removed — fully non-destructive (BB-3). The upstream head-map-builder,
- * {@code UniOreDictionary.getFirstEntry} input lookup and {@code uniques} dedup are gone (they only
- * existed because upstream <em>removed and re-added</em> recipes; input rewriting is M5-deferred).
- */
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,9 +7,11 @@ import java.util.List;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
@@ -36,6 +21,7 @@ import blusunrize.immersiveengineering.api.crafting.BlastFurnaceRecipe;
 import blusunrize.immersiveengineering.api.crafting.CrusherRecipe;
 import blusunrize.immersiveengineering.api.crafting.MetalPressRecipe;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class IEIntegration extends AbstractModuleThread {
 
     /** Arc Furnace: single final output; preserves the (optional) special recipe type. */

@@ -18,8 +18,10 @@ import org.apache.logging.log4j.Logger;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
 import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
+import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
 import com.mrfuzzihead.unidict.pure.OreNames;
 import com.mrfuzzihead.unidict.pure.SelectionRules;
+import com.mrfuzzihead.unidict.pure.config.ConfigData;
 import com.mrfuzzihead.unidict.pure.config.KindNames;
 import com.mrfuzzihead.unidict.report.UniDictReport;
 import com.mrfuzzihead.unidict.resource.Resource;
@@ -122,7 +124,7 @@ public final class VerifyHarness {
         checkOreDictionaryBridge();
         runResourceReport();
         checkKindDiagnostics();
-        checkLateOd();
+        checkLateOd("lateOd");
         runTransparencyReport();
         LOG.info("[unidict-verify] summary: {} passed, {} failed", passed, failed);
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
@@ -197,7 +199,7 @@ public final class VerifyHarness {
      * silent. Informational (a pack can legitimately register late), with a WARN naming samples so the
      * field report is actionable.
      */
-    private static void checkLateOd() {
+    private static void checkLateOd(final String feature) {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
         if (resourceHandler == null) return; // the missing-handler condition is reported above
         final Set<String> snapshot = resourceHandler.getDictionarySnapshot();
@@ -206,16 +208,27 @@ public final class VerifyHarness {
             .getOreNames();
         final List<String> added = OreNames.additions(snapshot, live);
         final List<String> sample = (added.size() <= SAMPLE_LIMIT) ? added : added.subList(0, SAMPLE_LIMIT);
+        // 1.7.10 trap: a mod can reserve a name with OreDictionary.getOreID(...) long before registering a
+        // stack, so "name present" does not imply "entry present". Only names with entries can be a real
+        // model gap; the raw count is kept for context but must never be read as one (it inflated the first
+        // BUG-8 reading: 373/26 were almost entirely reserved-empty names).
+        final List<String> addedWithEntries = new ArrayList<>();
+        for (final String name : added) {
+            final List<ItemStack> entries = UniOreDictionary.instance()
+                .getUn(name);
+            if (entries != null && !entries.isEmpty()) addedWithEntries.add(name);
+        }
         final List<String> modelledNames = OreNames
-            .modelledNames(added, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
+            .modelledNames(addedWithEntries, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
         final List<String> modelledSample = (modelledNames.size() <= SAMPLE_LIMIT) ? modelledNames
             : modelledNames.subList(0, SAMPLE_LIMIT);
         // The modelled entries are the actionable ones for Phase A; the raw alphabetical sample only shows
         // up in the WARN, so the verify line stays short and decision-oriented.
         record(
             true,
-            "lateOd",
+            feature,
             "added=" + added.size(),
+            "withEntries=" + addedWithEntries.size(),
             "modelled=" + modelledNames.size(),
             "total=" + live.size(),
             "example=" + modelledSample);
@@ -270,6 +283,10 @@ public final class VerifyHarness {
             checkIndexCoverage();
             checkNoCrossWiring();
             checkNoSpuriousRewrite();
+            // Post-LOAD_COMPLETE residue: anything registered after the model was built (server-start
+            // registrations, scripts) is still invisible to the model; measure it instead of assuming zero.
+            checkLateOd("lateOdServer");
+            checkModelCompleteness();
         } catch (final Throwable t) {
             // A dev harness must never take the server down with it; a throw is itself a finding.
             record(false, "resourceIndex", "stage 2 aborted:", String.valueOf(t));
@@ -281,7 +298,78 @@ public final class VerifyHarness {
         if (failed > 0) LOG.warn("[unidict-verify] FAILURES PRESENT — \"unidict-verify.*FAIL\" matches exist");
     }
 
-    /** Every variant must still be resolvable after the remap — the cheapest id-staleness detector. */
+    /**
+     * The accurate model-completeness check: every Ore Dictionary name the <b>config</b> would model
+     * (metal in {@code metalsToUnify}, kind in {@code childrenOfMetals}, not blacklisted) and that has at
+     * least one live entry must be a container in the model, with every live entry present in its snapshot.
+     *
+     * <p>
+     * This subsumes the two BUG-8 dimensions: a name absent from the model (late registration) and a name
+     * present but missing a later entry. It also filters out the 1.7.10 trap where a mod reserves a name
+     * with {@code OreDictionary.getOreID(...)} long before it registers any stack — such reserved names
+     * have an empty live list and must not count as model gaps (that inflated the first late-OD reading).
+     *
+     * <p>
+     * Informational (registrations at server start are legitimate), but the counts are printed and the
+     * Gradle harness asserts the line, so a regression is visible.
+     */
+    private static void checkModelCompleteness() {
+        final ResourceHandler resourceHandler = UniDict.resourceHandler;
+        if (resourceHandler == null) return; // the missing-handler condition is reported above
+        final List<String> live = UniOreDictionary.instance()
+            .getOreNames();
+        final List<String> resources = OreNames.metalResourceNames(live);
+        final ConfigData config = Config.get();
+
+        int expected = 0;
+        int missing = 0;
+        final List<String> sample = new ArrayList<>();
+        for (final String name : live) {
+            if (name == null || name.isEmpty()) continue;
+            final String resource = OreNames.resourceOf(name, resources);
+            if (resource == null || !KindNames.containsIgnoreCase(config.metalsToUnify, resource)) continue;
+            final String kind = OreNames.kindOf(name, resource);
+            if (OreNames.EXCLUDED_KINDS.contains(kind)) continue;
+            if (!KindNames.containsIgnoreCase(config.childrenOfMetals, kind)) continue;
+            if (config.resourceBlackList.contains(resource)) continue;
+            final List<ItemStack> entries = UniOreDictionary.instance()
+                .getUn(name);
+            if (entries == null || entries.isEmpty()) continue; // reserved-but-empty name, not a gap
+            expected++;
+
+            final UniResourceContainer container = resourceHandler.getContainer(name);
+            if (container == null) {
+                missing++;
+                if (sample.size() < SAMPLE_LIMIT) sample.add(name + "(absent)");
+                continue;
+            }
+            final IdentityDamageIndex<Boolean> snapshot = new IdentityDamageIndex<>();
+            for (final ItemStack entry : container.getEntries()) {
+                if (entry == null || entry.getItem() == null) continue;
+                snapshot.put(entry.getItem(), entry.getItemDamage(), Boolean.TRUE);
+            }
+            int absent = 0;
+            for (final ItemStack entry : entries) {
+                if (entry == null || entry.getItem() == null) continue;
+                if (!snapshot.contains(entry.getItem(), entry.getItemDamage())) absent++;
+            }
+            if (absent > 0) {
+                missing++;
+                if (sample.size() < SAMPLE_LIMIT) sample.add(name + "(-" + absent + ")");
+            }
+        }
+        record(true, "resourceIndex model-complete", "expected=" + expected, "missing=" + missing, "sample=" + sample);
+        if (missing > 0) LOG.warn(
+            "[unidict-verify] {} modelled Ore Dictionary name(s) are not fully in the model"
+                + " (docs/CODE_REVIEW.md BUG-8): {}",
+            missing,
+            sample);
+    }
+
+    /**
+     * Every variant must still be resolvable after the remap /** Every variant must still be resolvable after the remap
+     * — the cheapest id-staleness detector.
+     */
     private static void checkIndexCoverage() {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
         if (resourceHandler == null) {
