@@ -42,3 +42,6 @@ layout.json
 # docs/INTEGRATIONS.md "Environment gotchas", #2). Kept out of the repo/working tree.
 /META-INF/
 src/main/resources/META-INF/unidict_at.cfg
+
+# Local CI-debug scratch files
+ci-job.log
