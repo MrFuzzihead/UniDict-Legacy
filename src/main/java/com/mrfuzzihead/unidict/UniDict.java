@@ -9,6 +9,7 @@ import com.mrfuzzihead.unidict.nei.NEIHideModule;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceHandler;
 
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
@@ -30,9 +31,12 @@ public class UniDict {
 
     /** Sequential driver for every module (M2): modules are registered explicitly, never discovered. */
     private final ModuleHandler moduleHandler = new ModuleHandler();
+    /** Kept so the dev seam self-checks can be run after the integration module has initialised. */
+    private final IntegrationModule integrationModule = new IntegrationModule();
 
     /**
-     * The resource model published by the M4 selection core once its pipeline runs at post-init.
+     * The resource model published by the selection core once its pipeline runs at load-complete
+     * (docs/CODE_REVIEW.md BUG-8 Phase A).
      * Integrations (furnace) and the transparency report (BB-1) read the canonical lookups through
      * this (rework: "expose ResourceHandler directly via UniDict statics").
      */
@@ -41,7 +45,7 @@ public class UniDict {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         proxy.preInit(event);
-        moduleHandler.addModule(new IntegrationModule());
+        moduleHandler.addModule(integrationModule);
         // P0 #1+#2: NEI variant hiding + keepOneEntry via hiding. Client-only, and only when
         // NotEnoughItems is actually present — so NEIHelper (which references codechicken.nei.api.API)
         // is never loaded on a dedicated server or an NEI-less client.
@@ -57,18 +61,23 @@ public class UniDict {
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         proxy.postInit(event);
-        runResourcePipeline();
-        moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        // Deliberately nothing else: the resource model AND every module that consumes it run at
+        // LOAD_COMPLETE (see loadComplete). Building the model here was a one-shot snapshot taken before
+        // other mods' postInit, so their late Ore Dictionary registrations (TF/GC/TiC all do this) never
+        // entered it (docs/CODE_REVIEW.md BUG-8 Phase A).
     }
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
-        // BB-1: run LOAD_COMPLETE-stage modules (e.g. the TE integration, @SpecifiedLoadStage) BEFORE
-        // the verify/report pass, so the transparency report and [unidict-verify] summary capture every
-        // kept rewrite (docs/PLAN.md §BB-1 gate: every kept rewrite has a matching report line).
+        // BUG-8 Phase A: build the model AFTER every mod's postInit — the latest single point that still
+        // precedes world load — so the model sees the complete Ore Dictionary. Every integration, the NEI
+        // hide pass and the drop listener are LOAD_COMPLETE modules, so they still run after the handler is
+        // published. BB-1: the verify/report pass runs after the modules, so every rewrite is captured.
+        runResourcePipeline();
         moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        // Dev-only: verify every mixin-seam the registered integrations rely on (docs/CODE_REVIEW.md BUG-9).
+        integrationModule.checkSeams();
         proxy.loadComplete(event);
-        // M2 commit 2 ports the comparator cache lifecycle (SpecificKindItemStackComparator.nullify()).
     }
 
     /** M4 selection core: create the resource model, reconcile it, and publish the ResourceHandler. */
@@ -104,5 +113,23 @@ public class UniDict {
         // point at which an id-staleness regression in the resource index is observable — the drop-time
         // cross-wiring bug had no stage that could see it (docs/TODO.md #3b).
         VerifyHarness.runPostRemapChecks();
+        exitAfterVerificationIfRequested();
+    }
+
+    /**
+     * Dev-only server-harness terminator: when {@code -Dunidict.verify.exitAfterStart=true} is set (the
+     * {@code verifyServer} Gradle task does this), stop the JVM after stage 2 so the run is a single-shot
+     * assertion. The exit code already reflects the harness result, and the Gradle task additionally
+     * asserts the captured log, so a silent no-op cannot pass.
+     */
+    private static void exitAfterVerificationIfRequested() {
+        if (!VerifyHarness.shouldExitAfterChecks()) return;
+        final int failures = VerifyHarness.failureCount();
+        LOG.info(
+            "[unidict-verify] harness complete ({} passed, {} failed) — stopping the dev server.",
+            VerifyHarness.passCount(),
+            failures);
+        FMLCommonHandler.instance()
+            .exitJava(failures == 0 ? 0 : 1, false);
     }
 }

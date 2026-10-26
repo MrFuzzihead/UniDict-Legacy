@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
-import gnu.trove.impl.unmodifiable.TUnmodifiableLongObjectMap;
 import gnu.trove.iterator.TLongIterator;
 import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.TObjectLongMap;
@@ -132,10 +131,6 @@ public class Resource<E extends IResourceContainer> {
             .iterator(); childrenIterator.hasNext();) output.append(kindToName.get(childrenIterator.next()))
                 .append((childrenIterator.hasNext()) ? ", " : "}");
         return output.toString();
-    }
-
-    TLongObjectMap<E> getChildrenMap() {
-        return new TUnmodifiableLongObjectMap<>(childrenMap);
     }
 
     Resource<E> setSortOfChildren(final boolean sort) {

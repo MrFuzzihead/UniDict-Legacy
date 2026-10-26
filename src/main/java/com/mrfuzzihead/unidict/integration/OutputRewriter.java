@@ -134,6 +134,67 @@ final class OutputRewriter {
         return rewritten;
     }
 
+    /**
+     * A neutral (mod-free) machine output carrying its per-output chance and experience value. Ender IO's
+     * {@code RecipeOutput} is converted to/from this so the multi-output mapping policy is T2-testable
+     * without the mod types (docs/CODE_REVIEW.md BUG-16).
+     */
+    static final class WeightedOutput {
+
+        final ItemStack stack;
+        final float chance;
+        final float experience;
+
+        WeightedOutput(final ItemStack stack, final float chance, final float experience) {
+            this.stack = stack;
+            this.chance = chance;
+            this.experience = experience;
+        }
+    }
+
+    /**
+     * Adapts a machine whose outputs each carry a chance/experience value to the weighted core. The adapter
+     * is the only mod-typed part; the mapping policy lives in {@link #rewriteWeightedList}.
+     */
+    interface WeightedView<R> {
+
+        /** @return every item output of the recipe, in order (fluid/opaque outputs are the adapter's concern) */
+        List<WeightedOutput> getOutputs(R recipe);
+
+        /** @return a recipe equivalent to {@code original} with the 1:1 mapped weighted outputs */
+        R rebuild(R recipe, List<WeightedOutput> mapped);
+    }
+
+    /**
+     * Non-destructive 1:1 remap of every weighted output: the mapped list has the same size and order and
+     * each entry keeps its chance/experience. The recipe is replaced only when at least one stack actually
+     * changed, so a multi-output recipe (Ender IO alloy smelter / SAG mill) is rewritten without losing any
+     * output and without perturbing its chances (docs/CODE_REVIEW.md BUG-16).
+     *
+     * @return number of recipes actually replaced
+     */
+    static <R> int rewriteWeightedList(final List<R> recipes, final WeightedView<R> view,
+        final UnaryOperator<ItemStack> resolveMain) {
+        int rewritten = 0;
+        for (int i = 0; i < recipes.size(); i++) {
+            final R recipe = recipes.get(i);
+            if (recipe == null) continue;
+            final List<WeightedOutput> original = view.getOutputs(recipe);
+            final List<WeightedOutput> mapped = new ArrayList<>(original.size());
+            boolean changed = false;
+            for (final WeightedOutput output : original) {
+                final ItemStack stack = resolveMain.apply(output.stack);
+                if (stack != output.stack) changed = true;
+                mapped.add(new WeightedOutput(stack, output.chance, output.experience));
+            }
+            if (changed) {
+                recipes.set(i, view.rebuild(recipe, mapped));
+                rewritten++;
+            }
+        }
+        return rewritten;
+    }
+
     /** Maps every output stack through {@code resolveMain}, preserving order and size. */
     private static List<ItemStack> mapItems(final List<ItemStack> original,
         final UnaryOperator<ItemStack> resolveMain) {

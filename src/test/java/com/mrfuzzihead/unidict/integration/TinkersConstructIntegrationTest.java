@@ -165,12 +165,13 @@ class TinkersConstructIntegrationTest {
     }
 
     @Test
-    void journalRecordForCastingIsIdempotentAcrossTheTwoPasses() {
+    void journalRecordForCastingAccumulatesAcrossTheTwoPasses() {
         RewriteJournal.clear();
         try {
             RewriteJournal.record(TinkersConstructIntegration.SOURCE, "castingTable", 4);
             RewriteJournal.record(TinkersConstructIntegration.SOURCE, "castingBasin", 2);
-            // The server-start re-run updates the same (source, machine) keys instead of appending.
+            // The server-start re-run reports only the entries it actually changed (0 = nothing new),
+            // and those deltas add to the LOAD_COMPLETE total instead of replacing it.
             RewriteJournal.record(TinkersConstructIntegration.SOURCE, "castingTable", 1);
             RewriteJournal.record(TinkersConstructIntegration.SOURCE, "castingBasin", 0);
 
@@ -178,12 +179,12 @@ class TinkersConstructIntegrationTest {
             assertEquals(2, records.size(), "a re-run must not duplicate journal entries");
             assertTrue(
                 records.stream()
-                    .anyMatch(r -> "castingTable".equals(r.machine) && r.count == 1),
-                "table holds the final count");
+                    .anyMatch(r -> "castingTable".equals(r.machine) && r.count == 5),
+                "table holds the authoritative total across both passes");
             assertTrue(
                 records.stream()
-                    .anyMatch(r -> "castingBasin".equals(r.machine) && r.count == 0),
-                "basin holds the final count");
+                    .anyMatch(r -> "castingBasin".equals(r.machine) && r.count == 2),
+                "a zero-count later pass does not erase the earlier count");
         } finally {
             RewriteJournal.clear();
         }

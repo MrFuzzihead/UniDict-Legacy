@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -107,8 +108,46 @@ class ConfigReaderTest {
         raw.put("ownerOfEveryDUST", "modX, modY"); // legacy alias for ownerOfKind.DUST
         final ConfigData c = ConfigReader.parse(ConfigPresets.standard(), raw).config;
 
+        // The user's spelling is preserved in the map ...
         assertEquals(listOf("modA", "modB"), c.ownerOfKind.get("INGOT"));
         assertEquals(listOf("modX", "modY"), c.ownerOfKind.get("DUST"));
+        // ... and look-ups ignore case, so the runtime lowercase kind name resolves (BUG-3).
+        for (final String spelling : Arrays.asList("INGOT", "ingot", "Ingot")) {
+            assertEquals(listOf("modA", "modB"), c.ownerOfKindFor(spelling));
+        }
+        assertEquals(listOf("modX", "modY"), c.ownerOfKindFor("dust"));
+        assertTrue(c.hasOwnerOverride("ingot"));
+        assertFalse(c.hasOwnerOverride("gear"));
+    }
+
+    @Test
+    void kindListsAcceptAnyCasing() {
+        final Map<String, String> raw = new LinkedHashMap<>();
+        raw.put("childrenOfMetals", "Ingot, ORE, dustTiny");
+        raw.put("autoHideInNEIBlackList", "Ore, GEAR");
+        final ConfigData c = ConfigReader.parse(ConfigPresets.standard(), raw).config;
+
+        // Stored as written (camelCase like "dustTiny" must survive) ...
+        assertEquals(setOf("Ingot", "ORE", "dustTiny"), c.childrenOfMetals);
+        assertEquals(setOf("Ore", "GEAR"), c.hideInNEIBlackSet);
+        // ... and matched against OD-derived kind names ignoring case (BUG-3).
+        assertTrue(KindNames.containsIgnoreCase(c.childrenOfMetals, "ingot"));
+        assertTrue(KindNames.containsIgnoreCase(c.childrenOfMetals, "dustTiny"));
+        assertTrue(KindNames.containsIgnoreCase(c.hideInNEIBlackSet, "ore"));
+        assertTrue(KindNames.containsIgnoreCase(c.hideInNEIBlackSet, "gear"));
+        assertFalse(KindNames.containsIgnoreCase(c.childrenOfMetals, "gem"));
+        assertFalse(c.hasOwnerOverride("INGOT")); // no ownerOfKind configured here
+    }
+
+    @Test
+    void describeIgnoredRendersAStableSortedLine() {
+        // BUG-14: the loader logs this; sorted + de-duplicated so the line is diffable.
+        assertEquals("ignoredKeys=[]", ConfigReader.describeIgnored(null));
+        assertEquals("ignoredKeys=[]", ConfigReader.describeIgnored(java.util.Collections.emptyList()));
+        assertEquals(
+            "ignoredKeys=[customUnifiedResources, mekanism, ownerOfEveryThing]",
+            ConfigReader.describeIgnored(
+                java.util.Arrays.asList("ownerOfEveryThing", "mekanism", "customUnifiedResources", "mekanism")));
     }
 
     @Test

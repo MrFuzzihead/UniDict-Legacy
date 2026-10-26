@@ -7,6 +7,7 @@ import net.minecraftforge.common.config.Configuration;
 import com.mrfuzzihead.unidict.config.ForgeConfigIO;
 import com.mrfuzzihead.unidict.pure.config.ConfigData;
 import com.mrfuzzihead.unidict.pure.config.ConfigPresets;
+import com.mrfuzzihead.unidict.pure.config.ConfigReader;
 
 /**
  * Runtime configuration holder (M2 commit 2). Replaces the boilerplate starter config with a load of
@@ -36,11 +37,17 @@ public class Config {
             // Resolve the user-selected preset first (defaults to standard) so the base defaults used
             // for both default-registration and parsing follow the chosen preset (BB-2). Explicit
             // keys present in the file still override (last-write-wins).
-            final ConfigData base = ConfigPresets.byName(ForgeConfigIO.readPreset(configuration));
+            final String preset = ForgeConfigIO.readPreset(configuration);
+            final ConfigData base = ConfigPresets.byName(preset);
             // Register every known key so absent keys are written (first run yields a full .cfg);
             // existing values are preserved by the forge getters.
             ForgeConfigIO.registerDefaults(configuration, base);
-            data = ForgeConfigIO.load(configuration, base);
+            final ConfigReader.Result result = ForgeConfigIO.load(configuration, base);
+            data = result.config;
+            // Surface accepted-but-inert keys (legacy aliases, removed-mod toggles, deferred features) so a
+            // user editing an old file gets feedback instead of silence (docs/CODE_REVIEW.md BUG-14). The
+            // `verifyServer` harness asserts this line.
+            UniDict.LOG.info("[unidict] config preset={} {}", preset, ConfigReader.describeIgnored(result.ignored));
         } finally {
             ForgeConfigIO.saveIfChanged(configuration);
         }

@@ -1,40 +1,23 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Rebuilt (and tightened) from wanion.unidict.integration.AE2Integration (WanionCane, MPL-2.0) as the
- * M6 AE2 machine rewrite (docs/PLAN.md §M6 #2). Rewrites every AE2 grinder recipe's OUTPUT(s) to the
- * canonical (main) entry of their unified resource.
- * <p>Two deliberate deviations from upstream, both in service of the rework's doctrine (BB-3,
- * non-destructive rewriting; M5 craft-rewrite deferred):
- * <ul>
- * <li><b>No {@code Iterator.remove()}.</b> Upstream de-duplicated grinder recipes by removing
- * entries from the shared live list — a destructive mutation we never do.</li>
- * <li><b>No {@code setInput()}.</b> Upstream's {@code Config.keepOneEntry} branch rewrote the
- * recipe <em>input</em>; input/recipe rewriting is deferred craft-rewrite territory.</li>
- * </ul>
- * We only ever rewrite output stacks in place ({@code setOutput}/{@code setOptionalOutput}/
- * {@code setSecondOptionalOutput}) — the AE2 equivalent of the shared machine-output rewrite.
- * <p>Because AE2 mutates {@code IGrinderEntry} objects in place (no map value to rebuild), this uses
- * the accessor-style interface+fake seam instead of {@link OutputRewriter}: {@link GrinderRecipe} is
- * the injection seam, the {@link AE2GrinderRecipe} adapter wraps the real AE2 entry, and tests supply
- * a fake — so the T2 logic needs no AE2 types on the test classpath.
- */
-
 import java.util.List;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
 import appeng.api.AEApi;
 import appeng.api.features.IGrinderEntry;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class AE2Integration extends AbstractModuleThread {
 
     /**

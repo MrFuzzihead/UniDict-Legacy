@@ -1,6 +1,10 @@
 package com.mrfuzzihead.unidict.integration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.drops.UnifyDrops;
 import com.mrfuzzihead.unidict.module.AbstractModule;
 
@@ -36,6 +40,13 @@ import cpw.mods.fml.common.Loader;
  */
 public final class IntegrationModule extends AbstractModule {
 
+    /**
+     * Dev-only mixin-seam self-checks, collected alongside registration so the check set can never drift
+     * from the registered integrations (docs/CODE_REVIEW.md BUG-9). Run at load-complete by
+     * {@link #checkSeams()}.
+     */
+    private final List<Runnable> seamChecks = new ArrayList<>();
+
     public IntegrationModule() {
         super("Integration");
     }
@@ -56,18 +67,35 @@ public final class IntegrationModule extends AbstractModule {
         // lighter pack), running the integration throws NoClassDefFoundError and crashes the game.
         // Vanilla targets (furnace, chest) need no guard.
         if (Config.integrationModule()) {
-            if (Config.crafting()) executor.add(new CraftingIntegration()); // crafting table, always present (vanilla
-                                                                            // types)
+            if (Config.crafting()) {
+                executor.add(new CraftingIntegration()); // crafting table, always present (vanilla types)
+                seamChecks.add(CraftingIntegration::checkSeams);
+            }
             if (Config.furnace()) executor.add(new FurnaceIntegration()); // vanilla, always present
             if (Config.ic2() && Loader.isModLoaded("IC2")) executor.add(new IC2Integration());
             if (Config.ae2() && Loader.isModLoaded("appliedenergistics2")) executor.add(new AE2Integration());
             if (Config.ie() && Loader.isModLoaded("immersiveengineering")) executor.add(new IEIntegration());
-            if (Config.chest()) executor.add(new ChestIntegration()); // vanilla, always present
+            if (Config.chest()) {
+                executor.add(new ChestIntegration()); // vanilla, always present
+                seamChecks.add(ChestIntegration::checkSeams);
+            }
             // M7 (accessor/mixin): EIO, Railcraft, TE — interface + fake seam per mod, mod-gated.
-            if (Config.enderIO() && Loader.isModLoaded("EnderIO")) executor.add(new EIOIntegration());
-            if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
-            if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) executor.add(new TEIntegration());
-            if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
+            if (Config.enderIO() && Loader.isModLoaded("EnderIO")) {
+                executor.add(new EIOIntegration());
+                seamChecks.add(EIOIntegration::checkSeams);
+            }
+            if (Config.railcraft() && Loader.isModLoaded("Railcraft")) {
+                executor.add(new RailcraftIntegration());
+                seamChecks.add(RailcraftIntegration::checkSeams);
+            }
+            if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) {
+                executor.add(new TEIntegration());
+                seamChecks.add(TEIntegration::checkSeams);
+            }
+            if (Config.forestry() && Loader.isModLoaded("Forestry")) {
+                executor.add(new ForestryIntegration());
+                seamChecks.add(ForestryIntegration::checkSeams);
+            }
             if (Config.storageDrawers() && Loader.isModLoaded("StorageDrawers"))
                 executor.add(new StorageDrawersIntegration());
             if (Config.tinkersConstruct() && Loader.isModLoaded("TConstruct"))
@@ -76,7 +104,20 @@ public final class IntegrationModule extends AbstractModule {
             // Galacticraft's compressor recipes only exist once GC registers them at FMLServerStarting
             // (RecipeManagerGC.setConfigurableRecipes), so it is NOT a LoadStage module — it is triggered
             // from UniDict.serverStarted via #runGalacticraftCompressor() instead (see GalacticraftIntegration).
+            if (Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) {
+                seamChecks.add(GalacticraftIntegration::checkSeams);
+            }
         }
+    }
+
+    /**
+     * Runs the dev-only mixin-seam self-checks collected during registration. A missing seam is a
+     * {@code FAIL seam=…} line, which fails the dev harness / {@code verifyServer} run
+     * (docs/CODE_REVIEW.md BUG-9).
+     */
+    public void checkSeams() {
+        if (!VerifyHarness.isEnabled()) return;
+        for (final Runnable check : seamChecks) check.run();
     }
 
     /**

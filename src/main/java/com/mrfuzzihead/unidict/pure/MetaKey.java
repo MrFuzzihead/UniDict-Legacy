@@ -13,9 +13,10 @@ package com.mrfuzzihead.unidict.pure;
  * item-level key, matching upstream's convention).
  *
  * <p>
- * Note for M4: upstream {@code MetaItem.toItemStack} recovers the id as {@code key ^ (key & 65536)},
- * which is lossy once {@code damage + 1} sets bit 16 or higher. That reconstruction belongs to the
- * MC glue and is not ported here; M4 must use {@link #itemIdOf(int)} ({@code key & 0xFFFF}) instead.
+ * Note: recovery must use {@link #itemIdOf(int)} ({@code key & 0xFFFF}); upstream's
+ * {@code key ^ (key & 65536)} is lossy once {@code damage + 1} sets bit 16 or higher. The MC-facing
+ * {@code MetaItem} glue was removed as dead code (docs/CODE_REVIEW.md BUG-19) — the model keys by item
+ * identity via {@link IdentityDamageIndex}, not by packed ids.
  */
 public final class MetaKey {
 

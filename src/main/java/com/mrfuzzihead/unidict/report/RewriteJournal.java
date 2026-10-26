@@ -23,16 +23,23 @@ public final class RewriteJournal {
     private RewriteJournal() {}
 
     /**
-     * Records one machine rewrite total. Ordering is deterministic (integration run order).
-     * Idempotent for re-runs: a re-record of the same {@code source}/{@code machine} (e.g. the crafting
-     * rewrite at LOAD_COMPLETE and again at server start) updates the last matching entry instead of
-     * appending a duplicate, so the report always shows the authoritative final count once.
+     * Records a machine rewrite total. Ordering is deterministic (integration run order).
+     *
+     * <p>
+     * Re-runs <b>accumulate</b> into the existing {@code source}/{@code machine} entry instead of adding a
+     * duplicate: integrations may run the same (idempotent) rewrite twice — e.g. the crafting table at
+     * {@code LOAD_COMPLETE} and again at server start to catch late-registered recipes — and each pass
+     * reports only the entries it actually changed. Summing therefore yields the authoritative total
+     * (first-pass rewrites + anything a later pass caught) while still showing one line per machine.
+     * Before the resolver learned to return already-canonical stacks by identity
+     * ({@code CanonicalRules}), a re-run recounted every touched recipe, so "replace the last count" was
+     * equivalent; now it would erase the earlier pass's work (docs/CODE_REVIEW.md BUG-6).
      */
     public static void record(final String source, final String machine, final int count) {
         for (int i = records.size() - 1; i >= 0; i--) {
             final RewriteRecord existing = records.get(i);
             if (existing.source.equals(source) && existing.machine.equals(machine)) {
-                records.set(i, new RewriteRecord(source, machine, count));
+                records.set(i, new RewriteRecord(source, machine, existing.count + count));
                 return;
             }
         }

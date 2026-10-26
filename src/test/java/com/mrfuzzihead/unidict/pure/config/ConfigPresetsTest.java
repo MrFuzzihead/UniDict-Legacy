@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -72,6 +76,63 @@ class ConfigPresetsTest {
         assertTrue(c.galacticraftIntegration);
         assertTrue(c.storageDrawersIntegration);
         assertTrue(c.unifyDrops);
+    }
+
+    @Test
+    void maxCompatInheritsEverySharedStandardCollection() {
+        // Guard against a preset silently dropping a standard default: max-compat is "standard plus
+        // aggressive extras", so every shared collection must be carried over verbatim. This failed for
+        // protectedItemNames before the fix (docs/CODE_REVIEW.md, batch 2 latent max-compat carry-over).
+        final ConfigData standard = ConfigPresets.standard();
+        final ConfigData max = ConfigPresets.maxCompat();
+
+        assertEquals(standard.autoHideInNEIModBlackSet, max.autoHideInNEIModBlackSet);
+        assertEquals(standard.hideInNEIBlackSet, max.hideInNEIBlackSet);
+        assertEquals(standard.protectedOreDictionaryNames, max.protectedOreDictionaryNames);
+        assertEquals(standard.protectedItemNames, max.protectedItemNames);
+        assertEquals(standard.canonicalItemNames, max.canonicalItemNames);
+        assertEquals(standard.metalsToUnify, max.metalsToUnify);
+        assertEquals(standard.childrenOfMetals, max.childrenOfMetals);
+        assertEquals(standard.resourceBlackList, max.resourceBlackList);
+        assertEquals(standard.ownerPriorities, max.ownerPriorities);
+        assertEquals(standard.ownerOfKind, max.ownerOfKind);
+    }
+
+    @Test
+    void maxCompatDerivationInheritsANonEmptyStandardSurface() {
+        // The meaningful half of the carry-over contract: a non-empty standard surface must arrive intact
+        // (this fails if maxCompatFrom() stops copying e.g. protectedItemNames).
+        final Map<String, List<String>> ownerOfKind = new LinkedHashMap<>();
+        ownerOfKind.put("ingot", Arrays.asList("ThermalFoundation"));
+        final ConfigData standard = ConfigData.builder()
+            .autoHideInNEIModBlackSet(new LinkedHashSet<>(Arrays.asList("IC2")))
+            .hideInNEIBlackSet(new LinkedHashSet<>(Arrays.asList("ore")))
+            .protectedOreDictionaryNames(new LinkedHashSet<>(Arrays.asList("raw")))
+            .protectedItemNames(new LinkedHashSet<>(Arrays.asList("mod:protected")))
+            .canonicalItemNames(new LinkedHashSet<>(Arrays.asList("mod:canonical")))
+            .metalsToUnify(new LinkedHashSet<>(Arrays.asList("Copper")))
+            .childrenOfMetals(new LinkedHashSet<>(Arrays.asList("ingot")))
+            .resourceBlackList(Arrays.asList("Aluminium"))
+            .ownerPriorities(Arrays.asList("ThermalFoundation", "IC2"))
+            .ownerOfKind(ownerOfKind)
+            .build();
+
+        final ConfigData max = ConfigPresets.maxCompatFrom(standard);
+
+        assertEquals(standard.autoHideInNEIModBlackSet, max.autoHideInNEIModBlackSet);
+        assertEquals(standard.hideInNEIBlackSet, max.hideInNEIBlackSet);
+        assertEquals(standard.protectedOreDictionaryNames, max.protectedOreDictionaryNames);
+        assertEquals(standard.protectedItemNames, max.protectedItemNames);
+        assertEquals(standard.canonicalItemNames, max.canonicalItemNames);
+        assertEquals(standard.metalsToUnify, max.metalsToUnify);
+        assertEquals(standard.childrenOfMetals, max.childrenOfMetals);
+        assertEquals(standard.resourceBlackList, max.resourceBlackList);
+        assertEquals(standard.ownerPriorities, max.ownerPriorities);
+        assertEquals(standard.ownerOfKind, max.ownerOfKind);
+
+        // ... while the narrow/aggressive switches are pinned by the preset, not inherited.
+        assertTrue(max.inputReplacement);
+        assertTrue(max.kindDebugMode);
     }
 
     @Test

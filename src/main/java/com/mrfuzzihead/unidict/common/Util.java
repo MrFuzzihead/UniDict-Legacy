@@ -22,16 +22,29 @@ import cpw.mods.fml.common.registry.GameData;
  */
 public final class Util {
 
+    /** Owner reported for a stack whose registry entry has no namespaced {@code modid:name}. */
+    public static final String UNKNOWN_MOD = "unknown";
+
     private Util() {}
 
     /**
      * The registry namespace of an item's owning mod, e.g. {@code "minecraft"} for
      * {@code minecraft:iron_ingot}.
+     *
+     * <p>
+     * Defensive by design: this runs on hot paths (sorting every unified container, the NEI hide pass,
+     * report rendering), so a null stack, an unregistered item (no registry name) or a name without a
+     * namespace must never throw — a single odd Ore Dictionary entry used to be able to abort the
+     * resource pipeline (docs/CODE_REVIEW.md BUG-7). Such stacks report {@link #UNKNOWN_MOD}, which no
+     * owner list or hide blacklist contains, so they simply sort last / stay visible.
      */
     public static String getModName(final ItemStack itemStack) {
+        if (itemStack == null || itemStack.getItem() == null) return UNKNOWN_MOD;
         final String name = GameData.getItemRegistry()
             .getNameForObject(itemStack.getItem());
-        return name.substring(0, name.indexOf(58));
+        if (name == null) return UNKNOWN_MOD;
+        final int colon = name.indexOf(':');
+        return colon < 0 ? name : name.substring(0, colon);
     }
 
     /**

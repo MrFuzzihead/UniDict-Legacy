@@ -1,35 +1,20 @@
 package com.mrfuzzihead.unidict.integration;
 
-/*
- * Storage Drawers compacting-drawer compat (the "any compat module for Storage Drawers" idea from
- * docs/TODO.md).
- * A Compacting Drawer resolves its three tiers (block / ingot / nugget) by FIRST consulting
- * StorageDrawers.compRegistry (a public CompTierRegistry) and, only if that misses, by searching the
- * live CraftingManager recipes — where it prefers a candidate whose owning mod matches the base item
- * (findMatchingModCandidate). Because the canonical copper INGOT is TF's but the canonical copper
- * BLOCK is EtF's (canonicalItemNames), the recipe-search + mod-matching path picks the TF block — the
- * exact collision reported in TODO.md.
- * This module is the safe, non-destructive fix: AFTER the resource pipeline (default POST_INIT) it
- * seeds CompTierRegistry with the unified model's canonical block/ingot/nugget triples through the
- * mod's OWN public register(...) API — the same path Minetweaker's Compaction integration uses — so a
- * compacting drawer honors the canonical entries deterministically, independent of recipe order or
- * the mod-matching bias. No recipe mutation, no mixins, no global OreDictionary mutation (BB-3).
- * The T2-testable seam is registerChain(block, ingot, nugget, registrar); call() is thin wiring from
- * the resource model to StorageDrawers.compRegistry.
- */
-
 import java.util.Collection;
 
 import net.minecraft.item.ItemStack;
 
 import com.jaquadro.minecraft.storagedrawers.StorageDrawers;
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
+import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceContainer;
 
+@SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 public final class StorageDrawersIntegration extends AbstractModuleThread {
 
     /** Conversion rate for nugget→ingot and ingot→block compaction (9 of the lower = 1 of the upper). */

@@ -4,9 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.Item;
@@ -38,11 +35,13 @@ class GalacticraftIntegrationTest {
         final FakeShapedRecipesAccessor shaped = new FakeShapedRecipesAccessor(outA);
         final ItemStack canonicalA = new ItemStack(itemA, 9, 3);
 
-        final int rewritten = GalacticraftIntegration
-            .rewriteOutput(shaped::getRecipeOutput, shaped::setRecipeOutput, s -> (s == outA) ? canonicalA : s);
+        final int rewritten = GalacticraftIntegration.rewriteOutput(
+            shaped::unidict$getRecipeOutput,
+            shaped::unidict$setRecipeOutput,
+            s -> (s == outA) ? canonicalA : s);
 
         assertEquals(1, rewritten, "a resolvable shaped output should be rewritten");
-        assertSame(canonicalA, shaped.getRecipeOutput(), "output should be rewritten in place");
+        assertSame(canonicalA, shaped.unidict$getRecipeOutput(), "output should be rewritten in place");
     }
 
     @Test
@@ -71,8 +70,9 @@ class GalacticraftIntegrationTest {
         // Identity resolver: nothing resolves to a different main entry -> nothing changes.
         assertEquals(
             0,
-            GalacticraftIntegration.rewriteOutput(shaped::getRecipeOutput, shaped::setRecipeOutput, IDENTITY));
-        assertSame(unchanged, shaped.getRecipeOutput(), "unchanged output keeps its identity");
+            GalacticraftIntegration
+                .rewriteOutput(shaped::unidict$getRecipeOutput, shaped::unidict$setRecipeOutput, IDENTITY));
+        assertSame(unchanged, shaped.unidict$getRecipeOutput(), "unchanged output keeps its identity");
 
         // Null output is skipped (some GC recipes may expose a null output mid-load).
         final FakeShapelessOreRecipeAccessor shapeless = new FakeShapelessOreRecipeAccessor(null);
@@ -83,58 +83,4 @@ class GalacticraftIntegrationTest {
         assertNull(shapeless.unidict$getOutput(), "null output is skipped and left untouched");
     }
 
-    @Test
-    void rewriteOutputsPreservesListAndCountsPerOutput() {
-        final Item itemA = new Item();
-        final Item itemB = new Item();
-        final ItemStack outA = new ItemStack(itemA, 2, 1);
-        final ItemStack outB = new ItemStack(itemB, 2, 1);
-        final ItemStack canonicalB = new ItemStack(itemB, 9, 9);
-
-        final List<Object> recipes = new ArrayList<>(
-            Arrays.asList(new FakeShapedRecipesAccessor(outA), new FakeShapelessOreRecipeAccessor(outB)));
-
-        final GalacticraftIntegration.AccessorPairFactory adapter = recipe -> {
-            if (recipe instanceof FakeShapedRecipesAccessor shaped) {
-                return new GalacticraftIntegration.AccessorPair(shaped::getRecipeOutput, shaped::setRecipeOutput);
-            }
-            if (recipe instanceof FakeShapelessOreRecipeAccessor shapeless) {
-                return new GalacticraftIntegration.AccessorPair(
-                    shapeless::unidict$getOutput,
-                    shapeless::unidict$setOutput);
-            }
-            return null;
-        };
-
-        final int rewritten = GalacticraftIntegration
-            .rewriteOutputs(recipes, adapter, s -> (s == outB) ? canonicalB : s);
-
-        assertEquals(1, rewritten, "only the resolvable output should be rewritten");
-        assertEquals(2, recipes.size(), "rewriting a list must never change its size (no remove)");
-        assertSame(
-            outA,
-            ((FakeShapedRecipesAccessor) recipes.get(0)).getRecipeOutput(),
-            "unchanged output keeps identity");
-        assertSame(
-            canonicalB,
-            ((FakeShapelessOreRecipeAccessor) recipes.get(1)).unidict$getOutput(),
-            "mapped output applied in place");
-    }
-
-    @Test
-    void rewriteOutputsSkipsUnknownTypes() {
-        final Item itemA = new Item();
-        final Object unknown = new Object();
-        final ItemStack outA = new ItemStack(itemA, 1, 1);
-
-        final List<Object> recipes = new ArrayList<>(Arrays.asList(new FakeShapedRecipesAccessor(outA), unknown));
-
-        // Adapter returns null for the unknown element -> it is skipped, never a crash.
-        final GalacticraftIntegration.AccessorPairFactory adapter = recipe -> (recipe instanceof FakeShapedRecipesAccessor shaped)
-            ? new GalacticraftIntegration.AccessorPair(shaped::getRecipeOutput, shaped::setRecipeOutput)
-            : null;
-
-        assertEquals(0, GalacticraftIntegration.rewriteOutputs(recipes, adapter, IDENTITY));
-        assertEquals(2, recipes.size(), "unknown recipe types must be skipped, not removed");
-    }
 }

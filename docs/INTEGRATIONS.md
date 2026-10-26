@@ -1,9 +1,20 @@
 # UniDict — Integration Status
 
 A living reference for which machine / loot integrations have been **implemented**, what each one
-does, and how it was verified. This is the single place to look before starting a new integration
-(M7 is next): it records the established pattern, the seam every integration uses, and the exact
-verify line each one is expected to emit.
+does, and how it was verified. This is the single place to look before starting a new integration:
+it records the established pattern, the seam every integration uses, and the exact verify line each one
+is expected to emit.
+
+> **HEAD status (2026-10-24):** all kept integrations are implemented. The 2026-10 code-review fixes
+> landed in two batches — see [`CODE_REVIEW.md`](CODE_REVIEW.md) §8. Two things changed that this file's
+> historical T3 numbers do not reflect:
+> 1. **`rewritten=` counts are now authoritative deltas** (`CanonicalRules` + `RewriteJournal`
+>    accumulation): an already-canonical output is no longer counted, and a re-run adds only what it
+>    newly rewrote. Older figures (furnace 465, crafting 187/200, TE 253, …) are **not comparable**;
+>    treat the next run as a fresh baseline.
+> 2. **NBT-bearing stacks are never rewritten**, and `resourceBlackList` now really excludes a resource.
+> The live, severity-ranked backlog is [`CODE_REVIEW.md`](CODE_REVIEW.md); [`TODO.md`](TODO.md) keeps the
+> forward-looking feature view.
 
 - Companion docs: [`PLAN.md`](PLAN.md) (implementation plan + milestone gates) and
   [`STATUS.md`](STATUS.md) (the per-milestone checkbox tracker). This file is **integration-focused**:
@@ -19,7 +30,7 @@ verify line each one is expected to emit.
 
 | Integration           | Stage        | Landed | Source                                                        | Load stage    | Non-destructive (BB-3)            | Verify line                        |
 |-----------------------|--------------|--------|---------------------------------------------------------------|---------------|-----------------------------------|------------------------------------|
-| Vanilla **Furnace**   | ✅ done      | M4     | public `FurnaceRecipes.smelting().getSmeltingList()`          | LOAD_COMPLETE | ✅ outputs-only (`setValue`)      | `PASS integration=furnace …`       |
+| Vanilla **Furnace**   | ✅ done      | M4     | public `FurnaceRecipes.smelting().getSmeltingList()`          | LOAD_COMPLETE | ✅ outputs-only (`setValue`)      | `report rewrite=furnace furnace rewritten=N` (no harness line yet) |
 | **Crafting table**    | ✅ done      | M5     | in-place output mutator via accessors: `Shaped/ShapelessRecipes`, Forge `ShapedOreRecipe`/`ShapelessOreRecipe` (+ Forestry `ShapedRecipeCustom`), IC2 `AdvShapelessRecipe` (public field) and `AdvRecipe` (public-`final` field accessor); + `findMatchingRecipe` read-side safety net | LOAD_COMPLETE + server start (idempotent, re-run) | ✅ outputs rewritten in place (BB-3, never removes recipes) | `report rewrite=crafting table rewritten=N` |
 | **AE2** (grinder)     | ✅ done      | M6     | public `AEApi.instance().registries().grinder()`              | POST_INIT     | ✅ (interface+fake seam)          | `PASS integration=ae2 rewritten=…` |
 | **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
@@ -36,6 +47,13 @@ verify line each one is expected to emit.
 
 
 **Legend:** ✅ done · 🟡 impl + tests (T3 verify pending) · ⏳ next milestone · ~~struck~~ deferred/removed.
+
+Every `rewritten=N` value below is the number of outputs that **actually changed** (and, across the
+`LOAD_COMPLETE`/server-start re-runs, the sum of the per-pass deltas).
+
+**T3 on a server:** `./gradlew verifyServer` boots the dev dedicated server, runs the whole oracle and
+asserts the result (~35 s, no client/display). It covers every integration below except Immersive
+Engineering (compileOnly) and NEI hiding (client-only). See `TestPlan.md` §T3 automation.
 
 ### Cross-cutting module — `UnifyDrops` (landed, new — not from upstream)
 
@@ -73,7 +91,13 @@ compacting drawer and confirm the block tier is EtF's.
 
 ## The pattern every landed integration follows
 
-All five landed integrations share the same shape (established by M2/M4/M6), which is exactly what a
+Every accessor seam is also **self-checked**: the integration exposes a `checkSeams()` that
+`IntegrationModule` runs at load-complete, and `VerifyHarness.checkSeam` emits `PASS/FAIL seam=…`
+(`isAssignableFrom(target)`, required by `verifyServer`). Production casts go through
+`common/Accessors.as(...)`, so a missing mixin skips one machine with a named warning instead of aborting
+the whole integration (docs/CODE_REVIEW.md BUG-9).
+
+Every landed integration shares the same shape (established by M2/M4/M6), which is exactly what a
 new M7 integration must replicate:
 
 1. **Explicit registration** — one line in `IntegrationModule.init()` with an explicit `new`, gated
@@ -467,7 +491,14 @@ Every `src/main` reference to a non-vanilla type must land behind exactly one of
 M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integration
 `Loader.isModLoaded`).
 
-### 2. CoFH Core ASM crash — `HooksCore` / `World.collidingBoundingBoxes` (PARKED)
+### 2. CoFH Core ASM crash — `HooksCore` / `World.collidingBoundingBoxes` (RESOLVED BY DECISION)
+
+- **Status (2026-10-24):** **not a UniDict defect and not something the mod ships.** The production
+  modpack already widens the field; the access transformer kept under `src/main/resources/META-INF/` is
+  **dev-only tooling** for booting a local full-stack client and is deliberately untracked/not published
+  (see `docs/CODE_REVIEW.md` BUG-2). RFG auto-detects ATs in that folder for dev runs ("Found and added
+  access transformers in the resources folder"); the built jar still has no `FMLAT`, so nothing ships.
+  Nothing to do for release.
 
 - **Symptom:** `java.lang.IllegalAccessError: tried to access field net.minecraft.world.World
   .collidingBoundingBoxes from class cofh.asmhooks.HooksCore` on the **first item-entity tick**
@@ -484,17 +515,15 @@ M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integ
   (TE at runtime).
 - **While parked:** keep CoFH off the runtime classpath when not testing TE (see #3).
 
-### 3. "dev-LIGHT" classpath — heavy mods are `compileOnly`, not `devOnly`
+### 3. "dev-LIGHT" classpath — heavy mods
 
 - The heavy GTNH mods (**TE, TF, EnderIO, EnderCore, Forestry, Railcraft, Mantle, TiC, IE, AE2**)
-  transitively drag **CoFH Core** onto the runtime classpath. To test a focused integration (IC2)
-  free of CoFH/GT, they're declared `compileOnly` (still on the compile classpath — every
-  integration and the TE invoker mixins still compile) while **IC2, NEI, CodeChickenCore, Et Futurum**
-  stay `devOnlyNonPublishable`/`runtimeOnlyNonPublishable` at runtime.
-- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH —
-  it's why AE2 had to drop to `compileOnly` too.
-- Flip a mod back to `devOnlyNonPublishable` only for a full-stack M7/M9 regression run (and then
-  #2's CoFH issue must be solved first).
+  transitively drag **CoFH Core** onto the runtime classpath. In the current `dependencies.gradle` they
+  are `devOnlyNonPublishable` (compile **and** dev-runtime), so `cofh-core` is on the dev runtime
+  classpath — which is exactly why the dev-only AT in gotcha #2 exists.
+- **Do not "fix" the build by dropping them:** a real user pack with TE/CoFH needs the field widened by
+  the pack (as production packs do), not by UniDict. Keep local full-stack dev runs paired with the AT.
+- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH.
 
 ### 4. Galacticraft → GregTech (transitive)
 

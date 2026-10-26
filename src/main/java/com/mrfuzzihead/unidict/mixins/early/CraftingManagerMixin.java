@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 
@@ -21,6 +22,12 @@ import com.mrfuzzihead.unidict.resource.ResourceHandler;
  * observed by NEI and the container. This hook duplicates that for any recipe class the mutator cannot
  * reach; it is guarded (never breaks a craft) and cheap, and the returned value is only replaced when it
  * resolves to a different unified resource.
+ * <p>
+ * <b>Config gate:</b> this hook runs only when {@code ConfigData#craftingUnificationEnabled()}
+ * ({@code craftingIntegration} + the integration master switch) is on. It used to gate only on the
+ * resource handler being published — which is unconditional after POST_INIT — so crafts were unified
+ * even with the crafting integration (or the whole integration module) disabled
+ * (docs/CODE_REVIEW.md BUG-5).
  */
 @Mixin(CraftingManager.class)
 public abstract class CraftingManagerMixin {
@@ -39,6 +46,8 @@ public abstract class CraftingManagerMixin {
         if (result == null) return;
         final ResourceHandler handler = UniDict.resourceHandler;
         if (handler == null) return;
+        if (!Config.get()
+            .craftingUnificationEnabled()) return;
         try {
             final ItemStack canonical = handler.getMainItemStack(result);
             // getMainItemStack returns identity for protected / non-unified / not-yet-ready items.

@@ -10,10 +10,8 @@ package com.mrfuzzihead.unidict.resource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -23,6 +21,7 @@ import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.CanonicalRules;
 import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
 import com.mrfuzzihead.unidict.pure.config.ConfigData;
 
@@ -124,9 +123,28 @@ public final class ResourceHandler {
     private final IdentityDamageIndex<UniAttributes<UniResourceContainer>> individualStackAttributes = new IdentityDamageIndex<>();
     private final Map<String, UniResourceContainer> containerMap = new HashMap<>();
     private final Map<String, Resource<UniResourceContainer>> resourceMap;
+    /**
+     * The live Ore Dictionary names captured when the model was built. The dev harness compares it with
+     * the current dictionary at load-complete to report late registrations the one-shot snapshot cannot
+     * see (docs/CODE_REVIEW.md BUG-8 Phase B). Empty when a handler is constructed without a snapshot
+     * (the T2 tests), in which case the check is skipped.
+     */
+    private final Set<String> dictionarySnapshot;
 
     ResourceHandler(@Nonnull final Map<String, Resource<UniResourceContainer>> resourceMap) {
+        this(resourceMap, java.util.Collections.emptyList());
+    }
+
+    ResourceHandler(@Nonnull final Map<String, Resource<UniResourceContainer>> resourceMap,
+        @Nonnull final Collection<String> dictionarySnapshot) {
         resources = (this.resourceMap = resourceMap).values();
+        this.dictionarySnapshot = java.util.Collections
+            .unmodifiableSet(new java.util.LinkedHashSet<>(dictionarySnapshot));
+    }
+
+    /** @return the unmodifiable Ore Dictionary names captured at model build time (see the field). */
+    public Set<String> getDictionarySnapshot() {
+        return dictionarySnapshot;
     }
 
     public boolean exists(final ItemStack thing) {
@@ -147,15 +165,6 @@ public final class ResourceHandler {
         return (item == null) ? null : individualStackAttributes.get(item, item.getDamage(thing));
     }
 
-    public Resource<UniResourceContainer> getResource(final String resourceName) {
-        return resourceMap.get(resourceName);
-    }
-
-    public Resource<UniResourceContainer> getResource(final ItemStack thing) {
-        final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        return (attributesOfThing != null) ? attributesOfThing.resource : null;
-    }
-
     public UniResourceContainer getContainer(final String name) {
         return containerMap.get(name);
     }
@@ -165,14 +174,10 @@ public final class ResourceHandler {
         return (attributesOfThing != null) ? attributesOfThing.uniResourceContainer : null;
     }
 
-    public String getContainerName(final ItemStack thing) {
-        final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        return (attributesOfThing != null) ? attributesOfThing.uniResourceContainer.name : null;
-    }
-
     /**
      * The canonical ("main") entry for a stack, preserving its stack size. Returns the stack itself
-     * when it is not part of any unified resource.
+     * (by identity) when it is not part of any unified resource, when it already <em>is</em> the
+     * canonical entry, or when it carries NBT.
      *
      * <p>
      * Two resolution paths:
@@ -186,16 +191,39 @@ public final class ResourceHandler {
      * ingotCopper} member maps to that resource's main entry. This is what makes drop-time
      * unification robust.</li>
      * </ol>
+     *
+     * <p>
+     * The final substitution decision is delegated to the pure {@link CanonicalRules#shouldReplace}
+     * so the no-op and data-preservation guarantees are T1-tested: an already-canonical stack is
+     * returned <b>by identity</b> (making every integration's reference check, the report counts and
+     * the server-start re-runs correct) and an NBT-bearing stack is never replaced (the canonical
+     * entry cannot carry its tag).
      */
     public ItemStack getMainItemStack(final ItemStack thing) {
+        if (thing == null || thing.getItem() == null) return thing;
         // Protected items (e.g. EtF raw copper via the default "raw" OD-name substring) are never
         // canonicalized — a mined raw-metal drop stays raw instead of becoming a mod's ore block
         // (TODO.md P0 #1). This also shields protected items from machine input/output rewrites.
         if (isProtected(thing)) return thing;
+        final UniResourceContainer container = containerOf(thing);
+        if (container == null) return thing;
+        // Decide without allocating first: only build the canonical stack when it will actually replace the
+        // input. A canonical drop (or a re-run over already-rewritten recipes) therefore costs nothing
+        // beyond the index lookups (docs/CODE_REVIEW.md OPT-1).
+        if (!CanonicalRules.shouldReplace(
+            thing.hasTagCompound(),
+            thing.getItem(),
+            thing.getItemDamage(),
+            container.getMainEntryItem(),
+            container.getMainEntryDamage())) return thing;
+        return container.getMainEntry(thing.stackSize);
+    }
+
+    /** Resolves a stack to its modelled container: exact index first, then the OD-name fallback. */
+    private UniResourceContainer containerOf(final ItemStack thing) {
         final UniAttributes<UniResourceContainer> attributesOfThing = get(thing);
-        if (attributesOfThing != null) return attributesOfThing.uniResourceContainer.getMainEntry(thing.stackSize);
-        final UniResourceContainer byOreName = containerForOreName(thing);
-        return (byOreName != null) ? byOreName.getMainEntry(thing.stackSize) : thing;
+        if (attributesOfThing != null) return attributesOfThing.uniResourceContainer;
+        return containerForOreName(thing);
     }
 
     /**
@@ -216,41 +244,15 @@ public final class ResourceHandler {
         return null;
     }
 
-    public List<ItemStack> getMainItemStackList(@Nonnull final Collection<ItemStack> things) {
-        return things.stream()
-            .map(this::getMainItemStack)
-            .collect(Collectors.toList());
-    }
-
-    public void setMainItemStacks(@Nonnull final List<ItemStack> thingList) {
-        for (int i = 0; i < thingList.size(); i++) thingList.set(i, getMainItemStack(thingList.get(i)));
-    }
-
-    public ItemStack[] getMainItemStacks(@Nonnull final ItemStack[] things) {
-        for (int i = 0; i < things.length; i++) things[i] = getMainItemStack(things[i]);
-        return things;
-    }
-
-    public void setMainItemStacks(@Nonnull final Object[] things) {
-        for (int i = 0; i < things.length; i++)
-            if (things[i] instanceof ItemStack) things[i] = getMainItemStack((ItemStack) things[i]);
-    }
-
-    public List<Resource<?>> getResources(final long kinds) {
-        return Resource.getResources(resources, kinds);
-    }
-
-    public List<Resource<?>> getResources(final long... kinds) {
-        return Resource.getResources(resources, kinds);
-    }
-
     /**
      * Maps every variant to its resource/container so {@link #getMainItemStack} can resolve, keyed by
-     * item identity + damage (see {@link #individualStackAttributes}). Safe to re-run: the index is
-     * cleared first, so a later re-index cannot leave duplicate/stale keys behind.
+     * item identity + damage (see {@link #individualStackAttributes}). Safe to re-run: the index and
+     * the container lookup are cleared first, so a later re-index (or a resource removed before the
+     * first index) cannot leave duplicate/stale keys behind.
      */
     void populateIndividualStackAttributes() {
         individualStackAttributes.clear();
+        containerMap.clear();
         for (final Resource<UniResourceContainer> resource : new ArrayList<>(resources)) {
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 containerMap.put(container.name, container);

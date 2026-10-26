@@ -3,16 +3,18 @@ package com.mrfuzzihead.unidict.crafting;
 import net.minecraft.item.ItemStack;
 
 /**
- * T2 seam over the vanilla ShapelessRecipes#recipeOutput field
- * (private final, SRG field_77580_b). Also covers every subclass --
- * notably ShapelessOreRecipe which extends ShapelessRecipes.
+ * T2 seam over the vanilla {@code ShapelessRecipes#recipeOutput} field. Also covers every subclass —
+ * notably {@code ShapelessOreRecipe}, which extends {@code ShapelessRecipes}.
  *
- * Even though the field is final in Java, Mixin @Accessor can
- * set it via field-offset access -- proven across GTNH modpack.
+ * <p>
+ * Method names are {@code unidict$}-prefixed so the mixin adds <b>new</b> methods instead of shadowing
+ * the target's own {@code IRecipe#getRecipeOutput()} (docs/CODE_REVIEW.md BUG-20). Live impl is
+ * {@code ShapelessRecipesMixin} ({@code mixins.early}, {@code remap=true}); T2 tests use
+ * {@code FakeShapelessRecipesAccessor}.
  */
 public interface IShapelessRecipesAccessor {
 
-    ItemStack getRecipeOutput();
+    ItemStack unidict$getRecipeOutput();
 
-    void setRecipeOutput(ItemStack output);
+    void unidict$setRecipeOutput(ItemStack output);
 }

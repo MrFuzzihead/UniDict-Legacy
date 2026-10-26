@@ -26,18 +26,20 @@ public final class OwnerOrder {
      * @return the index of {@code modName} in the effective owner order, or {@link #NOT_LISTED}.
      */
     public static long indexOf(final ConfigData config, final String kindName, final String modName) {
-        final List<String> owners = orderedOwners(config, kindName);
-        return indexIn(owners, modName);
+        // Rank maps are precomputed per config (docs/CODE_REVIEW.md OPT-6), so this is O(1) per call and
+        // exactly mirrors the old List.indexOf(first occurrence) semantics.
+        return config.ownerRank(kindName, modName);
     }
 
     /** @return the index of {@code modName} in the global owner priority list. */
     public static long globalIndexOf(final ConfigData config, final String modName) {
-        return indexIn(config.ownerPriorities, modName);
+        return config.globalOwnerRank(modName);
     }
 
     /** @return the effective owner order for a kind: its per-kind override, else the global list. */
     public static List<String> orderedOwners(final ConfigData config, final String kindName) {
-        final List<String> perKind = config.ownerOfKind.get(kindName);
+        // Case-insensitive: config may spell the kind INGOT/Ingot while the taxonomy registers lowercase.
+        final List<String> perKind = config.ownerOfKindFor(kindName);
         return (perKind != null && !perKind.isEmpty()) ? perKind : config.ownerPriorities;
     }
 
@@ -77,9 +79,4 @@ public final class OwnerOrder {
         return modNameA.compareTo(modNameB);
     }
 
-    private static long indexIn(final List<String> owners, final String modName) {
-        if (owners == null) return NOT_LISTED;
-        final int index = owners.indexOf(modName);
-        return (index < 0) ? NOT_LISTED : index;
-    }
 }

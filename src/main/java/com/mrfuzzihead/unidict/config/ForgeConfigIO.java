@@ -231,11 +231,14 @@ public final class ForgeConfigIO {
             "Configuration preset: minimal | standard | max-compat.");
     }
 
-    /** Reads the configuration and parses it against {@code defaults}. Call {@link #registerDefaults} first. */
-    public static ConfigData load(final Configuration cfg, final ConfigData defaults) {
+    /**
+     * Reads the configuration and parses it against {@code defaults}. Call {@link #registerDefaults}
+     * first. Returns the full {@link Result} so the caller can report the ignored/legacy keys it counted
+     * (docs/CODE_REVIEW.md BUG-14).
+     */
+    public static Result load(final Configuration cfg, final ConfigData defaults) {
         final Map<String, String> raw = flatten(cfg);
-        final Result result = ConfigReader.parse(defaults, raw);
-        return result.config;
+        return ConfigReader.parse(defaults, raw);
     }
 
     /** Writes the configuration to disk only if keys changed since load (additive). */
