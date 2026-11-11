@@ -15,7 +15,6 @@ import net.minecraftforge.oredict.OreDictionary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mrfuzzihead.unidict.common.CanonicalEntries;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
 import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
@@ -169,11 +168,7 @@ public final class VerifyHarness {
         final List<String> lines = new ArrayList<>();
         final boolean autoHideInNEI = Config.get().autoHideInNEI;
         final Set<Long> kindBlackSet = UniResourceHandler.getKindBlackSet();
-        // Match NEIHideThread exactly: a variant that is canonical in another container is never hidden.
-        final List<ItemStack> canonicalEntries = new ArrayList<>();
-        for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
-            for (final UniResourceContainer container : resource.getChildrenCollection())
-                canonicalEntries.add(container.getMainEntry());
+        // Match NEIHideThread exactly: a variant canonical in another container is never hidden.
         for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 final List<ItemStack> entries = container.getEntries();
@@ -184,8 +179,7 @@ public final class VerifyHarness {
                         container.kind,
                         kindBlackSet,
                         ResourceHandler::isModBlacklisted,
-                        stack -> ResourceHandler.isProtected(stack)
-                            || CanonicalEntries.contains(canonicalEntries, stack))
+                        stack -> ResourceHandler.isProtected(stack) || resourceHandler.isCanonicalEntry(stack))
                     .size();
                 lines.add(
                     "resource=" + container.name

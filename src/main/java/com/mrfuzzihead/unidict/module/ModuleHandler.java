@@ -26,10 +26,6 @@ public final class ModuleHandler {
         if (module != null && !modules.contains(module)) modules.add(module);
     }
 
-    public boolean isEmpty() {
-        return modules.isEmpty();
-    }
-
     /** Lazily initializes modules that are not yet initialized, then runs them at the given stage. */
     public void startModules(final LoadStage loadStage) {
         if (loadStage == null || modules.isEmpty()) return;

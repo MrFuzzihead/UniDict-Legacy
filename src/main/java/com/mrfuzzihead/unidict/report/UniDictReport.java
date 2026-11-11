@@ -13,7 +13,6 @@ import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.pure.MetaKey;
 import com.mrfuzzihead.unidict.pure.report.ReportEntry;
 import com.mrfuzzihead.unidict.pure.report.ReportFormatter;
-import com.mrfuzzihead.unidict.pure.report.RewriteRecord;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceContainer;
@@ -43,11 +42,6 @@ public final class UniDictReport {
                 ReportEntry
                     .from(container.name, describe(container.getMainEntry()), describeAll(container.getEntries())));
         return reportEntries;
-    }
-
-    /** @return a defensive snapshot of every recorded rewrite. */
-    public static List<RewriteRecord> rewriteRecords() {
-        return RewriteJournal.snapshot();
     }
 
     /** The full report as stable, diffable lines (rendered purely by {@link ReportFormatter}). */

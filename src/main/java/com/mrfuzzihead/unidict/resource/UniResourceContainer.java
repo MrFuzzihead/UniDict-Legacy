@@ -53,11 +53,6 @@ public final class UniResourceContainer implements IResourceContainer {
         this.initialSize = entries.size();
     }
 
-    public UniResourceContainer(@Nonnull final String name, final long kind, final boolean sort) {
-        this(name, kind);
-        if (sort) setSort(true);
-    }
-
     public ItemStack getMainEntry() {
         return new ItemStack(mainEntryItem, 1, mainEntryMeta);
     }
@@ -90,9 +85,9 @@ public final class UniResourceContainer implements IResourceContainer {
         return mainEntryMeta;
     }
 
-    /** A defensive copy of the snapshot entries (never the live / internal list). */
+    /** A read-only view of the snapshot entries (never the live Ore Dictionary list). */
     public List<ItemStack> getEntries() {
-        return new ArrayList<>(entries);
+        return Collections.unmodifiableList(entries);
     }
 
     @Override

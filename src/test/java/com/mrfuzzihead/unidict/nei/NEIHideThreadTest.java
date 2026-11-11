@@ -1,12 +1,9 @@
 package com.mrfuzzihead.unidict.nei;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -14,6 +11,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import org.junit.jupiter.api.Test;
+
+import com.mrfuzzihead.unidict.common.CanonicalIndex;
 
 /**
  * T2 test for the NEI hide-decision seam {@link NEIHideThread#stacksToHide} (TODO.md P0 #1 "hide-set
@@ -103,15 +102,12 @@ class NEIHideThreadTest {
         final ItemStack canonicalElsewhere = new ItemStack(sharedItem, 1, 7);
 
         final List<ItemStack> entries = Arrays.asList(thisContainerMain, variant);
-        final List<ItemStack> allCanonicalEntries = Arrays.asList(thisContainerMain, canonicalElsewhere);
+        final CanonicalIndex allCanonicalEntries = new CanonicalIndex();
+        allCanonicalEntries.add(thisContainerMain);
+        allCanonicalEntries.add(canonicalElsewhere);
 
-        final List<ItemStack> hidden = NEIHideThread.stacksToHide(
-            entries,
-            2L,
-            true,
-            new LinkedHashSet<>(),
-            s -> false,
-            s -> NEIHideThread.isCanonicalElsewhere(allCanonicalEntries, s));
+        final List<ItemStack> hidden = NEIHideThread
+            .stacksToHide(entries, 2L, true, new LinkedHashSet<>(), s -> false, allCanonicalEntries::contains);
 
         assertEquals(Arrays.asList(), hidden, "a canonical entry elsewhere must stay visible in NEI");
     }
@@ -121,30 +117,14 @@ class NEIHideThreadTest {
         final ItemStack main = new ItemStack(new Item(), 1, 0);
         final ItemStack ordinaryVariant = new ItemStack(new Item(), 1, 3);
         final List<ItemStack> entries = Arrays.asList(main, ordinaryVariant);
-        final List<ItemStack> allCanonicalEntries = Collections.singletonList(main);
+        final CanonicalIndex allCanonicalEntries = new CanonicalIndex();
+        allCanonicalEntries.add(main);
 
-        final List<ItemStack> hidden = NEIHideThread.stacksToHide(
-            entries,
-            2L,
-            true,
-            new LinkedHashSet<>(),
-            s -> false,
-            s -> NEIHideThread.isCanonicalElsewhere(allCanonicalEntries, s));
+        final List<ItemStack> hidden = NEIHideThread
+            .stacksToHide(entries, 2L, true, new LinkedHashSet<>(), s -> false, allCanonicalEntries::contains);
 
         // The fix must not disable hiding wholesale: a plain non-main variant is still collapsed.
         assertEquals(Arrays.asList(ordinaryVariant), hidden);
     }
 
-    @Test
-    void isCanonicalElsewhereMatchesItemAndDamageNotInstanceIdentity() {
-        final Item item = new Item();
-        final List<ItemStack> canonical = Arrays.asList(null, new ItemStack(item, 1, 4));
-
-        assertTrue(NEIHideThread.isCanonicalElsewhere(canonical, new ItemStack(item, 1, 4)));
-        assertFalse(NEIHideThread.isCanonicalElsewhere(canonical, new ItemStack(item, 1, 5)));
-        assertFalse(NEIHideThread.isCanonicalElsewhere(canonical, new ItemStack(new Item(), 1, 4)));
-        assertFalse(NEIHideThread.isCanonicalElsewhere(null, new ItemStack(item, 1, 4)));
-        assertFalse(NEIHideThread.isCanonicalElsewhere(canonical, null));
-        assertFalse(NEIHideThread.isCanonicalElsewhere(Collections.emptyList(), new ItemStack(item, 1, 4)));
-    }
 }

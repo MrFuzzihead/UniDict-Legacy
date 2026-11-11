@@ -1,7 +1,6 @@
 package com.mrfuzzihead.unidict.module;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -23,8 +22,6 @@ class ModuleHandlerTest {
         final ModuleHandler handler = new ModuleHandler();
         final List<String> log = new ArrayList<>();
         handler.addModule(new FakeCountingModule("modA", log));
-
-        assertFalse(handler.isEmpty());
 
         // First POST_INIT dispatch lazily initializes (registers the POST_INIT thread) and runs it.
         handler.startModules(LoadStage.POST_INIT);

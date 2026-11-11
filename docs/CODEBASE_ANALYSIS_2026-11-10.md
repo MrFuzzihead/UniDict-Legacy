@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 245, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 243, see Appendix B)
   - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -28,7 +28,7 @@
 | 4 | **S2 (fixed 2026-11-11)** | The default full-stack runtime is now documented; `-PunidictDevLight` switches heavy integrations to `compileOnly` (no CoFH Core), and waila was removed. Full-stack dev still needs the dev AT. | `dependencies.gradle:36-72` |
 | 5 | **S2 (fixed 2026-11-11)** | Server-start re-runs, the resource pipeline and module dispatch are now guarded (`Guarded` + per-module/thread `Throwable` handling); drops also guard the event bus. | `UniDict.java:78-125`; `module/ModuleHandler.java:34-46` |
 | 6 | **S2 (fixed 2026-11-11)** | Remaining concrete casts use `Accessors.as` (Crafting/Galacticraft/Chest); TE invoker factories are guarded and all three invoker seams are checked. | §1.5 |
-| 7 | **S2 (fixed 2026-11-11)** | `VerifyHarness` now uses the same `CanonicalEntries` predicate as NEI and the full late-OD classifier (excluded kinds + blacklist). | `VerifyHarness.java:162-250` |
+| 7 | **S2 (fixed 2026-11-11)** | `VerifyHarness` now uses the same canonical-entry index as NEI and the full late-OD classifier (excluded kinds + blacklist). | `VerifyHarness.java:162-250` |
 | 8 | **S3 (fixed 2026-11-11)** | Report descriptors now include `@damage` / `@*`, so damage variants stay distinct. | `report/UniDictReport.java:57-78` |
 | 9 | **S3 (fixed 2026-11-11)** | Centrifuge canonical collisions are merged explicitly (chances summed, capped at 1.0) and a failed map replacement restores the original (BUG-10). | `integration/ForestryIntegration.java:266-325` |
 | 10 | **S3 (fixed 2026-11-11)** | `WeightedRandomChestContent.theItemId` is public in 1.7.10; the accessor mixin/interface/fake were removed in favour of direct field access. | `integration/ChestIntegration.java:85-110` |
@@ -334,8 +334,9 @@ does not assert this field either.
 
 ### 2.1 [S2] `VerifyHarness` `hidden=` disagrees with the actual NEI pass
 
-**Status (2026-11-11): fixed.** `CanonicalEntries.contains` is shared by `NEIHideThread` and
-`VerifyHarness.runResourceReport`, so both apply the same protected-or-canonical-elsewhere rule.
+**Status (2026-11-11): fixed.** `ResourceHandler.isCanonicalEntry` (backed by `CanonicalIndex`) is
+shared by `NEIHideThread` and `VerifyHarness.runResourceReport`, so both apply the same
+protected-or-canonical-elsewhere rule in O(1).
 
 `VerifyHarness.runResourceReport` (`:162-190`) calls `SelectionRules.hiddenIndices` with
 `ResourceHandler::isProtected` as the only `alwaysVisible` predicate. `NEIHideThread` (`:69-75`) adds
@@ -478,6 +479,11 @@ edge, but `volatile` is cheap and documents the intent. Similarly, `UniResourceH
 
 ## 4. Optimizations (including still-open OPT items)
 
+**Status (2026-11-11): items 1–4 done.** The resolver now checks the exact container before the
+protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled entry, NEI
+canonical membership is an O(1) `IdentityDamageIndex`, and `getEntries()` returns a read-only view
+instead of a copy. Items 5–10 are still candidates.
+
 These are not release blockers, but several are directly on hot paths (`findMatchingRecipe`, drops,
 NEI load):
 
@@ -522,14 +528,14 @@ The review's BUG-19 removed a lot, but these remnants are still worth addressing
 | Item | Location | Note |
 |---|---|---|
 | `MetaKey.forItemAndDamage/forItem/itemIdOf/metaOf/isItemLevel/isValid` | `pure/MetaKey.java` | Only `WILDCARD` is used in production; the packing API is test-only. Keep the constant, move the rest to test scope or delete. |
-| `SelectionRules.mainIndex` | `pure/SelectionRules.java:35` | Only `SelectionRulesTest` uses it. |
-| `UniResourceContainer(String,long,boolean)` | `resource/UniResourceContainer.java:56` | No production caller. |
-| `Config.keepOneEntry()` / `Config.inputReplacement()` | `Config.java:63,67` | No production callers; both features are deferred. |
-| `ConfigPresets.defaults()` | `pure/config/ConfigPresets.java:69` | Only javadoc/test references; alias of `standard()`. |
-| `UniDictReport.rewriteRecords()` | `report/UniDictReport.java:48` | No caller. |
+| `SelectionRules.mainIndex` | `pure/SelectionRules.java` | Removed 2026-11-11 (test-only). |
+| `UniResourceContainer(String,long,boolean)` | `resource/UniResourceContainer.java` | Removed 2026-11-11 (unused). |
+| `Config.keepOneEntry()` / `Config.inputReplacement()` | `Config.java` | Removed 2026-11-11 (no production callers). |
+| `ConfigPresets.defaults()` | `pure/config/ConfigPresets.java` | Removed 2026-11-11 (alias of `standard()`). |
+| `UniDictReport.rewriteRecords()` | `report/UniDictReport.java` | Removed 2026-11-11 (no caller). |
 | `UniOreDictionary` unused accessors | `oredict/UniOreDictionary.java` + bridge/mixin/fake | `getIdToName`/`getStackToId` removed 2026-11-11; `get(Integer)` remains test-only. |
 | `ResourceHandler.resourceExists` | `resource/ResourceHandler.java` | Unused. |
-| `ModuleHandler.isEmpty` / `LoadStageExecutor.isEmpty(...)` | `module/` | Superseded by the explicit `initialized` flag; only tests/misc callers. |
+| `ModuleHandler.isEmpty` / `LoadStageExecutor.isEmpty(...)` | `module/` | `ModuleHandler.isEmpty` removed 2026-11-11; `LoadStageExecutor.isEmpty` remains test-used. |
 | `Resource.register` / `getResources` / `addChild` / `kindExists` | `resource/Resource.java` | Test-only or future API; BUG-19 says the taxonomy API is deliberately kept. Document that, or move to a test fixture. |
 | `IShapedRecipesAccessor` javadoc | `crafting/IShapedRecipesAccessor.java` | Claims `ShapedOreRecipe extends ShapedRecipes`; in 1.7.10 it implements `IRecipe` directly (which the code itself handles). |
 | Stale `POST_INIT` comments | `IntegrationModule`, `IC2Integration`, `NEIHideModule`, `NEIHideThread`, `UnifyDrops`, `OreNames`, `VerifyHarness` | Actual model/integrations run at `LOAD_COMPLETE`. |
@@ -760,7 +766,7 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 | Case-insensitive metals/blacklist | now covered by `OreNamesTest.resolveConfiguredNames...` and `ResourceBlackListTest.blackListMatchingIsCaseInsensitive` |
 | Item-name token matching | `TextTest` covers the case-insensitive matcher; corrected every code/test example to `etfuturum:copper_block`. The MC-bound registry lookup remains T3. |
 | Centrifuge semantic collisions / immutable map | `ForestryIntegrationTest` covers both (BUG-10) |
-| Harness/NEI hidden decision | shared `CanonicalEntries` + `CanonicalEntriesTest`; same predicate in both paths |
+| Harness/NEI hidden decision | shared `CanonicalIndex` + `CanonicalIndexTest`; same predicate in both paths |
 | Late-OD modelled filter | `OreNamesTest.modelledNamesHonoursExcludedKindsAndBlacklistedResources` |
 | Report damage suffix | `UniDictReportTest.damageSuffixDistinguishesMetadataFromWildcard`; full `GameData` rendering remains T3 |
 | Server-start / module failure injection | `GuardedTest`, `LoadStageExecutorTest` (Error) and `ModuleHandlerTest` (failing module) now cover it |
@@ -844,8 +850,8 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **245 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.1% line / 41.7% branch** at the baseline.
+- `./gradlew test` — **243 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.2% line / 41.4% branch** at the baseline.
   `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real
