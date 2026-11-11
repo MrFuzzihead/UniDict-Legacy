@@ -789,22 +789,11 @@ test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictRe
 
 ## 10. Suggested order of work
 
-1. **Fix §1.1 (IE id) and add a verifier** — highest user-visible bug, tiny change.
-2. **Fix §1.2 (preset seeds), §1.3 (case matching) and §3.2 (remove unnecessary chest Mixin)** —
-   done 2026-11-11; covered by the reflection completeness test, `OreNamesTest`,
-   `ResourceBlackListTest`, `TextTest` and the real-loot-entry chest tests.
-3. **Fix §1.6 (guarded re-runs/module init) and §1.5 (remaining casts/invoker seams)** — done
-   2026-11-11 (`Guarded`, per-module/thread Throwable handling, `Accessors.as`, TE invoker seams).
-4. **Fix §2.1/§2.2/§2.3 diagnostics/report** — the harness and `/unidict report` are the product's
-   transparency promise; they must be accurate.
-5. **Resolve §1.4 dependency scope + AT state**, then apply the dependency table in §7.4 with
-   `./gradlew test` + `./gradlew verifyServer` + one full-stack client run.
-6. **Fix §3.1 (BUG-10) and §3.3/§3.4 cleanup** — done 2026-11-11 (collision/immutable-map tests;
-   unused OreDictionary accessors removed).
-7. **Then feature work:** GT5 integration -> `inputReplacement` -> NEI live entries -> `/unidict
-   why`/`list`/JSON -> custom resources -> fuels/fluids -> UX/API.
-
----
+The authoritative forward-looking order now lives in
+[`TODO.md`](TODO.md#suggested-direction-authoritative). In short: **GT5 output rewrites → `inputReplacement` →
+NEI live-entries → `customUnifiedResources` → diagnostics/JSON → BB-4 fuels → fluid outputs → UX/API/polish**.
+All bugs and optimization items in this analysis are closed; live-client T3 checks remain for NEI hiding,
+Storage Drawers, Galacticraft, and TiC.
 
 ## Appendix A — evidence used in this analysis
 

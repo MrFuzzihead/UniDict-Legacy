@@ -1,163 +1,175 @@
 # 🧱 UniDict
 
-**UniDict** is a Minecraft **1.7.10** mod that solves one of the most annoying problems in big modpacks: having **five different "copper ingots," three "iron ingots," and a chest full of metals that all look the same but won't stack together.**
+[![](https://img.shields.io/badge/Minecraft-1.7.10-62a34a)](https://minecraft.wiki/w/Java_Edition_1.7.10)
+[![](https://img.shields.io/badge/Forge-10.13.4.1614-1e2b4f)](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.7.10.html)
+[![](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Build and test](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/build-and-test.yml)
+[![Verify server](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/verify-server.yml/badge.svg)](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/verify-server.yml)
+[![Test harness](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/test-harness.yml/badge.svg)](https://github.com/MrFuzzihead/UniDict-Legacy/actions/workflows/test-harness.yml)
 
-If you've ever stood at a storage room full of nearly-identical ingots and wondered why they don't combine into one pile, this is the mod for you.
+**UniDict** is a Minecraft **1.7.10** mod that fixes one of the most annoying problems in large modpacks: five different
+"copper ingots," three "iron ingots," and a chest full of metals that all look the same but refuse to stack.
 
----
+It picks one **canonical "main" version** of each metal and each thing made from it, then quietly points the rest of
+the game at that version. The duplicates still exist; they just stop getting in your way.
 
-## What does it do?
+## What it does
 
-In a large modpack, several mods each add their *own* version of the same thing — a copper ingot from Thermal Foundation, one from IC2, one from Immersive Engineering, and so on. They're all basically copper, but Minecraft treats them as completely different items.
+| Surface | What UniDict does |
+|---|---|
+| **Machines and recipes** | Rewrites outputs so machines produce the canonical item instead of a random duplicate. |
+| **Crafting** | Makes the crafting table return the canonical result. |
+| **Chests and loot** | Rewrites dungeon, mineshaft, village, and bonus-chest loot to the canonical item. |
+| **Dropped items** | Converts plain, untagged drops on the ground to the canonical item. |
+| **NEI** | Hides non-canonical duplicate entries so you see one clear version of each resource. An item that is canonical for *another* resource always stays visible. |
+| **Storage Drawers** | Seeds the canonical block/ingot/nugget chains into the Compacting Drawer registry. |
 
-**UniDict picks one "main" version of each metal** (and each thing made from it), and then quietly makes everything else in the game line up with that one version:
+Out of the box, UniDict unifies **Iron, Gold, Copper, Tin, Silver, Lead, Nickel, Platinum, Aluminum/Aluminium, Ardite,
+Cobalt, Osmium, Mithril, Zinc, Invar, Steel, Bronze, Electrum, Brass, Titanium, Desh, Meteoric Iron, Tungsten, Uranium,
+and Magnesium**, covering the whole family: **ore, dust, tiny dust, chunks, nuggets, ingots, blocks, plates, and gears.**
 
-- ✅ **Machines** produce the main version instead of random duplicates.
-- ✅ **The crafting table** makes the main version.
-- ✅ **Chests and loot** will hand you the main version.
-- ✅ **Items you drop on the ground** turn into the main version.
-- ✅ **NEI item lists** hide the confusing duplicate entries, so you just see one. (An item that is itself the main version of *another* unified resource always stays visible.)
+You can choose exactly which metals and forms to unify in the config.
 
-The result: one copper ingot, one tin ingot, one iron ingot... they all stack, they all work together, and you can stop organizing your base's duplicates into "the ones that won't merge."
+## Supported mods
 
-### Which metals?
-Out of the box UniDict unifies the usual suspects — **Iron, Gold, Copper, Tin, Silver, Lead, Nickel, Platinum, Aluminum/Aluminium, Ardite, Cobalt, Osmium, Mithril, Zinc, Invar, Steel, Bronze, Electrum, Brass, Titanium, Desh, Meteoric Iron, Tungsten, Uranium, and Magnesium** — and for each one it covers the whole family: **ore, dust, tiny dust, chunks, nuggets, ingots, blocks, plates, and gears.**
+Each integration activates only when that mod is installed. A vanilla-only install still gets furnace, crafting-table,
+chest-loot, and drop support, plus NEI hiding when NEI is present.
 
-> You can pick and choose exactly which metals (and which forms of them) you want unified in the config file — see below.
-
----
-
-## Which mods' machines are supported?
-
-UniDict hooks straight into the machines of the mods below, so their outputs come out as the unified version automatically (each one only applies if that mod is installed):
-
-| Mod                       | Machines that get unified output                                                                           |
-|---------------------------|------------------------------------------------------------------------------------------------------------|
-| **Vanilla**               | Furnace                                                                                                    |
-| **Vanilla**               | The crafting table                                                                                         |
-| **Vanilla**               | Dungeon / mineshaft / village / bonus chest loot                                                           |
-| **Applied Energistics 2** | Grinder                                                                                                    |
-| **IndustrialCraft 2**     | Macerator, Compressor, Extractor, Centrifuge, Metal Former, Block Cutter, Blast Furnace, Ore Washing Plant |
-| **Immersive Engineering** | Arc Furnace, Blast Furnace, Crusher, Metal Press                                                           |
-| **Ender IO**              | Alloy Smelter, SAG Mill                                                                                    |
-| **Railcraft**             | Blast Furnace, Rock Crusher                                                                                |
-| **Thermal Expansion**     | Redstone Furnace, Pulverizer, Induction Smelter                                                            |
-| **Forestry**              | Carpenter, Squeezer, Centrifuge (plus a couple of handy bonus recipes — see below)                         |
-| **Galacticraft**          | Ingot Compressor, Electric Ingot Compressor                                                                |
-| **Tinkers' Construct**    | Smeltery Casting Table and Casting Basin (melt/alloy stages produce fluids, so they have no item to unify)  |
-| **Storage Drawers**       | Compacting Drawers (the canonical block/ingot/nugget chains are seeded into the drawer tier registry)      |
+| Mod | Machines / surfaces with unified output |
+|---|---|
+| **Vanilla** | Furnace, crafting table, dungeon/mineshaft/village/bonus-chest loot |
+| **Applied Energistics 2** | Grinder |
+| **IndustrialCraft 2** | Macerator, Compressor, Extractor, Centrifuge, Metal Former, Block Cutter, Blast Furnace, Ore Washing Plant |
+| **Immersive Engineering** | Arc Furnace, Blast Furnace, Crusher, Metal Press |
+| **Ender IO** | Alloy Smelter, SAG Mill |
+| **Railcraft** | Blast Furnace, Rock Crusher |
+| **Thermal Expansion** | Redstone Furnace, Pulverizer, Induction Smelter |
+| **Forestry** | Carpenter, Squeezer, Centrifuge (plus optional crate and bronze-recycling recipes) |
+| **Galacticraft** | Ingot Compressor, Electric Ingot Compressor |
+| **Tinkers' Construct** | Smeltery Casting Table and Casting Basin |
+| **Storage Drawers** | Compacting Drawer tier registry |
 
 ### A few nice extras
 
-- **Forestry crate recipes.** If Forestry already knows a crate for a metal, UniDict wires up the matching "crate it" / "uncrate it" carpenter recipes using your unified metal.
-- **Bronze tool recycling.** Got broken bronze tools? With a unified bronze ingot, UniDict adds carpenter recipes to recycle them back into bronze ingots.
-- **Galacticraft's electric / arc furnaces** reuse the vanilla furnace recipes, so they're already covered for free.
-- **Dropped items** are converted on the ground too (only plain, untagged stacks — see below).
+- **Forestry crate recipes.** If Forestry already has a crate for a metal, UniDict wires up the matching "crate it" /
+  "uncrate it" carpenter recipes using the unified metal.
+- **Bronze tool recycling.** Broken bronze tools can be recycled back into bronze ingots through Forestry's carpenter.
+- **Galacticraft electric/arc furnaces** reuse the vanilla furnace recipes, so they are already covered.
+- **Ground drops** are converted too, but only plain, untagged stacks; enchanted or NBT-bearing items are left alone.
 
----
+## Requirements
 
-## It's safe — nothing gets deleted
+| Dependency | Version | Notes |
+|---|---|---|
+| Minecraft | **1.7.10** | |
+| Minecraft Forge | **10.13.4.1614** | |
+| Java | **8** | Runtime/toolchain target; modern launchers and GTNH packs may supply a newer JVM. |
+| Optional mods | Any of the supported mods above | Install only what your pack uses. |
 
-Don't worry, UniDict is **non-destructive**. It never removes items from the game, never deletes recipes, and never destroys anything in your chests.
+UniDict is client- and server-aware. It never removes items, deletes recipes, or mutates Forge's Ore Dictionary.
 
-It works by **rewriting outputs** — pointing a machine/recipe/loot-table at the *main* version of an item instead of a duplicate. All the other versions still exist in the game; they're just not what machines hand you anymore.
+## Installation and configuration
 
-Enchanted, tagged, or otherwise "special" items are **never touched** when you drop them — only plain, clean items get unified on the ground.
+Drop the jar into your `mods` folder. The config file is generated at `config/unidict.cfg` on first launch.
 
----
+Three ready-made presets are available:
 
-## Your item lists just got cleaner (NEI)
+| Preset | What it enables |
+|---|---|
+| `minimal` | The lightest touch: vanilla-safe furnace and chest-loot support, with NEI hiding off. |
+| `standard` | **Default.** All supported integrations and the full metal list. |
+| `max-compat` | Standard plus extra diagnostics and compatibility options. |
 
-With the default settings, UniDict hides the duplicate "non-main" variants of unified resources in **Not Enough Items**, so you see one clear entry instead of a wall of visually-identical ingots. You can fine-tune this in the config:
+Beyond the preset, you can:
 
-- Exempt a whole **kind** from hiding (e.g. keep every mod's version of `ore` visible).
-- Exempt a specific **mod** from hiding.
-- Protect specific **items** so they always show up.
+- Toggle each mod integration individually.
+- Choose which metals and which forms (`ore`, `dust`, `ingot`, `block`, ...) to unify.
+- Set the **owner priority order**, which decides which mod wins the "main" slot.
+- Protect specific items or Ore Dictionary names from unification.
 
-Only the *non-main* variants are hidden: an item that is the main version of some other unified resource is always kept visible, even if it loses to another variant elsewhere.
+`protectedOreDictionaryNames` defaults to protecting `raw` metals, so raw-metal processing stages stay as their own
+thing instead of being morphed into a regular ore block. The `inputReplacement` key is parsed for forward compatibility
+but currently has no effect.
 
----
+Your settings are never wiped on update; UniDict only adds new config keys.
 
-## Wondering what won? Run `/unidict report`
+## Commands
 
-Everything UniDict does is transparent. Type this in the chat:
+| Command | What it does |
+|---|---|
+| `/unidict report` | Prints the full unification report. |
+| `/unidict report <resource>` | Filters the report to one resource, e.g. `/unidict report ingotCopper`. |
+| `/unidict report <resource> <page>` | Shows a specific page; the report is paged at 20 lines. |
 
+The report shows the canonical entry, variant count, owners, and per-machine rewrite counts. It is also emitted by the
+headless server verifier as `[unidict-verify]` lines.
+
+## Building
+
+Everything is handled by the GTNH build toolchain:
+
+```sh
+./gradlew build              # compile, tests, format checks, coverage gate
+./gradlew test               # JVM/seam tests only
+./gradlew jacocoTestReport   # HTML coverage -> build/reports/jacoco/test/html
+./gradlew gameTestServer     # dedicated-server in-game assertions
+./gradlew verifyServer       # headless [unidict-verify] oracle
+./gradlew clientTest         # client smoke test (use Xvfb on headless Linux)
 ```
-/unidict report
+
+For client development:
+
+```sh
+./gradlew runClient
+./gradlew runServer
 ```
 
-...and you'll see, for every unified resource, **which item won the "main" spot** and how many variants were merged, plus a per-machine count of the outputs that were actually rewritten. Too much text? Filter it down to one resource:
+For a lighter local runtime, `-PunidictDevLight` keeps the heavy integrations on the compile classpath only, avoiding
+CoFH Core on the runtime path. Full-stack client runs need the dev-only access transformer or the production pack's
+equivalent field widening; server verification does not.
 
-```
-/unidict report ingotCopper
-```
+## Testing
 
-The full dump is paged 20 lines at a time; add a page number after the filter when needed:
+| Command | What it runs |
+|---|---|
+| `./gradlew test` | **242** JUnit 5/Mockito tests, 0 failures |
+| `./gradlew check` | The above plus Spotless, Checkstyle, the coverage floor, and game-test compilation |
+| `./gradlew gameTestServer` | Boots a real dedicated server and runs **23/23** in-game assertions |
+| `./gradlew verifyServer` | **300 stage-1 + 5 stage-2** headless checks, 0 failures |
+| `./gradlew clientTest` | Client smoke boot; use Xvfb on headless Linux |
 
-```
-/unidict report ingotCopper 2
-```
+The current JaCoCo baseline is **44.8% line / 40.6% branch**, with a **44% / 40%** floor. CI runs the build,
+the headless verifier, and the test harness on pull requests and pushes to `main`.
 
-Handy for when you want to know exactly what "copper" is going to be in this pack.
+## Documentation
 
----
-
-## Tuning it to your liking (config)
-
-UniDict writes a normal config file to your `config` folder. There are three ready-made **presets** to pick from:
-
-- **`minimal`** — vanilla-safe only (furnace + chest loot). The lightest touch.
-- **`standard`** *(default)* — all supported integrations on, full metal list. Most packs want this.
-- **`max-compat`** — standard, plus the extra diagnostics (kind debug logging). The `inputReplacement` key is reserved for a future release and currently has no effect.
-
-Beyond the preset you can individually toggle each mod integration, choose which metals and which forms (`ore`, `dust`, `ingot`, `block`, ...) to unify, set the **owner priority order** (which mod gets to be the "main" version), and protect specific items or resource tags from being unified.
-
-> Tip: There's a `protectedOreDictionaryNames` option. By default, it protects `raw` metals, so raw-metal processing stages (like Et Futurum's oxidizable copper) stay as their own thing instead of being morphed into a regular ore block.
-
-Your settings are **never wiped** when the mod updates — UniDict only ever adds new config keys, it won't clear out what you already changed.
-
----
-
-## Compatibility
-
-|               |                                     |
-|---------------|-------------------------------------|
-| **Minecraft** | 1.7.10                              |
-| **Forge**     | 10.13.4.1614                        |
-| **Framework** | Built with the GTNH build toolchain |
-
-UniDict is a small client-*and*-server-aware mod. You can drop it into a pack that doesn't have any of the optional mods — the vanilla furnace, crafting table, and chest-loot support work on their own, and the mod-specific integrations simply activate only when their mod is present.
-
----
-
-## Developer docs
-
-Verification: `./gradlew check` (242 unit/seam tests + Mockito + the JaCoCo coverage floor + game-test
-compilation), `./gradlew gameTestServer` (boots a dedicated server with the non-shipped `src/gameTest`
-mod and runs 23 in-game assertions), `./gradlew clientTest` (client smoke; use Xvfb on headless Linux),
-and `./gradlew verifyServer` (headless dedicated-server run of the `[unidict-verify]` oracle). Coverage:
-`./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 44.8% line / 40.6% branch;
-floor 44% / 40%). CI: `.github/workflows/verify-server.yml` and `.github/workflows/test-harness.yml`.
-
-Focused dev runtime: `./gradlew runClient -PunidictDevLight` keeps the heavy integrations on the
-compile classpath only (no CoFH Core on the runtime path). Full-stack client runs need the dev-only
-access transformer or the production pack's equivalent field widening; server verification does not.
-
-- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam and verify line.
+- [`docs/TODO.md`](docs/TODO.md#suggested-direction-authoritative) — forward-looking backlog and the authoritative
+  suggested feature direction.
+- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam, and verify line.
+- [`docs/TestPlan.md`](docs/TestPlan.md) — the T1/T2/T3 verification doctrine.
 - [`docs/PLAN.md`](docs/PLAN.md) — implementation plan and milestone gates.
 - [`docs/STATUS.md`](docs/STATUS.md) — per-milestone tracker.
-- [`docs/TestPlan.md`](docs/TestPlan.md) — the T1/T2/T3 verification doctrine.
-- [`docs/TODO.md`](docs/TODO.md) — forward-looking backlog.
-- [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) — severity-ranked review findings and what has been fixed.
-- [`docs/CODEBASE_ANALYSIS_2026-11-10.md`](docs/CODEBASE_ANALYSIS_2026-11-10.md) — independent follow-up analysis (new bugs, performance, refactors, features, dependency audit).
+- [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) — historical review findings and fix batches.
+- [`docs/CODEBASE_ANALYSIS_2026-11-10.md`](docs/CODEBASE_ANALYSIS_2026-11-10.md) — independent follow-up analysis,
+  dependency audit, and closed optimization list.
 
----
+## Contributing
 
-## Credits & License
+Bug reports and pull requests are welcome. Before starting a feature, check the
+[suggested direction in `docs/TODO.md`](docs/TODO.md#suggested-direction-authoritative) and read
+[`docs/TestPlan.md`](docs/TestPlan.md) for the testing tiers. Structural changes should also account for the historical
+findings in [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md).
 
-UniDict is maintained by **MrFuzzihead** as a rebuild of the original **UniDict by WanionCane** — credit to WanionCane for the original concept.
+If a bug looks like it belongs to Forge or an integrated mod rather than UniDict, please report it to that project.
 
-The source code is licensed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+## License
+
+UniDict is licensed under the **MIT License**. See [`LICENSE`](LICENSE).
+
+## Credits
+
+UniDict is maintained by **MrFuzzihead** as a rebuild of the original **UniDict by WanionCane**. Credit to WanionCane
+for the original concept, and to the GTNH ecosystem for the 1.7.10 tooling and pack environment.
 
 ---
 

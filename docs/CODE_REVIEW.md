@@ -919,22 +919,10 @@ guard that greps `src/main`), which makes adding these cheap.
 
 ## 7. Suggested order of work
 
-> Items 1–3 and most of item 5 are done in batch 1 (§8). The list is kept as the original plan.
-
-1. **BUG-2** (AT wiring) + **BUG-1** (blacklist) + **BUG-3** (kind casing) — three small changes that
-   unblock a correct release and the documented TE/CoFH gate.
-2. **OPT-1 / BUG-6** — one change in `getMainItemStack` that fixes reporting, removes allocations and
-   makes re-runs true no-ops.
-3. **BUG-4** (NBT) + **BUG-5** (crafting mixin gate) — data-safety and config-honesty.
-4. **BUG-8** (re-index at LOAD_COMPLETE) — unlocks late mods, more accurate models, and the eventual
-   `/unidict reload` (BUG-11).
-5. **BUG-7**, **BUG-9**, **BUG-15**, **BUG-17**, **BUG-18** — robustness, reporting correctness, and
-   diagnostics (BUG-18 doubles as the mitigation for BUG-3).
-6. Docs sync (README kind names + registry-name spelling + preset claims) and the test gaps in §4.
-7. Then the feature work: **GT5 integration** → `inputReplacement` → `customUnifiedResources` →
-   BB-4 fuels → fluids → `/unidict reload` → the QoL/API items.
-
----
+The historical review sequence is complete. The current, authoritative feature order is maintained in
+[`TODO.md`](TODO.md#suggested-direction-authoritative): **GT5 output rewrites → `inputReplacement` → NEI
+live-entries → `customUnifiedResources` → diagnostics/JSON → BB-4 fuels → fluid outputs → UX/API/polish**.
+See §8 for the completed fix batches.
 
 ## 8. Implemented batches
 

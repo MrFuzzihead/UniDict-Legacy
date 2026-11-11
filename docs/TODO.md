@@ -1,14 +1,16 @@
 # UniDict-Legacy — Remaining Work (TODO)
 
-Living backlog of everything **not yet done** for an initial release, as of `feature-Refactor` @ `a839a60` (2026-10-25). It replaces the old `docs/To do.txt`.
+Living backlog of everything **not yet done** for an initial release, as of `feature-Refactors` @ `746c8c4` (2026-11-11). It replaces the old `docs/To do.txt`.
 
-> **Status update (2026-10-25):** the **bug backlog is empty** — all findings from [`CODE_REVIEW.md`](CODE_REVIEW.md)
-> are fixed across batches 1–8 (the review file keeps the severity-ranked history). Verification is now
-> automated: `.github/workflows/verify-server.yml` runs `./gradlew verifyServer` (298 stage-1 + 5 stage-2
-> checks, 0 failures) on every PR/push, and a production-pack pair of logs (single-player client +
-> dedicated server) confirms the same: **136 unified resources, 0 FAIL, 17/17 seam checks**, with only
-> **5 late Railcraft plate entries** (`plateCopper/Lead/Iron/Steel/Tin`) not in the model — they already
-> unify at runtime via the OD fallback and only show as NEI duplicates (see the *NEI live-entries pass* below).
+> **Status update (2026-11-11):** the **bug backlog is empty** — all findings from [`CODE_REVIEW.md`](CODE_REVIEW.md)
+> are fixed across batches 1–8 (the review file keeps the severity-ranked history), and every item in
+> [`CODEBASE_ANALYSIS_2026-11-10.md`](CODEBASE_ANALYSIS_2026-11-10.md) is now closed. Verification is automated:
+> `.github/workflows/verify-server.yml` runs `./gradlew verifyServer` (**300 stage-1 + 5 stage-2** checks, 0 failures)
+> on every PR/push, `test-harness.yml` runs the **242** JVM/seam tests plus `gameTestServer` (**23/23**), and a
+> production-pack pair of logs (single-player client + dedicated server) confirms the same: **136 unified resources,
+> 0 FAIL, 17/17 seam checks**, with only **5 late Railcraft plate entries** (`plateCopper/Lead/Iron/Steel/Tin`)
+> not in the model — they already unify at runtime via the OD fallback and only show as NEI duplicates (see the
+> *NEI live-entries pass* below).
 > - **Decision:** the CoFH/TE field widening is provided by the production pack — the access transformer
 >   is dev-only tooling and is **not** shipped, so item #3 below is closed, not a blocker.
 
@@ -33,9 +35,38 @@ Living backlog of everything **not yet done** for an initial release, as of `fea
 
 ---
 
-## Next feature batch (2026-10-25)
+## Suggested direction (authoritative)
 
-The prioritized **feature** plan for the next development cycle (bug work is done). "Harness" = covered by
+This is the current feature order for the target GTNH pack. It supersedes the older order lists in
+`CODE_REVIEW.md` and `CODEBASE_ANALYSIS_2026-11-10.md`; keep this section current when priorities change.
+
+1. **GregTech 5 machine output rewrites** — the largest remaining functional gap. Start with a research spike
+   (`GT_Recipe.mOutputs` per machine, `GT_MetaGenerated` outputs, compileOnly GT types), then land one machine
+   family at a time with a verify line. GT items currently unify only through the Ore Dictionary fallback.
+2. **`inputReplacement`** — make the existing config key real, non-destructively and one machine at a time, so a
+   non-canonical input no longer produces a non-canonical result.
+3. **NEI live-entries pass** — hide non-canonical *live* OD entries at world join for modelled names; this closes
+   the late-Railcraft-plate duplicate gap without changing the model or rewriting recipes.
+4. **`customUnifiedResources`** — user-defined equivalence classes beyond the metal taxonomy, opt-in and T1-tested
+   at the model layer.
+5. **Diagnostics/config surface** — `/unidict why <item>`, `/unidict list`, and JSON report export. These turn the
+   existing decision data into pack-author tools and are low-risk follow-ups.
+6. **BB-4 fuels / coal coke** — the first non-OD equivalence class; preserve burn-time and exact-item semantics.
+7. **Fluid-output model** — a prerequisite for Forestry still/fermenter/squeezer, GC refinery, and TiC melt/alloy;
+   do the semantics first, then the integrations.
+8. **UX / API / hardening** — localization, config GUI, NEI tooltip, dry-run mode, icon/optional-dep metadata,
+   `UniDictAPI`/CraftTweaker bridge, client-side T3 CI, harness extensions, and publishing docs.
+
+**Verification rule:** every feature lands with its cheapest faithful test (T1 pure logic, T2 seam/fake, and/or a
+`verifyServer` line). Live-client T3 checks stay open for NEI hiding, Storage Drawers, Galacticraft, and TiC until a
+full GTNH client run closes them. Do **not** re-introduce global Ore Dictionary mutation or physical recipe removal
+(see *Dropped* below).
+
+---
+
+## Feature backlog (detail)
+
+The prioritized **feature** plan for the next development cycle (bug work is done). The authoritative order is the [Suggested direction](#suggested-direction-authoritative) above. "Harness" = covered by
 `./gradlew verifyServer`; "client" = needs one NEI/GUI run.
 
 ### Tier 1 — highest value for the target GTNH pack
@@ -82,7 +113,8 @@ The prioritized **feature** plan for the next development cycle (bug work is don
 | **Harness extensions** | Synthetic `EntityItem` (drop listener), console-driven `/unidict report`, NEI hide-count assertions. | not started | S |
 | **Publishing docs** | JitPack is configured; add a "use as a dependency" README section + versioning notes. | — | S |
 
-**Suggested order:** GT5 spike/integration → `inputReplacement` → NEI live-entries + `why`/`list`/JSON → fuels (BB-4) → `customUnifiedResources` → UX/API items as appetite allows.
+**Suggested order:** see [Suggested direction (authoritative)](#suggested-direction-authoritative) above. The older
+"GT5 → inputReplacement → NEI live-entries → fuels → custom resources" line is superseded by that list.
 
 ---
 
@@ -224,9 +256,8 @@ These ship the other half of the mod's promise ("unify the *whole* view", not ju
 
 ---
 
-## Suggested order of work
+## Historical release checklist
 
-1. **P0 #4** (sync docs) + **P0 #3** (CoFH/TE release decision) — unlock a clean full-stack `runClient`.
-2. **P0 #1** (NEI variant hiding via `autoHideInNEI`, both blacklists) — T1/T2 done, T3 on a live pack; `keepOneEntry` deferred as a stretch goal. One PR.
-3. Tag the initial release with P1–P2 items tracked here.
-4. Then **P1** in order 5 → 6 → 7 (input rewrite → custom resources → fuels).
+See [Suggested direction (authoritative)](#suggested-direction-authoritative) above for the current order. The P0/P1/P2
+sections above are retained as item-level detail and history; the old release-checklist order (docs sync, CoFH/TE
+decision, NEI hiding, then P1 features) is complete and no longer drives planning.
