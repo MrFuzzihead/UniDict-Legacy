@@ -22,6 +22,16 @@ class CanonicalIndexTest {
     }
 
     @Test
+    void directItemDamageAddMatchesTheStackOverloadWithoutAllocating() {
+        final Item item = new Item();
+        final CanonicalIndex index = new CanonicalIndex();
+        index.add(item, 7);
+
+        assertTrue(index.contains(new ItemStack(item, 1, 7)));
+        assertFalse(index.contains(new ItemStack(item, 1, 0)));
+    }
+
+    @Test
     void nullAndEmptyInputsAreSafe() {
         final CanonicalIndex index = new CanonicalIndex();
         assertFalse(index.contains(null));

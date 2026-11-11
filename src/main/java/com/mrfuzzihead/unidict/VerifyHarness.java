@@ -186,7 +186,7 @@ public final class VerifyHarness {
                 lines.add(
                     "resource=" + container.name
                         + " main="
-                        + describe(container.getMainEntry())
+                        + describe(container.getMainEntryItem(), container.getMainEntryDamage())
                         + " variants="
                         + entries.size()
                         + " hidden="
@@ -539,16 +539,19 @@ public final class VerifyHarness {
     }
 
     private static String describe(final ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return "none";
+        return stack == null ? "none" : describe(stack.getItem(), stack.getItemDamage());
+    }
+
+    private static String describe(final Item item, final int damage) {
+        if (item == null) return "none";
         final String registryName = GameData.getItemRegistry()
-            .getNameForObject(stack.getItem());
-        // A stack without a registry name has no owner to describe; report the same sentinel as the
+            .getNameForObject(item);
+        // An item without a registry name has no owner to describe; report the same sentinel as the
         // owner lookup instead of throwing while rendering a report (docs/CODE_REVIEW.md BUG-7).
         if (registryName == null) return Util.UNKNOWN_MOD;
-        final String owner = Util.getModName(stack);
+        final String owner = Util.getModName(item);
         // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
         final String base = registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
-        final int damage = stack.getItemDamage();
         return base + (damage == OreDictionary.WILDCARD_VALUE ? "@*" : "@" + damage);
     }
 }

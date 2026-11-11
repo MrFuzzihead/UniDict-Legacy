@@ -1092,8 +1092,8 @@ need yet. Implement it only if a real pack shows `missing > 0`.
 Phase C, which is only worth implementing if a real pack shows `model-complete missing > 0` — §9 explains
 how to check that in a production pack without the dev harness.
 
-**Pure/optimization candidates:** all of OPT-1 through OPT-9 are now done; the remaining item is the
-canonical-stack cache (see `docs/CODEBASE_ANALYSIS_2026-11-10.md` §4 item 10).
+**Pure/optimization candidates:** all optimization items are now done, including the canonical
+item+damage reuse (see `docs/CODEBASE_ANALYSIS_2026-11-10.md` §4 item 10).
 
 **Cleanup:** the rest of BUG-19 (unused `MetaItem`/`UniOreDictionary`/`ResourceHandler` surface).
 

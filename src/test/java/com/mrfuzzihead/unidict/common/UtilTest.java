@@ -16,7 +16,7 @@ class UtilTest {
 
     @Test
     void nullStackReportsUnknownInsteadOfThrowing() {
-        assertEquals(Util.UNKNOWN_MOD, Util.getModName(null));
+        assertEquals(Util.UNKNOWN_MOD, Util.getModName((ItemStack) null));
     }
 
     @Test

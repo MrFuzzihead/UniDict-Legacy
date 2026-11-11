@@ -45,8 +45,12 @@ public final class Util {
      * owner list or hide blacklist contains, so they simply sort last / stay visible.
      */
     public static String getModName(final ItemStack itemStack) {
-        if (itemStack == null || itemStack.getItem() == null) return UNKNOWN_MOD;
-        final Item item = itemStack.getItem();
+        return itemStack == null ? UNKNOWN_MOD : getModName(itemStack.getItem());
+    }
+
+    /** Item overload of {@link #getModName(ItemStack)} for callers that hold the immutable item fact. */
+    public static String getModName(final Item item) {
+        if (item == null) return UNKNOWN_MOD;
         final String cached = OWNER_CACHE.get(item);
         if (cached != null) return cached;
         final String name = GameData.getItemRegistry()

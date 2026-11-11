@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 241, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 242, see Appendix B)
   - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -484,11 +484,11 @@ edge, but `volatile` is cheap and documents the intent. Similarly, `UniResourceH
 
 ## 4. Optimizations (including still-open OPT items)
 
-**Status (2026-11-11): items 1–9 done.** The resolver now checks the exact container before
+**Status (2026-11-11): items 1–10 done.** The resolver now checks the exact container before
 the protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled entry,
 NEI canonical membership is O(1), `getEntries()` is a read-only view, only selected resources are
 reconciled, owner namespaces are cached, Crafting warnings are aggregated by recipe class, and the
-empty mod-blacklist path returns early, and the report is paged at 20 lines. Item 10 remains a candidate.
+empty mod-blacklist path returns early, and the report is paged at 20 lines. Canonical-entry lookups now use the immutable item+damage facts directly, so report/verify/NEI paths allocate no throwaway canonical stacks.
 
 These are not release blockers, but several are directly on hot paths (`findMatchingRecipe`, drops,
 NEI load):
@@ -521,10 +521,11 @@ NEI load):
    instead of one per recipe.
 9. **`isModBlacklisted` early return** when `autoHideInNEIModBlackSet` is empty; it currently calls
    `Util.getModName` for every NEI entry even when no mod is exempted.
-10. **Canonical stack cache.** Container main entries are stable after `updateEntries`; precompute a
-    canonical `ItemStack` (or at least the item+damage pair, already done) for report/NEI/Storage
-    Drawers callers to avoid repeated allocation. Do not share the mutable stack across callers; cache
-    only immutable facts.
+10. **Canonical stack cache. Fixed 2026-11-11.** `CanonicalIndex` accepts the immutable `Item`+damage
+    pair directly, and the report/verify descriptors read `getMainEntryItem()/getMainEntryDamage()`
+    instead of allocating a disposable `ItemStack`. Mutable canonical stacks are still created only
+    where an API takes ownership (the actual replacement and Storage Drawers seeding); they are never
+    cached or shared across callers.
 
 ---
 
@@ -857,8 +858,8 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **241 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.7% line / 40.6% branch** at the baseline.
+- `./gradlew test` — **242 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.8% line / 40.6% branch** at the baseline.
   `check` enforces a **44% line / 40% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real

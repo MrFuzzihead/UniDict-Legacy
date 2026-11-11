@@ -277,7 +277,7 @@ public final class ResourceHandler {
                 containerMap.put(container.name, container);
                 final UniAttributes<UniResourceContainer> uniAttributes = new UniAttributes<>(resource, container);
                 final Item mainItem = container.getMainEntryItem();
-                if (mainItem != null) canonicalEntries.add(new ItemStack(mainItem, 1, container.getMainEntryDamage()));
+                if (mainItem != null) canonicalEntries.add(mainItem, container.getMainEntryDamage());
                 // Re-derive the (item, damage) pairs from the container's own snapshot instead of a
                 // precomputed id hash: the hash baked in load-time registry ids and went stale on remap.
                 for (final ItemStack entry : container.getEntries()) {

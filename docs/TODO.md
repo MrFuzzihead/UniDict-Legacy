@@ -67,7 +67,7 @@ The prioritized **feature** plan for the next development cycle (bug work is don
 | **Localization** (`assets/unidict/lang`) | No lang file exists at all; command messages and user-facing text are hardcoded English. | S | key-presence T1 + client |
 | **Config GUI** (`GuiFactory`) | Change presets/toggles without editing a 30-key `.cfg`. | M | client |
 | **NEI tooltip/overlay** | Show "unified → `main` entry" and owner rank on hover. | M | client |
-| **Report pagination/formatting** | 100–200 chat lines today; page/batch them (pure paginator testable). | S | T1 + client |
+| **Report pagination/formatting** | DONE 2026-11-11 — `/unidict report [resource] [page]`, 20 lines/page (pure paginator tested). | S | T1 + client |
 | **JSON report export** | `/unidict report json` or a file under `logs/` for pack authors/CI diffing. | S | T1 + harness |
 | **Dry-run mode** | Log what *would* be rewritten without mutating recipes — useful while adding GT/inputs. | S–M | T2 + harness |
 | **Icon + optional-dep metadata** | `logoFile` is empty; `mcmod.info` says nothing about the optional integrations. | S | n/a |
