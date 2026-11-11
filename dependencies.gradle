@@ -84,6 +84,11 @@ dependencies {
     // how the Furnace T2 test uses MC Item/ItemStack types.
     testImplementation("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 
+    // JVM test stack. JUnit 5 stays the project's platform; Mockito 4.11.0 is the last 4.x line and
+    // runs on the Java 8 toolchain the mod targets (Mockito 5 needs Java 11). mockito-inline lets tests
+    // mock final Minecraft classes without changing production code.
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockito:mockito-core:4.11.0")
+    testImplementation("org.mockito:mockito-inline:4.11.0")
 }

@@ -1,0 +1,100 @@
+name: Test harness
+
+# JVM tests + coverage floor, the headless in-game server assertions, and a client smoke boot.
+# The verify oracle has its own workflow (verify-server.yml); this one covers the additional layers
+# added for the 2026-11-10 test-coverage baseline.
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-and-coverage:
+    name: Unit tests + JaCoCo floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Check (tests, Spotless/Checkstyle, coverage floor, gameTest compile)
+        run: |
+          chmod +x gradlew
+          ./gradlew check --no-daemon --stacktrace
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage-reports
+          path: |
+            build/reports/tests/test
+            build/reports/jacoco/test
+          if-no-files-found: warn
+
+  game-test:
+    name: In-game dedicated-server assertions
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Run the non-shipped game-test mod
+        run: |
+          chmod +x gradlew
+          ./gradlew gameTestServer --no-daemon --stacktrace
+      - name: Upload the captured game-test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-test-log
+          path: build/unidict-gametest-server.log
+          if-no-files-found: warn
+
+  client-smoke:
+    name: Client smoke (Xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # A client boot depends on graphics drivers the runner image does not guarantee. Keep it visible
+    # but non-blocking until it has a stable CI history.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Install Xvfb and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa
+      - name: Boot the client and run model assertions
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          chmod +x gradlew
+          xvfb-run -a ./gradlew clientTest --no-daemon --stacktrace
+      - name: Upload the captured client log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-test-log
+          path: build/unidict-client-test.log
+          if-no-files-found: warn

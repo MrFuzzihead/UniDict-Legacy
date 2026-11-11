@@ -7,19 +7,41 @@ apply; a feature is **done** when its applicable gates are all green.
 
 | Tier | Command | Scope | Notes |
 |---|---|---|---|
-| **T1 — JVM unit test** | `./gradlew test` | Pure logic, zero `net.minecraft*` imports | Kind taxonomy, `MetaItem` hash math, recipe keys, Config parsing, `SelectionRules`, comparators, load-stage order |
-| **T2 — seam/fake test** | `./gradlew test` | MC-*typed* but not MC-*static* logic, driven by fakes | Every mixin accessor is an interface; `Fake…` lives in `src/test`, `@Mixin` class is the live impl |
-| **T3 — in-game regression** | `./gradlew build runClient` + grep | End-to-end | Dev-only `[unidict-verify]` lines; deterministic because execution is sequential |
+| **T1 — JVM unit test** | `./gradlew test` | Pure logic, zero `net.minecraft*` imports | Kind taxonomy, recipe keys, Config parsing, `SelectionRules`, comparators, load-stage order. JUnit 5 on a Java 8 launcher; Mockito 4.11 for interface/final-class seams |
+| **T2 — seam/fake test** | `./gradlew test` | MC-*typed* but not MC-*static* logic, driven by fakes/Mockito | Every mixin accessor is an interface; `Fake…` lives in `src/test`, `@Mixin` class is the live impl |
+| **T3 — server in-game** | `./gradlew verifyServer` / `./gradlew gameTestServer` | End-to-end dedicated server | `verifyServer` asserts the dev oracle; `gameTestServer` runs the non-shipped `src/gameTest` mod's 23 live-world assertions |
+| **T3 — client smoke** | `./gradlew clientTest` (Xvfb on Linux) | Client boot + model assertions | Non-shipped game-test mod exits at load-complete with `UNIDICT_CLIENT_TEST_OK`; NEI/rendering remains manual |
 
 ## How to run a verification pass
 
 ```
-.\gradlew.bat test build          # T1 + T2 + Spotless/Checkstyle
-.\gradlew.bat verifyServer         # T3 (headless): dedicated server + assertions
+.\gradlew.bat check                # T1 + T2 + Spotless/Checkstyle + JaCoCo floor + gameTest compile
+.\gradlew.bat verifyServer         # T3 (headless): dedicated server + verify oracle
+.\gradlew.bat gameTestServer       # T3 (headless): dedicated server + non-shipped game-test mod
+.\gradlew.bat clientTest           # T3 (display/Xvfb): client smoke + model assertions
 .\gradlew.bat runClient -PunidictDevVerify   # T3 (client): manual, for NEI/rendering paths
 grep "unidict-verify" logs/latest.log   # every line should end in PASS
 grep "unidict-verify.*FAIL" logs/latest.log  # must be empty
 ```
+
+### Test harness baseline (2026-11-10)
+
+- `./gradlew test` — **222 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; measured baseline **44.1% line / 40.4% branch**.
+  `check` enforces a **43% line / 39% branch** floor (a regression guard, not a target).
+- `./gradlew gameTestServer` — boots a dedicated server and runs **23/23** live-world assertions from
+  `src/gameTest`: resource model/report publication, canonical resolution, a non-canonical variant,
+  the vanilla iron-ore furnace output, the real `UnifyDrops` event path, and a non-empty
+  `RewriteJournal`. The test mod is not shipped.
+- `./gradlew clientTest` — the same game-test mod on the client at load-complete; prints
+  `UNIDICT_CLIENT_TEST_OK` and exits. It needs a display; CI uses Xvfb and keeps this job non-blocking
+  until it is stable.
+- `./gradlew verifyServer` — unchanged: **298 stage-1 + 5 stage-2** checks, 0 failures.
+
+Both in-game tasks grep marker lines from their captured console logs, so a crash, hang or partial run
+fails the Gradle task instead of silently passing. The JaCoCo unit report is deliberately not merged
+with the in-game run: Forge 1.7.10 dev launches rewrite classes through ASM, so in-game class ids do
+not match the on-disk class files (same measurement as the reference project).
 
 ### T3 automation — `./gradlew verifyServer` (2026-10-24)
 
@@ -46,7 +68,8 @@ entries.
 
 CI: `.github/workflows/verify-server.yml` runs `./gradlew verifyServer --no-daemon` on every PR/push to
 `master`/`main` (and on manual dispatch), with the Gradle cache and the captured harness log as an
-artifact.
+artifact. `.github/workflows/test-harness.yml` adds `./gradlew check` (tests + coverage floor),
+`./gradlew gameTestServer`, and a non-blocking Xvfb `./gradlew clientTest` smoke boot.
 
 **Covered:** the resource model/index (including the post-remap `FMLModIdMappingEvent` stage), drops
 registration, every machine/loot integration on the dev runtime (crafting, furnace, IC2, AE2, Chest, TE,
