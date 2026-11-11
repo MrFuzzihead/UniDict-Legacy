@@ -357,14 +357,14 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // Measured baseline on 2026-11-11: 1114/2496 = 44.6% line coverage. The floor is a
+                // Measured baseline on 2026-11-11: 1137/2520 = 45.1% line coverage. The floor is a
                 // regression guard, not a target; raise it when new tests land.
                 minimum = BigDecimal("0.44")
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                // Measured baseline: 623/1508 = 41.3% branch coverage.
+                // Measured baseline: 638/1530 = 41.7% branch coverage.
                 minimum = BigDecimal("0.41")
             }
         }

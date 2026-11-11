@@ -6,7 +6,7 @@ import java.util.Map;
 import net.minecraft.item.ItemStack;
 
 /**
- * Read-only view of Forge's {@link net.minecraftforge.oredict.OreDictionary} internals — the five
+ * Read-only view of Forge's {@link net.minecraftforge.oredict.OreDictionary} internals — the three
  * private static caches that {@code UniOreDictionary} needs. This is the T2 seam described in
  * docs/PLAN.md §0: a live implementation is fed by {@code OreDictionaryMixin} into
  * {@link OreDictionaryBridge}, and tests use a {@code FakeOreDictionaryAccessor}.
@@ -19,11 +19,8 @@ public interface IOreDictionaryAccessor {
 
     Map<String, Integer> getNameToId();
 
-    List<String> getIdToName();
-
     List<List<ItemStack>> getIdToStack();
 
     List<List<ItemStack>> getIdToStackUn();
 
-    Map<Integer, List<Integer>> getStackToId();
 }

@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 243, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 245, see Appendix B)
   - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -30,7 +30,7 @@
 | 6 | **S2 (fixed 2026-11-11)** | Remaining concrete casts use `Accessors.as` (Crafting/Galacticraft/Chest); TE invoker factories are guarded and all three invoker seams are checked. | §1.5 |
 | 7 | **S2 (fixed 2026-11-11)** | `VerifyHarness` now uses the same `CanonicalEntries` predicate as NEI and the full late-OD classifier (excluded kinds + blacklist). | `VerifyHarness.java:162-250` |
 | 8 | **S3 (fixed 2026-11-11)** | Report descriptors now include `@damage` / `@*`, so damage variants stay distinct. | `report/UniDictReport.java:57-78` |
-| 9 | **S3** | `ForestryIntegration.rewriteCentrifugeProducts` still silently merges colliding canonical keys and does a non-atomic `clear()+putAll` (BUG-10 as written). | `integration/ForestryIntegration.java:266-282` |
+| 9 | **S3 (fixed 2026-11-11)** | Centrifuge canonical collisions are merged explicitly (chances summed, capped at 1.0) and a failed map replacement restores the original (BUG-10). | `integration/ForestryIntegration.java:266-325` |
 | 10 | **S3 (fixed 2026-11-11)** | `WeightedRandomChestContent.theItemId` is public in 1.7.10; the accessor mixin/interface/fake were removed in favour of direct field access. | `integration/ChestIntegration.java:85-110` |
 | 11 | **S3** | The dev-light/dependency comments, `POST_INIT` comments/table, `EtFuturum:block_copper` examples and "no findings open" docs are stale or wrong. | §8 |
 | 12 | **S3 / legal** | Many files are annotated as ports of MPL-2.0 code, but the repository only ships an MIT `LICENSE` and README says "MIT". MPL is file-level copyleft; add MPL notices/headers or clarify the licensing. | `LICENSE`, 15 ported files |
@@ -147,7 +147,7 @@ So the diagnostic says the resource should be modelled while the producer silent
 The real EtF registry name is `etfuturum:copper_block`, while docs, `ConfigData` javadoc,
 `ForgeConfigIO` help text, `ResourceHandler` javadoc and tests use `"EtFuturum:block_copper"`.
 `ConfigPresets.standard()` uses the correct lowercase value, but anyone copying the documentation gets
-a silent no-op. The existing review's §5.4 already flags this and it is still not fixed.
+a silent no-op. The existing review's §5.4 flagged this; it is fixed as described above.
 
 **Fix:**
 
@@ -404,6 +404,10 @@ Also, the class javadoc says stage 1 runs at `FMLPostInit`, but `CommonProxy.loa
 
 ### 3.1 [S3] Forestry centrifuge product map: latent collision + non-atomic replacement (BUG-10)
 
+**Status (2026-11-11): fixed.** Semantic item+damage collisions are merged (chances summed and
+capped at 1.0) with a warning, and `clear()+putAll` is backed by a restore-on-failure path. Tests
+cover both the collision and an immutable map.
+
 `ForestryIntegration.rewriteCentrifugeProducts` (`:266-282`) builds a `LinkedHashMap` and does
 `mapped.put(canonical, entry.getValue())`. In 1.7.10 `ItemStack` uses identity equality, and Forestry
 currently passes a `HashMap`, so this works today. But:
@@ -414,7 +418,7 @@ currently passes a `HashMap`, so this works today. But:
   recipe with no products. Only `UnsupportedOperationException` is caught.
 
 **Fix:** detect canonical-key collisions explicitly, merge chances (or warn + skip), and replace the
-contents in one audited step. Add a collision test. This is the existing BUG-10, still not fixed.
+contents in one audited step. Covered by `ForestryIntegrationTest` (semantic collision + immutable map).
 
 ### 3.2 [S3] `ChestIntegration` carries an unnecessary Mixin/accessor
 
@@ -435,6 +439,9 @@ baseline it is dead complexity. `AdvShapelessRecipe.output` is also public/non-f
 `AdvShapelessRecipeMixin` is similarly optional (the interface seam still has testability value).
 
 ### 3.3 [S3] `UniOreDictionary` exposes two unused accessors
+
+**Status (2026-11-11): fixed.** `getIdToName`/`getStackToId` were removed from the interface, bridge,
+mixin and test fake; only the three caches the model actually reads remain.
 
 `IOreDictionaryAccessor.getIdToName()` and `getStackToId()` (and their mixin/bridge getters) are not
 used by production code. `BUG-19` deliberately keeps the "five-field seam complete", but the two
@@ -520,7 +527,7 @@ The review's BUG-19 removed a lot, but these remnants are still worth addressing
 | `Config.keepOneEntry()` / `Config.inputReplacement()` | `Config.java:63,67` | No production callers; both features are deferred. |
 | `ConfigPresets.defaults()` | `pure/config/ConfigPresets.java:69` | Only javadoc/test references; alias of `standard()`. |
 | `UniDictReport.rewriteRecords()` | `report/UniDictReport.java:48` | No caller. |
-| `UniOreDictionary.getIdToName/getStackToId/get(Integer)` | `oredict/UniOreDictionary.java` + bridge/mixin/fake | Unused accessors (see §3.3). |
+| `UniOreDictionary` unused accessors | `oredict/UniOreDictionary.java` + bridge/mixin/fake | `getIdToName`/`getStackToId` removed 2026-11-11; `get(Integer)` remains test-only. |
 | `ResourceHandler.resourceExists` | `resource/ResourceHandler.java` | Unused. |
 | `ModuleHandler.isEmpty` / `LoadStageExecutor.isEmpty(...)` | `module/` | Superseded by the explicit `initialized` flag; only tests/misc callers. |
 | `Resource.register` / `getResources` / `addChild` / `kindExists` | `resource/Resource.java` | Test-only or future API; BUG-19 says the taxonomy API is deliberately kept. Document that, or move to a test fixture. |
@@ -752,7 +759,7 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 | ConfigReader completeness test | now covers every public `ConfigData` field (reflection) |
 | Case-insensitive metals/blacklist | now covered by `OreNamesTest.resolveConfiguredNames...` and `ResourceBlackListTest.blackListMatchingIsCaseInsensitive` |
 | Item-name token matching | `TextTest` covers the case-insensitive matcher; corrected every code/test example to `etfuturum:copper_block`. The MC-bound registry lookup remains T3. |
-| No collision test for `ForestryIntegration.rewriteCentrifugeProducts` | §3.1 / BUG-10 |
+| Centrifuge semantic collisions / immutable map | `ForestryIntegrationTest` covers both (BUG-10) |
 | Harness/NEI hidden decision | shared `CanonicalEntries` + `CanonicalEntriesTest`; same predicate in both paths |
 | Late-OD modelled filter | `OreNamesTest.modelledNamesHonoursExcludedKindsAndBlacklistedResources` |
 | Report damage suffix | `UniDictReportTest.damageSuffixDistinguishesMetadataFromWildcard`; full `GameData` rendering remains T3 |
@@ -778,7 +785,8 @@ test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictRe
    transparency promise; they must be accurate.
 5. **Resolve §1.4 dependency scope + AT state**, then apply the dependency table in §7.4 with
    `./gradlew test` + `./gradlew verifyServer` + one full-stack client run.
-6. **Fix §3.1 (BUG-10) and §3.3/§3.4 cleanup**; add the test gaps in §9.
+6. **Fix §3.1 (BUG-10) and §3.3/§3.4 cleanup** — done 2026-11-11 (collision/immutable-map tests;
+   unused OreDictionary accessors removed).
 7. **Then feature work:** GT5 integration -> `inputReplacement` -> NEI live entries -> `/unidict
    why`/`list`/JSON -> custom resources -> fuels/fluids -> UX/API.
 
@@ -836,8 +844,8 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **243 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.6% line / 41.3% branch** at the baseline.
+- `./gradlew test` — **245 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.1% line / 41.7% branch** at the baseline.
   `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real

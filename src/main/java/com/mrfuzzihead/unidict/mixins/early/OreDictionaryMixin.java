@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import com.mrfuzzihead.unidict.oredict.IOreDictionaryAccessor;
 
 /**
- * Accessor mixin for {@link OreDictionary}'s five private static caches (M3). Implements
+ * Accessor mixin for {@link OreDictionary}'s three read caches (M3). Implements
  * {@link IOreDictionaryAccessor} so the bridge / {@code UniOreDictionary} query Forge's maps through
  * the interface — no reflection.
  *
@@ -47,11 +47,6 @@ public abstract class OreDictionaryMixin implements IOreDictionaryAccessor {
         return null;
     }
 
-    @Accessor(value = "idToName", remap = false)
-    private static List<String> accessor$idToName() {
-        return null;
-    }
-
     @Accessor(value = "idToStack", remap = false)
     private static List<List<ItemStack>> accessor$idToStack() {
         return null;
@@ -62,19 +57,9 @@ public abstract class OreDictionaryMixin implements IOreDictionaryAccessor {
         return null;
     }
 
-    @Accessor(value = "stackToId", remap = false)
-    private static Map<Integer, List<Integer>> accessor$stackToId() {
-        return null;
-    }
-
     @Override
     public Map<String, Integer> getNameToId() {
         return accessor$nameToId();
-    }
-
-    @Override
-    public List<String> getIdToName() {
-        return accessor$idToName();
     }
 
     @Override
@@ -87,8 +72,4 @@ public abstract class OreDictionaryMixin implements IOreDictionaryAccessor {
         return accessor$idToStackUn();
     }
 
-    @Override
-    public Map<Integer, List<Integer>> getStackToId() {
-        return accessor$stackToId();
-    }
 }

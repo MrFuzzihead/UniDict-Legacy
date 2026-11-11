@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
@@ -224,6 +226,39 @@ class ForestryIntegrationTest {
         assertEquals(0.25f, products.get(canonicalB), 0.001f, "rewritten product's chance is preserved");
         assertTrue(products.containsKey(canonicalB), "the mapped product key is present");
         assertFalse(products.containsKey(productB), "the non-canonical product key is replaced");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsMergesSemanticCollisionsAndCapsChance() {
+        final Item item = new Item();
+        final ItemStack productA = new ItemStack(item, 1, 1);
+        final ItemStack productB = new ItemStack(item, 1, 2);
+        final ItemStack canonical = new ItemStack(item, 1, 5);
+        final Map<ItemStack, Float> products = new LinkedHashMap<>();
+        products.put(productA, 0.25f);
+        products.put(productB, 0.5f);
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, s -> canonical);
+
+        assertEquals(2, changed, "both variants were rewritten");
+        assertEquals(1, products.size(), "two canonical duplicates must merge into one product");
+        assertEquals(0.75f, products.get(canonical), 0.001f, "chances are summed");
+    }
+
+    @Test
+    void rewriteCentrifugeProductsLeavesAnImmutableMapUntouched() {
+        final Item item = new Item();
+        final ItemStack product = new ItemStack(item, 1, 1);
+        final ItemStack canonical = new ItemStack(item, 1, 5);
+        final Map<ItemStack, Float> source = new LinkedHashMap<>();
+        source.put(product, 0.5f);
+        final Map<ItemStack, Float> products = Collections.unmodifiableMap(source);
+
+        final int changed = ForestryIntegration.rewriteCentrifugeProducts(products, s -> canonical);
+
+        assertEquals(0, changed, "a failed replacement must not report a rewrite");
+        assertEquals(1, products.size());
+        assertTrue(products.containsKey(product));
     }
 
     @Test

@@ -451,6 +451,9 @@ each machine in its own try/catch so one failure cannot disable the others.
 
 ### BUG-10 — centrifuge product rewrite is only correct for identity-keyed maps (S3)
 
+**Status: fixed 2026-11-11.** Semantic item+damage collisions are merged (chances summed, capped at
+1.0) and a failed map replacement restores the original; tests cover collision and immutable maps.
+
 **Where:** `integration/ForestryIntegration.java:290-305`
 
 ```java

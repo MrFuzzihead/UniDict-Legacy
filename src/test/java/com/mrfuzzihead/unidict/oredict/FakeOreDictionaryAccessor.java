@@ -15,28 +15,19 @@ import net.minecraft.item.ItemStack;
 public final class FakeOreDictionaryAccessor implements IOreDictionaryAccessor {
 
     private final Map<String, Integer> nameToId;
-    private final List<String> idToName;
     private final List<List<ItemStack>> idToStack;
     private final List<List<ItemStack>> idToStackUn;
-    private final Map<Integer, List<Integer>> stackToId;
 
-    public FakeOreDictionaryAccessor(Map<String, Integer> nameToId, List<String> idToName,
-        List<List<ItemStack>> idToStack, List<List<ItemStack>> idToStackUn, Map<Integer, List<Integer>> stackToId) {
+    public FakeOreDictionaryAccessor(Map<String, Integer> nameToId, List<List<ItemStack>> idToStack,
+        List<List<ItemStack>> idToStackUn) {
         this.nameToId = nameToId;
-        this.idToName = idToName;
         this.idToStack = idToStack;
         this.idToStackUn = idToStackUn;
-        this.stackToId = stackToId;
     }
 
     @Override
     public Map<String, Integer> getNameToId() {
         return nameToId;
-    }
-
-    @Override
-    public List<String> getIdToName() {
-        return idToName;
     }
 
     @Override
@@ -49,8 +40,4 @@ public final class FakeOreDictionaryAccessor implements IOreDictionaryAccessor {
         return idToStackUn;
     }
 
-    @Override
-    public Map<Integer, List<Integer>> getStackToId() {
-        return stackToId;
-    }
 }
