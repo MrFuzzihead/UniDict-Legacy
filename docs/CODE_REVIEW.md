@@ -882,6 +882,8 @@ guard that greps `src/main`), which makes adding these cheap.
    `ConfigPresets.standard()` uses the correct `"etfuturum:copper_block"`. Anyone copying the doc
    value into `protectedItemNames`/`canonicalItemNames` gets a silent no-op. Pick one spelling and use
    it everywhere (and document that matching is a case-sensitive substring).
+   **Fixed (2026-11-11):** all code/test examples now use `etfuturum:copper_block`; token matching is
+   case-insensitive via `Text.containsIgnoreCase`.
 5. **Kind-name conventions are undocumented and inconsistent** (BUG-3): `ownerOfKind` examples are
    uppercase, `hideInNEIBlackSet` examples are lowercase.
 6. **`README` mod table** does not mention the Tinkers' Construct casting, Storage Drawers, drop-time

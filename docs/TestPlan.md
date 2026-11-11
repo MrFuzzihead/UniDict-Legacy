@@ -24,11 +24,11 @@ grep "unidict-verify" logs/latest.log   # every line should end in PASS
 grep "unidict-verify.*FAIL" logs/latest.log  # must be empty
 ```
 
-### Test harness baseline (2026-11-10)
+### Test harness baseline (2026-11-11)
 
-- `./gradlew test` — **226 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; measured baseline **44.1% line / 40.4% branch**.
-  `check` enforces a **43% line / 39% branch** floor (a regression guard, not a target).
+- `./gradlew test` — **231 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; measured baseline **44.4% line / 41.5% branch**.
+  `check` enforces a **44% line / 41% branch** floor (a regression guard, not a target).
 - `./gradlew gameTestServer` — boots a dedicated server and runs **23/23** live-world assertions from
   `src/gameTest`: resource model/report publication, canonical resolution, a non-canonical variant,
   the vanilla iron-ore furnace output, the real `UnifyDrops` event path, and a non-empty

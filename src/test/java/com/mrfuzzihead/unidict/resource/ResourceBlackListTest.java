@@ -52,6 +52,18 @@ class ResourceBlackListTest {
     }
 
     @Test
+    void blackListMatchingIsCaseInsensitive() {
+        final Map<String, Resource<UniResourceContainer>> resourceMap = model("Copper", "Aluminium", "Tin");
+        final Map<String, Resource<UniResourceContainer>> apiResourceMap = model("Copper", "Aluminium", "Tin");
+
+        UniResourceHandler.applyResourceBlackList(resourceMap, apiResourceMap, Arrays.asList("aluminium"));
+
+        assertFalse(resourceMap.containsKey("Aluminium"));
+        assertFalse(apiResourceMap.containsKey("Aluminium"));
+        assertTrue(resourceMap.containsKey("Copper"));
+    }
+
+    @Test
     void unknownNamesAndEmptyBlackListsAreNoOps() {
         final Map<String, Resource<UniResourceContainer>> resourceMap = model("Copper");
         final Map<String, Resource<UniResourceContainer>> apiResourceMap = model("Copper");

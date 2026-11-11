@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 226, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 231, see Appendix B)
   - `./gradlew verifyServer --offline` — **298 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -23,15 +23,15 @@
 | # | Severity | Finding | Primary location |
 |---|----------|---------|------------------|
 | 1 | **S1** | **IE integration never runs:** `Loader.isModLoaded("immersiveengineering")` is case-sensitive; IE's actual mod id is `ImmersiveEngineering`. | `integration/IntegrationModule.java:77` |
-| 2 | **S1/S2** | `ConfigReader.parse` never seeds `craftingIntegration` from the preset; `minimal` silently becomes `crafting=true` in the pure parser. Production masks it only because Forge re-adds the key. | `pure/config/ConfigReader.java:113-130` |
-| 3 | **S2** | `metalsToUnify` and `resourceBlackList` are matched **case-sensitively**, while `childrenOfMetals`, the harness and the docs are case-insensitive. A lowercase metal/blacklist entry is silently inert. | `resource/UniResourceHandler.java:86-87,123,139-145` |
+| 2 | **S1/S2 (fixed 2026-11-11)** | `ConfigReader.parse` never seeded `forestryIntegration` or `craftingIntegration` from the preset; the reflection completeness test caught both. | `pure/config/ConfigReader.java:113-130` |
+| 3 | **S2 (fixed 2026-11-11)** | `metalsToUnify`/`resourceBlackList` and item-name tokens are now case-insensitive (`OreNames.resolveConfiguredNames`, `Text.containsIgnoreCase`). | `resource/UniResourceHandler.java:86-87,123,139-145` |
 | 4 | **S2** | `dependencies.gradle` still puts every "heavy" mod on the **runtime** classpath (`devOnlyNonPublishable`), contradicting its own "dev-LIGHT / compileOnly" comment and pulling CoFH Core in. Clean-clone dev runs depend on the local, untracked AT. | `dependencies.gradle:40-65` |
 | 5 | **S2** | Server-start re-runs (`serverStarted`) and the resource pipeline / module init are **not exception-guarded**; one late-recipe failure can abort world load. | `UniDict.java:76-77,97-110`; `module/ModuleHandler.java:35-40` |
 | 6 | **S2** | Hard accessor casts and invoker casts remain in `CraftingIntegration`, `GalacticraftIntegration`, `TEIntegration` and one `ChestIntegration` path; BUG-9's `Accessors.as` hardening is incomplete, and TE invoker seams are not checked. | §1.5 |
 | 7 | **S2** | `VerifyHarness`'s per-resource `hidden=` count and `lateOd modelled=` count disagree with the real NEI/model decisions. | `VerifyHarness.java:162-190,218-250` |
 | 8 | **S3** | The transparency report drops item damage/metadata, so distinct damage variants collapse into one "variant" and the report can be wrong. | `report/UniDictReport.java:57-79` |
 | 9 | **S3** | `ForestryIntegration.rewriteCentrifugeProducts` still silently merges colliding canonical keys and does a non-atomic `clear()+putAll` (BUG-10 as written). | `integration/ForestryIntegration.java:266-282` |
-| 10 | **S3** | `WeightedRandomChestContent.theItemId` is **public** in 1.7.10, so the accessor mixin/interface/seam is unnecessary complexity (and its docs say "private"). | `mixins/early/WeightedRandomChestContentMixin.java:17` |
+| 10 | **S3 (fixed 2026-11-11)** | `WeightedRandomChestContent.theItemId` is public in 1.7.10; the accessor mixin/interface/fake were removed in favour of direct field access. | `integration/ChestIntegration.java:85-110` |
 | 11 | **S3** | The dev-light/dependency comments, `POST_INIT` comments/table, `EtFuturum:block_copper` examples and "no findings open" docs are stale or wrong. | §8 |
 | 12 | **S3 / legal** | Many files are annotated as ports of MPL-2.0 code, but the repository only ships an MIT `LICENSE` and README says "MIT". MPL is file-level copyleft; add MPL notices/headers or clarify the licensing. | `LICENSE`, 15 ported files |
 
@@ -72,39 +72,44 @@ debug level so this class of typo is visible.
 
 ---
 
-### 1.2 [S1/S2] `ConfigReader.parse` loses `craftingIntegration` from the preset
+### 1.2 [S1/S2] `ConfigReader.parse` loses `forestryIntegration` and `craftingIntegration` from the preset
+
+**Status (2026-11-11): fixed.** Both seeds were added; `ConfigReaderTest` now uses reflection to assert
+that **every** public `ConfigData` field keeps the preset value with an empty raw map.
 
 **Where:** `src/main/java/com/mrfuzzihead/unidict/pure/config/ConfigReader.java:113-130` (builder seed
 chain), while the explicit key is handled at `:221`.
 
-The builder chain seeds every `ConfigData` field except `craftingIntegration`:
+The builder chain seeds every `ConfigData` field except `forestryIntegration` and `craftingIntegration`:
 
 ```java
 .furnaceIntegration(defaults.furnaceIntegration)
 .ae2Integration(defaults.ae2Integration)
 ...
 .enderIOIntegration(defaults.enderIOIntegration)
-.railcraftIntegration(defaults.railcraftIntegration)   // <-- no .craftingIntegration(...)
+// <-- no .forestryIntegration(...)
+// <-- no .craftingIntegration(...)
+.railcraftIntegration(defaults.railcraftIntegration)
 .thermalExpansionIntegration(defaults.thermalExpansionIntegration)
 ```
 
-`ConfigData.Builder` defaults `craftingIntegration = true`, so:
+`ConfigData.Builder` defaults both to `true`, so:
 
-- `ConfigPresets.minimal()` has `craftingIntegration=false`;
-- `ConfigReader.parse(ConfigPresets.minimal(), new LinkedHashMap<>())` produces `craftingIntegration=true`.
+- `ConfigPresets.minimal()` has `forestryIntegration=false` and `craftingIntegration=false`;
+- `ConfigReader.parse(ConfigPresets.minimal(), new LinkedHashMap<>())` produces `true` for both.
 
 I confirmed this directly against the compiled classes:
 
 ```text
-minimal craftingIntegration=false
-parsed  craftingIntegration=true
+minimal forestryIntegration=false / craftingIntegration=false
+parsed  forestryIntegration=true / craftingIntegration=true
 ```
 
 **Why production currently survives:** `ForgeConfigIO.registerDefaults` writes the key with the preset
 default, and `flatten` then feeds it back into the parser. A non-Forge front end, a future test, or a
 missing/renamed key silently violates the preset contract.
 
-**Fix:** add `.craftingIntegration(defaults.craftingIntegration)` and a completeness test that asserts
+**Fix:** add both missing seeds and a completeness test that asserts
 **every** `ConfigData` field is seeded from a non-default preset (e.g. a reflection-based field list or
 an explicit assertion for every field). The current tests omit both `craftingIntegration` and
 `tinkersConstructIntegration` from the preset/integration assertions, which is why this slipped through.
@@ -112,6 +117,10 @@ an explicit assertion for every field). The current tests omit both `craftingInt
 ---
 
 ### 1.3 [S2] Metal/blacklist/item-name matching is case-sensitive and inconsistent with the diagnostics
+
+**Status (2026-11-11): fixed.** `OreNames.resolveConfiguredNames` resolves configured metals and
+blacklist entries case-insensitively (configured order preserved); `Text.containsIgnoreCase` is used by
+`isProtected`/`isCanonicalPreferred`; all EtF examples now use `etfuturum:copper_block`.
 
 **Metal discovery (`metalsToUnify`)** — `src/main/java/com/mrfuzzihead/unidict/resource/UniResourceHandler.java:86-87`:
 
@@ -384,6 +393,11 @@ currently passes a `HashMap`, so this works today. But:
 contents in one audited step. Add a collision test. This is the existing BUG-10, still not fixed.
 
 ### 3.2 [S3] `ChestIntegration` carries an unnecessary Mixin/accessor
+
+**Status (2026-11-11): fixed.** The `WeightedRandomChestContentMixin`,
+`IWeightedRandomChestContentAccessor`, fake and verify seam were removed; `ChestIntegration` writes
+the public `theItemId` field directly, and the chest tests use real `WeightedRandomChestContent`
+entries.
 
 `WeightedRandomChestContent.theItemId` is **public** in 1.7.10 (`javap`:
 `public net.minecraft.item.ItemStack theItemId;`). The accessor javadoc
@@ -674,17 +688,18 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 1. **Docs still say `POST_INIT` for integrations that run at `LOAD_COMPLETE`.** `docs/INTEGRATIONS.md`
    lines 35-45 (AE2, IC2, IE, Chest, EnderIO, Railcraft, Forestry, Drops, StorageDrawers) and several
    source comments are stale. The harness proves the real stage is `LOAD_COMPLETE`.
-2. **The `EtFuturum:block_copper` example is wrong** in `ConfigData`, `ForgeConfigIO`, `ResourceHandler`,
-   `ConfigReaderTest` and `ConfigDataTest`. The real name is `etfuturum:copper_block` and matching is a
-   case-sensitive substring. This is already listed in `CODE_REVIEW.md` §5.4 but remains.
+2. **Fixed 2026-11-11: the `EtFuturum:block_copper` example** in `ConfigData`, `ForgeConfigIO`,
+   `ResourceHandler`, `ConfigReaderTest` and `ConfigDataTest` now uses `etfuturum:copper_block`; token
+   matching is case-insensitive via `Text.containsIgnoreCase`.
 3. **`CODE_REVIEW.md` says "No findings remain open" (line 20/1089) while §5 items and BUG-10 are
    still open.** Either re-open those items or update the status. The review also says the docs
    `max-compat` description is wrong; `ConfigPresets` and `ForgeConfigIO` still say max-compat includes
    `keep-one-entry`, although `maxCompatFrom` pins it `false`.
 4. **IC2 machine count:** `docs/INTEGRATIONS.md` says 10; `CODE_REVIEW.md` says 11; the code has 10
    maps (three metal-former managers count as 3). Pick one and state the counting rule.
-5. **`README` mod table vs actual registration:** IE is listed but does not run (§1.1); the table also
-   omits TiC/Storage Drawers/drops in some older sections. Update after fixing IE.
+5. **`README` mod table vs actual registration:** IE now uses the correct id (§1.1, fixed
+   2026-11-11); a real IE-installed run is still the final verification. The table also omits
+   TiC/Storage Drawers/drops in some older sections.
 6. **License:** `LICENSE` and `src/main/resources/LICENSE` are MIT ("Copyright (c) 2026 Duncan
    Campbell"), but 15 source files are explicitly marked "Ported/Rebuilt from ... (WanionCane,
    MPL-2.0)". MPL-2.0 is a file-level copyleft with notice/source obligations. Ship the MPL notice and
@@ -707,10 +722,10 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 
 | Gap | Why it matters |
 |---|---|
-| No test for the IE mod id / `Loader.isModLoaded` constant | §1.1 was invisible to 220 tests and the server harness |
-| `ConfigReader` completeness test only asserts a subset of fields | §1.2 slipped through; `craftingIntegration` and `tinkersConstructIntegration` are both missing from preset assertions |
-| No test that `metalsToUnify`/`resourceBlackList` are case-insensitive | §1.3 |
-| No test that `protectedItemNames`/`canonicalItemNames` match the real registry name (`etfuturum:copper_block`) | §1.3 and the wrong docs |
+| IE mod id / `Loader.isModLoaded` constant | covered by `ModIdsTest` (exact ids) and `ModIdUsageTest` (no new literals) |
+| ConfigReader completeness test | now covers every public `ConfigData` field (reflection) |
+| Case-insensitive metals/blacklist | now covered by `OreNamesTest.resolveConfiguredNames...` and `ResourceBlackListTest.blackListMatchingIsCaseInsensitive` |
+| Item-name token matching | `TextTest` covers the case-insensitive matcher; corrected every code/test example to `etfuturum:copper_block`. The MC-bound registry lookup remains T3. |
 | No collision test for `ForestryIntegration.rewriteCentrifugeProducts` | §3.1 / BUG-10 |
 | No test that the harness `hidden=` count equals `NEIHideThread`'s decision | §2.1 |
 | No test for `OreNames.modelledNames` excluding `EXCLUDED_KINDS`/blacklist | §2.2 |
@@ -728,8 +743,9 @@ test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictRe
 ## 10. Suggested order of work
 
 1. **Fix §1.1 (IE id) and add a verifier** — highest user-visible bug, tiny change.
-2. **Fix §1.2 (crafting seed), §1.3 (case matching) and §3.2 (remove unnecessary chest Mixin)** —
-   small, local, testable.
+2. **Fix §1.2 (preset seeds), §1.3 (case matching) and §3.2 (remove unnecessary chest Mixin)** —
+   done 2026-11-11; covered by the reflection completeness test, `OreNamesTest`,
+   `ResourceBlackListTest`, `TextTest` and the real-loot-entry chest tests.
 3. **Fix §1.6 (guarded re-runs/module init) and §1.5 (remaining casts/invoker seams)** — robustness
    before release.
 4. **Fix §2.1/§2.2/§2.3 diagnostics/report** — the harness and `/unidict report` are the product's
@@ -794,9 +810,9 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **226 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.1% line / 40.4% branch** at the baseline.
-  `check` enforces a **43% line / 39% branch** floor and compiles the game-test mod.
+- `./gradlew test` — **231 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.4% line / 41.5% branch** at the baseline.
+  `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real
   `UnifyDrops` event, and the rewrite journal).

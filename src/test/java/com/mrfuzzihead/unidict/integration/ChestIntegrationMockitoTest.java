@@ -1,48 +1,58 @@
 package com.mrfuzzihead.unidict.integration;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.WeightedRandomChestContent;
 
 import org.junit.jupiter.api.Test;
 
-import com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor;
+import com.mrfuzzihead.unidict.chest.IChestGenHooksAccessor;
 
 /**
- * Small Mockito smoke test for the newly added test infrastructure. It exercises the same
- * {@code ChestIntegration.rewriteContent} seam as the hand-written fake, but with Mockito so future tests
- * can mock interfaces/final MC types without adding another fake class.
+ * Mockito smoke test for the test infrastructure and the chest category seam. The real 1.7.10
+ * {@code WeightedRandomChestContent.theItemId} field is public, so only the category accessor needs a
+ * fake/mock; the loot entry itself is a real object.
  */
 class ChestIntegrationMockitoTest {
 
     @Test
-    void mockitoAccessorRewritesLootItemInPlace() {
-        final IWeightedRandomChestContentAccessor content = mock(IWeightedRandomChestContentAccessor.class);
+    void mockitoCategorySeamRewritesLootItemInPlace() {
+        final IChestGenHooksAccessor category = mock(IChestGenHooksAccessor.class);
         final Item item = new Item();
         final ItemStack original = new ItemStack(item, 3, 0);
         final ItemStack canonical = new ItemStack(item, 3, 1);
+        final WeightedRandomChestContent content = new WeightedRandomChestContent(original, 0, 0, 1);
+        final List<WeightedRandomChestContent> contents = new ArrayList<>();
+        contents.add(content);
 
-        when(content.getTheItemId()).thenReturn(original);
+        when(category.getContents()).thenReturn(contents);
 
-        assertTrue(ChestIntegration.rewriteContent(content, stack -> canonical));
-        verify(content).setTheItemId(canonical);
+        assertEquals(1, ChestIntegration.rewriteCategory(category, stack -> canonical));
+        assertSame(canonical, content.theItemId);
+        verify(category).getContents();
     }
 
     @Test
-    void mockitoAccessorIsUntouchedWhenResolverReturnsIdentity() {
-        final IWeightedRandomChestContentAccessor content = mock(IWeightedRandomChestContentAccessor.class);
+    void mockitoCategorySeamLeavesIdentityResolutionUntouched() {
+        final IChestGenHooksAccessor category = mock(IChestGenHooksAccessor.class);
         final ItemStack original = new ItemStack(new Item(), 1, 0);
+        final WeightedRandomChestContent content = new WeightedRandomChestContent(original, 0, 0, 1);
+        final List<WeightedRandomChestContent> contents = new ArrayList<>();
+        contents.add(content);
 
-        when(content.getTheItemId()).thenReturn(original);
+        when(category.getContents()).thenReturn(contents);
 
-        assertFalse(ChestIntegration.rewriteContent(content, stack -> stack));
-        verify(content, never()).setTheItemId(any(ItemStack.class));
+        assertEquals(0, ChestIntegration.rewriteCategory(category, stack -> stack));
+        assertSame(original, content.theItemId);
+        verify(category).getContents();
     }
 }

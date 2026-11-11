@@ -154,6 +154,28 @@ public final class OreNames {
     }
 
     /**
+     * Resolves configured names (metals, blacklist entries) against the discovered resource spellings,
+     * case-insensitively, while preserving the configured order and de-duplicating the result. This is
+     * the case-insensitive behaviour the rest of the kind/config surface already has; before it, a
+     * lowercase {@code metalsToUnify} entry silently matched nothing.
+     *
+     * @param configured the user-configured names (any casing)
+     * @param discovered the actual resource names discovered from the dictionary
+     * @return the matching discovered names in configured order (never {@code null})
+     */
+    public static List<String> resolveConfiguredNames(final Collection<String> configured,
+        final Collection<String> discovered) {
+        final List<String> resolved = new ArrayList<>();
+        if (configured == null || configured.isEmpty() || discovered == null || discovered.isEmpty()) return resolved;
+        final Set<String> seen = new LinkedHashSet<>();
+        for (final String configuredName : configured) {
+            final String actual = KindNames.findIgnoreCase(discovered, configuredName);
+            if (actual != null && seen.add(actual)) resolved.add(actual);
+        }
+        return resolved;
+    }
+
+    /**
      * @param oreName      the full Ore Dictionary name
      * @param resourceName a suffix of {@code oreName} (see {@link #resourceOf})
      * @return the kind prefix ({@code ingotCopper} - {@code Copper} -> {@code ingot}), possibly empty

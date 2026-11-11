@@ -35,7 +35,7 @@ is expected to emit.
 | **AE2** (grinder)     | ✅ done      | M6     | public `AEApi.instance().registries().grinder()`              | POST_INIT     | ✅ (interface+fake seam)          | `PASS integration=ae2 rewritten=…` |
 | **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
 | **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
-| **Chest** (loot)      | ✅ done      | M6     | accessor seam (`ChestGenHooks`, `WeightedRandomChestContent`) | POST_INIT     | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
+| **Chest** (loot)      | ✅ done      | M6     | `ChestGenHooks` accessor + public `WeightedRandomChestContent.theItemId` | LOAD_COMPLETE | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
 | **EnderIO**           | ✅ done (T3 vfy 2026-08-14) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
 | **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | ✅ done (T3 vfy 2026-08-14) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
@@ -201,17 +201,16 @@ new M7 integration must replicate:
 - **What it is:** a best-effort, minor rewrite of **loot** (not a machine). Rewrites the ITEM of every
   Forge chest-loot entry (dungeons, mineshafts, villages, strongholds, bonus chests) in place to the
   canonical `getMainItemStack`.
-- **Non-destructive:** only the entry's item reference changes via the accessor seam; the `contents`
-  list keeps its exact count/order and each entry keeps its weights/min/max (BB-3).
-- **Accessors:**
-  - `ChestGenHooksMixin` — `@Accessor` ×2: static `chestInfo` registry + instance `contents`.
-    Forge-added fields → `remap=false`. Interface `IChestGenHooksAccessor`.
-  - `WeightedRandomChestContentMixin` — a **1.7.10-necessitated second accessor**: upstream
-    (1.12.2) rewrote `theItemId` as a *public* field, but in 1.7.10 it is `private` (notch `qx.b`,
-    SRG `field_76297_b`). Exposes get+set; `remap=true` (vanilla field). Interface
-    `IWeightedRandomChestContentAccessor`.
-- **Tests:** `ChestIntegrationTest` (3 T2, fake-driven `rewriteContents`/`rewriteCategory`/
-  `rewriteContent`); fakes `FakeChestGenHooksAccessor` + `FakeWeightedRandomChestContent`.
+- **Non-destructive:** only the entry's item reference changes via the public `theItemId` field; the
+  `contents` list keeps its exact count/order and each entry keeps its weights/min/max (BB-3).
+- **Accessor:** `ChestGenHooksMixin` — `@Accessor` ×2: static `chestInfo` registry + instance
+  `contents`. Forge-added fields → `remap=false`. Interface `IChestGenHooksAccessor`.
+- **Loot item field:** `WeightedRandomChestContent.theItemId` is **public** in 1.7.10, so the
+  integration writes it directly. The earlier assumption that it was private was wrong; the second
+  accessor Mixin/interface/fake were removed on 2026-11-11.
+- **Tests:** `ChestIntegrationTest` (3 T2, real `WeightedRandomChestContent` entries through the
+  `rewriteContents`/`rewriteCategory`/`rewriteContent` seams) and `ChestIntegrationMockitoTest`
+  (mocked `IChestGenHooksAccessor`); `FakeChestGenHooksAccessor` remains.
 - **Config:** `Config.chest()`. Registered early via `Mixins.CHEST_GEN`.
 
 ### Toolchain rules learned here (apply to M7 accessors)

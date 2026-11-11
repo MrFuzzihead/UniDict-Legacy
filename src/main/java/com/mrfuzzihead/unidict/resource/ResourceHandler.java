@@ -20,6 +20,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.common.Text;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.pure.CanonicalRules;
 import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
@@ -53,7 +54,7 @@ public final class ResourceHandler {
      * contains one of the substrings (default {@code "raw"} keeps raw metals tagged {@code rawCopper}/…
      * as the mined/processing form).</li>
      * <li>{@code protectedItemNames} — the item's registered {@code modid:path} name contains one of
-     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "EtFuturum:block_copper"}
+     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "etfuturum:copper_block"}
      * keeps a mod's decorative copper block, incl. its aged/oxidized variants).</li>
      * </ul>
      * Protected items are returned unchanged by {@link #getMainItemStack} — so a mined raw-metal or a
@@ -69,7 +70,7 @@ public final class ResourceHandler {
         try {
             for (final int oreId : OreDictionary.getOreIDs(stack)) {
                 final String name = OreDictionary.getOreName(oreId);
-                for (final String token : odTokens) if (name.contains(token)) return true;
+                for (final String token : odTokens) if (Text.containsIgnoreCase(name, token)) return true;
             }
         } catch (final Exception ignored) {
             // Never let an OD membership lookup abort canonicalization.
@@ -79,7 +80,7 @@ public final class ResourceHandler {
                 final String registry = GameData.getItemRegistry()
                     .getNameForObject(stack.getItem());
                 if (registry != null)
-                    for (final String token : itemSubstrings) if (registry.contains(token)) return true;
+                    for (final String token : itemSubstrings) if (Text.containsIgnoreCase(registry, token)) return true;
             } catch (final Exception ignored) {
                 // Never let a registry name lookup abort canonicalization.
             }
@@ -101,7 +102,8 @@ public final class ResourceHandler {
         try {
             final String registry = GameData.getItemRegistry()
                 .getNameForObject(stack.getItem());
-            if (registry != null) for (final String token : canonical) if (registry.contains(token)) return true;
+            if (registry != null)
+                for (final String token : canonical) if (Text.containsIgnoreCase(registry, token)) return true;
         } catch (final Exception ignored) {
             // Never let a registry name lookup abort selection.
         }

@@ -244,6 +244,25 @@ class OreNamesTest {
     }
 
     @Test
+    void resolveConfiguredNamesIgnoresCasePreservesConfiguredOrderAndDeduplicates() {
+        final List<String> discovered = Arrays.asList("Copper", "Iron", "Tin");
+        final List<String> configured = Arrays.asList("copper", "IRON", "missing", "Copper", "tin");
+        assertEquals(Arrays.asList("Copper", "Iron", "Tin"), OreNames.resolveConfiguredNames(configured, discovered));
+        assertTrue(
+            OreNames.resolveConfiguredNames(Collections.emptyList(), discovered)
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(configured, Collections.emptyList())
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(null, discovered)
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(configured, null)
+                .isEmpty());
+    }
+
+    @Test
     void excludedKindSetCarriesTheHistoricalEntries() {
         for (final String kind : Arrays.asList("gem", "orePoor", "stick", "blockPrismarine", "food", "hardened"))
             assertTrue(OreNames.EXCLUDED_KINDS.contains(kind), "expected " + kind + " to stay excluded");

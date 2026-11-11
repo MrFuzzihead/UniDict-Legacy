@@ -83,8 +83,7 @@ public final class UniResourceHandler {
         }
         final long childrenOfMetals = unifiedKindMask;
 
-        Config.get().metalsToUnify.stream()
-            .filter(apiResourceMap::containsKey)
+        OreNames.resolveConfiguredNames(Config.get().metalsToUnify, apiResourceMap.keySet())
             .forEach(
                 resourceName -> resourceMap.put(
                     resourceName,
@@ -139,7 +138,7 @@ public final class UniResourceHandler {
     static void applyResourceBlackList(final Map<String, Resource<UniResourceContainer>> resourceMap,
         final Map<String, Resource<UniResourceContainer>> apiResourceMap, final Collection<String> blackList) {
         if (blackList == null || blackList.isEmpty()) return;
-        for (final String blackListedResource : blackList) {
+        for (final String blackListedResource : OreNames.resolveConfiguredNames(blackList, apiResourceMap.keySet())) {
             resourceMap.remove(blackListedResource);
             apiResourceMap.remove(blackListedResource);
         }

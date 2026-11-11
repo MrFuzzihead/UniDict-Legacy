@@ -347,7 +347,7 @@ public final class VerifyHarness {
             final String kind = OreNames.kindOf(name, resource);
             if (OreNames.EXCLUDED_KINDS.contains(kind)) continue;
             if (!KindNames.containsIgnoreCase(config.childrenOfMetals, kind)) continue;
-            if (config.resourceBlackList.contains(resource)) continue;
+            if (KindNames.containsIgnoreCase(config.resourceBlackList, resource)) continue;
             final List<ItemStack> entries = UniOreDictionary.instance()
                 .getUn(name);
             if (entries == null || entries.isEmpty()) continue; // reserved-but-empty name, not a gap

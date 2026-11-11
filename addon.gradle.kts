@@ -248,7 +248,6 @@ tasks.register("verifyServer") {
             "seam=crafting/ic2AdvRecipe",
             "seam=crafting/ic2AdvShapelessRecipe",
             "seam=chest/chestGenHooks",
-            "seam=chest/weightedRandomChestContent",
             "seam=forestry/shapedOreRecipe",
             "seam=forestry/centrifugeRecipe",
             "seam=enderio/oreDictionaryPreferences",
@@ -355,15 +354,15 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // Measured baseline on 2026-11-10: 1065/2416 = 44.1% line coverage. The floor is a
+                // Measured baseline on 2026-11-11: 1078/2428 = 44.4% line coverage. The floor is a
                 // regression guard, not a target; raise it when new tests land.
-                minimum = BigDecimal("0.43")
+                minimum = BigDecimal("0.44")
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                // Measured baseline: 580/1434 = 40.4% branch coverage.
-                minimum = BigDecimal("0.39")
+                // Measured baseline: 606/1460 = 41.5% branch coverage.
+                minimum = BigDecimal("0.41")
             }
         }
     }

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,8 +29,8 @@ class ConfigReaderTest {
         raw.put("keepOneEntryModBlackList", "SomeMod, OtherMod"); // legacy alias for autoHideInNEIModBlackList
         raw.put("autoHideInNEIBlackList", "ore, ingot");
         raw.put("protectedOreDictionaryNames", "raw, tiny");
-        raw.put("protectedItemNames", "EtFuturum:block_copper");
-        raw.put("canonicalItemNames", "EtFuturum:block_copper");
+        raw.put("protectedItemNames", "etfuturum:copper_block");
+        raw.put("canonicalItemNames", "etfuturum:copper_block");
         raw.put("metalsToUnify", "[Iron, Gold, Copper, Tin]");
         raw.put("childrenOfMetals", "ingot, nugget");
         raw.put("resourceBlackList", "Aluminium, Chrome");
@@ -61,8 +63,8 @@ class ConfigReaderTest {
         assertEquals(setOf("SomeMod", "OtherMod"), c.autoHideInNEIModBlackSet);
         assertEquals(setOf("ore", "ingot"), c.hideInNEIBlackSet);
         assertEquals(setOf("raw", "tiny"), c.protectedOreDictionaryNames);
-        assertEquals(setOf("EtFuturum:block_copper"), c.protectedItemNames);
-        assertEquals(setOf("EtFuturum:block_copper"), c.canonicalItemNames);
+        assertEquals(setOf("etfuturum:copper_block"), c.protectedItemNames);
+        assertEquals(setOf("etfuturum:copper_block"), c.canonicalItemNames);
         assertEquals(setOf("Iron", "Gold", "Copper", "Tin"), c.metalsToUnify);
         assertEquals(setOf("ingot", "nugget"), c.childrenOfMetals);
         assertEquals(listOf("Aluminium", "Chrome"), c.resourceBlackList);
@@ -199,6 +201,18 @@ class ConfigReaderTest {
         assertFalse(c.ae2Integration); // minimal default (off)
         assertFalse(c.keepOneEntry); // minimal default
         assertEquals(setOf("Iron", "Gold", "Copper", "Tin"), c.metalsToUnify); // minimal metal set
+    }
+
+    @Test
+    void everyPublicConfigFieldKeepsThePresetDefaultWhenRawIsEmpty() throws Exception {
+        for (final ConfigData defaults : Arrays
+            .asList(ConfigPresets.minimal(), ConfigPresets.standard(), ConfigPresets.maxCompat())) {
+            final ConfigData parsed = ConfigReader.parse(defaults, new LinkedHashMap<>()).config;
+            for (final Field field : ConfigData.class.getDeclaredFields()) {
+                if (!Modifier.isPublic(field.getModifiers()) || Modifier.isStatic(field.getModifiers())) continue;
+                assertEquals(field.get(defaults), field.get(parsed), field.getName());
+            }
+        }
     }
 
     private static java.util.List<String> listOf(final String... values) {

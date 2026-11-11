@@ -14,12 +14,11 @@ import net.minecraft.util.WeightedRandomChestContent;
 import org.junit.jupiter.api.Test;
 
 import com.mrfuzzihead.unidict.chest.FakeChestGenHooksAccessor;
-import com.mrfuzzihead.unidict.chest.FakeWeightedRandomChestContent;
 
 /**
- * T2 test for the M6 Chest / loot rewrite (docs/PLAN.md §M6 #5). Fakes drive
+ * T2 test for the M6 Chest / loot rewrite (docs/PLAN.md §M6 #5). The real 1.7.10 loot entries drive
  * {@link ChestIntegration#rewriteContents} and {@link ChestIntegration#rewriteCategory} through their
- * resolver seams — asserting the BB-3 non-destructive guarantee: only each loot entry's item reference
+ * resolver seam — asserting the BB-3 non-destructive guarantee: only each loot entry's item reference
  * changes, never an entry is added or removed, and unresolved entries are left alone.
  *
  * <p>
@@ -34,8 +33,8 @@ class ChestIntegrationTest {
         final Item itemA = new Item();
         final ItemStack lootA = new ItemStack(itemA, 1, 1);
         final ItemStack lootB = new ItemStack(itemA, 1, 2);
-        final FakeWeightedRandomChestContent a = new FakeWeightedRandomChestContent(lootA);
-        final FakeWeightedRandomChestContent b = new FakeWeightedRandomChestContent(lootB);
+        final WeightedRandomChestContent a = new WeightedRandomChestContent(lootA, 0, 0, 1);
+        final WeightedRandomChestContent b = new WeightedRandomChestContent(lootB, 0, 0, 1);
         final List<WeightedRandomChestContent> contents = new ArrayList<>();
         contents.add(a);
         contents.add(b);
@@ -52,15 +51,15 @@ class ChestIntegrationTest {
 
         assertEquals(2, rewritten, "both loot entries should have been rewritten");
         assertEquals(2, contents.size(), "rewriting must never add or remove loot entries");
-        assertSame(canonicalA, a.getTheItemId());
-        assertSame(canonicalB, b.getTheItemId());
+        assertSame(canonicalA, a.theItemId);
+        assertSame(canonicalB, b.theItemId);
     }
 
     @Test
     void rewriteContentsLeavesUnresolvedEntriesAlone() {
         final Item itemA = new Item();
         final ItemStack loot = new ItemStack(itemA, 1, 1);
-        final FakeWeightedRandomChestContent content = new FakeWeightedRandomChestContent(loot);
+        final WeightedRandomChestContent content = new WeightedRandomChestContent(loot, 0, 0, 1);
         final List<WeightedRandomChestContent> contents = new ArrayList<>();
         contents.add(content);
 
@@ -69,7 +68,7 @@ class ChestIntegrationTest {
 
         assertEquals(0, rewritten);
         assertEquals(1, contents.size());
-        assertSame(loot, content.getTheItemId(), "unresolved entry must stay identical");
+        assertSame(loot, content.theItemId, "unresolved entry must stay identical");
     }
 
     @Test
@@ -77,8 +76,8 @@ class ChestIntegrationTest {
         final Item itemA = new Item();
         final ItemStack lootA = new ItemStack(itemA, 1, 1);
         final ItemStack lootB = new ItemStack(itemA, 1, 2);
-        final FakeWeightedRandomChestContent a = new FakeWeightedRandomChestContent(lootA);
-        final FakeWeightedRandomChestContent b = new FakeWeightedRandomChestContent(lootB);
+        final WeightedRandomChestContent a = new WeightedRandomChestContent(lootA, 0, 0, 1);
+        final WeightedRandomChestContent b = new WeightedRandomChestContent(lootB, 0, 0, 1);
         final List<WeightedRandomChestContent> contents = new ArrayList<>();
         contents.add(a);
         contents.add(b);
@@ -89,7 +88,7 @@ class ChestIntegrationTest {
         final int rewritten = ChestIntegration.rewriteCategory(category, s -> (s == lootB) ? canonicalB : s);
 
         assertEquals(1, rewritten, "only the resolvable entry is rewritten");
-        assertSame(lootA, a.getTheItemId());
-        assertSame(canonicalB, b.getTheItemId());
+        assertSame(lootA, a.theItemId);
+        assertSame(canonicalB, b.theItemId);
     }
 }
