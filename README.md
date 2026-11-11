@@ -92,6 +92,12 @@ Everything UniDict does is transparent. Type this in the chat:
 /unidict report ingotCopper
 ```
 
+The full dump is paged 20 lines at a time; add a page number after the filter when needed:
+
+```
+/unidict report ingotCopper 2
+```
+
 Handy for when you want to know exactly what "copper" is going to be in this pack.
 
 ---
@@ -126,12 +132,12 @@ UniDict is a small client-*and*-server-aware mod. You can drop it into a pack th
 
 ## Developer docs
 
-Verification: `./gradlew check` (243 unit/seam tests + Mockito + the JaCoCo coverage floor + game-test
+Verification: `./gradlew check` (241 unit/seam tests + Mockito + the JaCoCo coverage floor + game-test
 compilation), `./gradlew gameTestServer` (boots a dedicated server with the non-shipped `src/gameTest`
 mod and runs 23 in-game assertions), `./gradlew clientTest` (client smoke; use Xvfb on headless Linux),
 and `./gradlew verifyServer` (headless dedicated-server run of the `[unidict-verify]` oracle). Coverage:
-`./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 45.3% line / 41.3% branch;
-floor 44% / 41%). CI: `.github/workflows/verify-server.yml` and `.github/workflows/test-harness.yml`.
+`./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 44.7% line / 40.6% branch;
+floor 44% / 40%). CI: `.github/workflows/verify-server.yml` and `.github/workflows/test-harness.yml`.
 
 Focused dev runtime: `./gradlew runClient -PunidictDevLight` keeps the heavy integrations on the
 compile classpath only (no CoFH Core on the runtime path). Full-stack client runs need the dev-only

@@ -42,7 +42,7 @@ import com.mrfuzzihead.unidict.resource.UniResourceHandler;
  * #2) and is not wired here.
  *
  * <p>
- * Runs at POST_INIT (after {@code UniDict.postInit} published the {@code ResourceHandler}); the
+ * Runs at LOAD_COMPLETE (after {@code UniDict.loadComplete} published the {@code ResourceHandler}); the
  * module is only registered on a client with NotEnoughItems, so {@code API.hideItem} runs on the
  * client main thread (the historical crash source is calling it from worker threads).
  */

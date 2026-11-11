@@ -59,8 +59,8 @@ public final class IntegrationModule extends AbstractModule {
         // UnifyDrops: drop-time unification. Deliberately registered OUTSIDE the Config.integrationModule()
         // master-switch gate — it is gated only on its own Config.unifyDrops() toggle, so the runtime
         // drop listener is independent of the load-time machine-rewrite master switch (its pre-module
-        // behavior in CommonProxy). Running at POST_INIT means it is registered after the ResourceHandler
-        // pipeline has run (UniDict.postInit runs runResourcePipeline() before startModules).
+        // behavior in CommonProxy). Running at LOAD_COMPLETE means it is registered after the ResourceHandler
+        // pipeline has run (UniDict.loadComplete runs runResourcePipeline() before startModules).
         if (Config.unifyDrops()) executor.add(new UnifyDrops());
         // M6/M7: add more integrations here with explicit `new`, one line each, gated on both the
         // config toggle AND `Loader.isModLoaded(<modid>)` for mod integrations. The mod-loaded guard
@@ -145,8 +145,8 @@ public final class IntegrationModule extends AbstractModule {
     }
 
     /**
-     * Server-started re-run of the IC2 machine-output rewrite. The POST_INIT pass canonicalizes the
-     * live {@code Recipes.*} maps, but a pack can re-register machine recipes after POST_INIT; the
+     * Server-started re-run of the IC2 machine-output rewrite. The LOAD_COMPLETE pass canonicalizes the
+     * live {@code Recipes.*} maps, but a pack can re-register machine recipes after LOAD_COMPLETE; the
      * (idempotent, in-place) rewrite is re-run here so the authoritative final recipes are canonical
      * — and IC2's internal {@code recipeCache} observes the change (see {@link IC2Integration#runAtServerStart()}).
      */

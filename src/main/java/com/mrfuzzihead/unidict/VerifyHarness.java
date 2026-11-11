@@ -2,8 +2,10 @@ package com.mrfuzzihead.unidict;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -41,10 +43,10 @@ import cpw.mods.fml.common.registry.GameData;
  * </pre>
  *
  * <ul>
- * <li><b>Stage 1</b> — {@link #runChecks()}, at FMLPostInit: Ore-Dictionary bridge, resource report,
+ * <li><b>Stage 1</b> — {@link #runChecks()}, at LOAD_COMPLETE: Ore-Dictionary bridge, resource report,
  * transparency report.</li>
  * <li><b>Stage 2</b> — {@link #runPostRemapChecks()}, at FMLServerStarted: the resource index, checked
- * <em>after</em> Forge has applied the world's block/item id map. A post-init-only harness is
+ * <em>after</em> Forge has applied the world's block/item id map. A load-complete-only harness is
  * structurally blind to id staleness (see that method).</li>
  * </ul>
  *
@@ -134,7 +136,7 @@ public final class VerifyHarness {
         }
     }
 
-    /** Run the self-checks. Called from the post-init hook when enabled. */
+    /** Run the self-checks. Called from the load-complete hook when enabled. */
     public static void runChecks() {
         LOG.info("[unidict-verify] harness enabled — running self-checks");
         checkOreDictionaryBridge();
@@ -211,7 +213,7 @@ public final class VerifyHarness {
 
     /**
      * BUG-8 Phase B: report Ore Dictionary names that appeared after the model snapshot was taken. The
-     * model is a one-shot POST_INIT snapshot, so late registrations are invisible to selection, rewrites,
+     * model is a one-shot LOAD_COMPLETE snapshot, so late registrations are invisible to selection, rewrites,
      * drops and the report; this makes the size of that gap measurable at load-complete instead of
      * silent. Informational (a pack can legitimately register late), with a WARN naming samples so the
      * field report is actionable.
@@ -277,7 +279,7 @@ public final class VerifyHarness {
      * <p>
      * Forge fires {@code FMLModIdMappingEvent} while the world's Forge data is read (between
      * {@code FMLServerAboutToStartEvent} and this event — {@code FMLContainer.readData →
-     * GameData.injectWorldIDMap}), and reverts the map at {@code serverStopped}. Stage 1 runs at POST_INIT,
+     * GameData.injectWorldIDMap}), and reverts the map at {@code serverStopped}. Stage 1 runs at LOAD_COMPLETE,
      * <em>before</em> any of that, so it is structurally unable to observe id staleness — which is exactly
      * how the drop-time cross-wiring bug (an Amethyst Cluster dropping aluminum ore) shipped: the resource
      * index was keyed by registry ids, went stale on the remap, and a stale key landed on a <em>different</em>
@@ -452,7 +454,9 @@ public final class VerifyHarness {
 
     /**
      * The field symptom as a global invariant: a stack that belongs to no modeled group must be returned
-     * <em>by identity</em>, never swapped for another item's canonical stack.
+     * <em>by identity</em>, never swapped for another item's canonical stack. Checks damage 0 for every
+     * registry item plus every concrete damage value seen in the live Ore Dictionary, so subtype items
+     * are covered too (the old damage-0-only sweep missed them).
      */
     private static void checkNoSpuriousRewrite() {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
@@ -460,20 +464,41 @@ public final class VerifyHarness {
         int checked = 0;
         int spurious = 0;
         final List<String> sample = new ArrayList<>();
+        final Map<Item, Set<Integer>> candidates = new LinkedHashMap<>();
         for (final Object candidate : GameData.getItemRegistry()) {
             // The registry's iterator is raw-typed once its raw supertype erases the generic signature,
             // so the element type arrives as Object; skip non-Items rather than unchecked-casting.
-            if (!(candidate instanceof Item)) continue;
-            final Item item = (Item) candidate;
-            final ItemStack stack = new ItemStack(item, 1, 0);
-            checked++;
-            final ItemStack resolved = resourceHandler.getMainItemStack(stack);
-            if (resolved == stack) continue; // untouched — the expected outcome for an unmodeled item
-            if (hasModeledGroup(resourceHandler, stack)) continue; // legitimately unified
-            spurious++;
-            if (sample.size() < SAMPLE_LIMIT) sample.add(describeEntry(stack) + " -> " + describe(resolved));
+            if (candidate instanceof Item) addCandidate(candidates, (Item) candidate, 0);
+        }
+        final UniOreDictionary dictionary = UniOreDictionary.instance();
+        for (final String name : dictionary.getOreNames()) {
+            final List<ItemStack> entries = dictionary.getUn(name);
+            if (entries == null) continue;
+            for (final ItemStack entry : entries) {
+                if (entry == null || entry.getItem() == null) continue;
+                final int damage = entry.getItemDamage();
+                // A wildcard entry is a synthetic group marker; damage 0 is already covered above.
+                if (damage == OreDictionary.WILDCARD_VALUE) continue;
+                addCandidate(candidates, entry.getItem(), damage);
+            }
+        }
+        for (final Map.Entry<Item, Set<Integer>> candidate : candidates.entrySet()) {
+            for (final int damage : candidate.getValue()) {
+                final ItemStack stack = new ItemStack(candidate.getKey(), 1, damage);
+                checked++;
+                final ItemStack resolved = resourceHandler.getMainItemStack(stack);
+                if (resolved == stack) continue; // untouched — the expected outcome for an unmodeled item
+                if (hasModeledGroup(resourceHandler, stack)) continue; // legitimately unified
+                spurious++;
+                if (sample.size() < SAMPLE_LIMIT) sample.add(describeEntry(stack) + " -> " + describe(resolved));
+            }
         }
         recordWithSample(spurious == 0, "resourceIndex no-spurious-rewrite", "stacks=" + checked, spurious, sample);
+    }
+
+    private static void addCandidate(final Map<Item, Set<Integer>> candidates, final Item item, final int damage) {
+        candidates.computeIfAbsent(item, ignored -> new LinkedHashSet<>())
+            .add(damage);
     }
 
     /** @return the live Ore Dictionary group names of {@code stack}; empty when it has none. */

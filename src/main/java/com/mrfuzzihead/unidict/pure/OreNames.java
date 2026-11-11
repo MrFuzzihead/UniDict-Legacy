@@ -237,7 +237,7 @@ public final class OreNames {
 
     /**
      * Ore Dictionary names that appeared <b>after</b> the model snapshot was taken — the late-registration
-     * diagnostic (docs/CODE_REVIEW.md BUG-8 Phase B). The resource model is a one-shot POST_INIT
+     * diagnostic (docs/CODE_REVIEW.md BUG-8 Phase B). The resource model is a one-shot LOAD_COMPLETE
      * snapshot, so a name registered later (another mod's postInit, a script, a late-loaded mod) is
      * invisible to selection/rewrites; this makes that measurable instead of silent.
      *

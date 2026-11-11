@@ -111,7 +111,7 @@ public class UniDict {
         // Crafting compaction/alloy recipes (and script edits) can likewise be registered only at
         // server start; re-run the (idempotent) crafting output rewrite here to catch them.
         runGuarded("crafting server-start re-run", IntegrationModule::runCraftingAtServerStart);
-        // IC2 machine recipes (incl. the macerator) can be re-registered after POST_INIT; re-run the
+        // IC2 machine recipes (incl. the macerator) can be re-registered after LOAD_COMPLETE; re-run the
         // (idempotent, in-place) machine-output rewrite so the final authoritative recipes are canonicalized.
         runGuarded("IC2 server-start re-run", IntegrationModule::runIC2AtServerStart);
         // Tinkers' Construct casting recipes (incl. those added by its addons — ExtraTiC, TSteelworks,

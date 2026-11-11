@@ -757,10 +757,9 @@ unchanged.
 
 ### OPT-8 — report rendering
 
-`/unidict report` sends one `ChatComponentText` per line; on a GTNH pack that is 100–200 chat packets
-and several hundred string allocations per invocation. Batch into pages (e.g. 8 lines per component
-with `\n`) and add pagination (`/unidict report <resource>` already filters, but the unfiltered dump is
-loud).
+**Status (2026-11-11): fixed.** `/unidict report [resource] [page]` filters first and then sends at most
+20 lines per page via the pure `ReportPager`, so the unfiltered GTNH dump no longer emits 100–200 chat
+packets at once.
 
 ### OPT-9 — `CraftingIntegration` per-recipe warning spam
 
@@ -827,7 +826,7 @@ sub-items whose metadata encodes the material).
 6. **Localization** — there is no `src/main/resources/assets/unidict/` at all: the command strings and
    all user-facing text are hardcoded English, and `mcmod.info` has an empty `logoFile`. A lang file is
    cheap and expected for a released mod.
-7. **Pagination and chat formatting** for `/unidict report` (see OPT-8).
+7. ~~**Pagination and chat formatting** for `/unidict report`~~ — landed 2026-11-11 (see OPT-8).
 8. **A "dry run" / preview mode** that logs what would be rewritten without mutating recipes (useful
    while adding the missing integrations above).
 9. **Optional-dependency metadata** in `mcmod.info` (the integrations are optional, but pack tools get
@@ -985,11 +984,9 @@ output is covered by a differential test against the code it replaced.
 | **OPT-6** | `ConfigData` precomputes owner rank maps (global + per non-empty kind override, first occurrence wins, case-insensitive kind key); `OwnerOrder.indexOf/globalIndexOf` become map lookups instead of `List.indexOf` scans. | `ConfigDataTest` (first-occurrence wins, unlisted/null, per-kind override + case-insensitivity, empty-override fallback to global); existing `OwnerOrderTest` unchanged. |
 | **OPT-1 remainder** | `UniResourceContainer` exposes package-private `getMainEntryItem()/getMainEntryDamage()`; `ResourceHandler.getMainItemStack` decides (via the already-tested `CanonicalRules`) without allocating, and only builds the canonical stack when it will replace the input. Canonical drops, crafting lookups and server-start re-runs now allocate nothing. | `CanonicalRulesTest` covers every branch of the decision; the two accessors are field reads on the same state `getMainEntry()` uses. |
 
-**Still JVM-verifiable but not done:** OPT-2 (protection cache — needs a cache lifecycle tied to the
-re-index/config, plus the protection rules extracted), OPT-4 (`getEntries()` view — needs the MC-bound
-container, no JVM seam), OPT-8 (report batching — pure pagination is testable, but 1.7.10 chat rendering
-of multi-line components cannot be verified without a client), OPT-9 (warning aggregation — the
-collection lives in the MC-bound loop; only a trivial formatter would be testable).
+**Later status (2026-11-11):** OPT-2 (protection cache), OPT-4 (read-only `getEntries()` view), OPT-8
+(paged report via `ReportPager`) and OPT-9 (warning aggregation) have all landed; see
+`docs/CODEBASE_ANALYSIS_2026-11-10.md` §4.
 
 ### Batch 4 — headless T3 harness (+ the first item it verifies)
 
@@ -1095,10 +1092,8 @@ need yet. Implement it only if a real pack shows `missing > 0`.
 Phase C, which is only worth implementing if a real pack shows `model-complete missing > 0` — §9 explains
 how to check that in a production pack without the dev harness.
 
-**Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
-rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no
-JVM seam for the MC-bound container), OPT-8 (pagination helper is pure, chat rendering is not), OPT-9
-(aggregation lives in the MC-bound loop). Done: OPT-1, OPT-3, OPT-5, OPT-6, OPT-7 (subsumed).
+**Pure/optimization candidates:** all of OPT-1 through OPT-9 are now done; the remaining item is the
+canonical-stack cache (see `docs/CODEBASE_ANALYSIS_2026-11-10.md` §4 item 10).
 
 **Cleanup:** the rest of BUG-19 (unused `MetaItem`/`UniOreDictionary`/`ResourceHandler` surface).
 

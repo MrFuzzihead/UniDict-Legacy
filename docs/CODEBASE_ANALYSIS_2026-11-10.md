@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 243, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 241, see Appendix B)
   - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -380,6 +380,9 @@ than a string.
 
 ### 2.4 [S3] `checkNoSpuriousRewrite` only checks damage 0
 
+**Status (2026-11-11): fixed.** The sweep now covers damage 0 plus every concrete damage value seen in
+live Ore Dictionary entries (wildcard markers skipped).
+
 `VerifyHarness.checkNoSpuriousRewrite` (`:452-471`) constructs `new ItemStack(item, 1, 0)` for every
 registered item. It cannot catch a spurious rewrite for a damage-specific item whose modeled group is
 at damage 1+. Iterate the real container entries (or all OD entries) instead, or at least also test
@@ -481,11 +484,11 @@ edge, but `volatile` is cheap and documents the intent. Similarly, `UniResourceH
 
 ## 4. Optimizations (including still-open OPT items)
 
-**Status (2026-11-11): items 1–4, 6, 8 and 9 done.** The resolver now checks the exact container
-before the protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled
-entry, NEI canonical membership is O(1), `getEntries()` is a read-only view, only selected resources
-are reconciled, Crafting warnings are aggregated by recipe class, and the empty mod-blacklist path
-returns early. Items 5, 7 and 10 remain candidates.
+**Status (2026-11-11): items 1–9 done.** The resolver now checks the exact container before
+the protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled entry,
+NEI canonical membership is O(1), `getEntries()` is a read-only view, only selected resources are
+reconciled, owner namespaces are cached, Crafting warnings are aggregated by recipe class, and the
+empty mod-blacklist path returns early, and the report is paged at 20 lines. Item 10 remains a candidate.
 
 These are not release blockers, but several are directly on hot paths (`findMatchingRecipe`, drops,
 NEI load):
@@ -511,8 +514,9 @@ NEI load):
 6. **Do not register/update `apiResourceMap` resources that are not in `metalsToUnify`.** `postInit`
    calls `updateEntries()` on every discovered metal, including non-unified ones; only the filtered
    clones are published. Update only what will be used.
-7. **Report pagination/batching (`OPT-8`).** `/unidict report` sends one `ChatComponentText` per line;
-   a GT pack can produce 100–200 packets. Page it or send multi-line components.
+7. **Report pagination/batching (`OPT-8`). Fixed 2026-11-11.** `/unidict report [resource] [page]`
+   now pages the filtered report at 20 lines via the pure `ReportPager`, so a GT pack no longer sends
+   100–200 chat packets at once.
 8. **Aggregate CraftingIntegration warnings (`OPT-9`).** One line per unhandled recipe class + count,
    instead of one per recipe.
 9. **`isModBlacklisted` early return** when `autoHideInNEIModBlackSet` is empty; it currently calls
@@ -530,7 +534,7 @@ The review's BUG-19 removed a lot, but these remnants are still worth addressing
 
 | Item | Location | Note |
 |---|---|---|
-| `MetaKey.forItemAndDamage/forItem/itemIdOf/metaOf/isItemLevel/isValid` | `pure/MetaKey.java` | Only `WILDCARD` is used in production; the packing API is test-only. Keep the constant, move the rest to test scope or delete. |
+| `MetaKey` packing helpers | `pure/MetaKey.java` | Removed 2026-11-11; only the `WILDCARD` sentinel remains. |
 | `SelectionRules.mainIndex` | `pure/SelectionRules.java` | Removed 2026-11-11 (test-only). |
 | `UniResourceContainer(String,long,boolean)` | `resource/UniResourceContainer.java` | Removed 2026-11-11 (unused). |
 | `Config.keepOneEntry()` / `Config.inputReplacement()` | `Config.java` | Removed 2026-11-11 (no production callers). |
@@ -603,8 +607,8 @@ make them cheap:
 - `assets/unidict/lang` — there is **no** language file; command/log/user text is hardcoded English.
 - Config GUI (`GuiFactory`).
 - NEI tooltip/overlay showing "unified -> main" and owner rank.
-- Report pagination + JSON export (`/unidict report json` or `logs/unidict-report.json`) for pack
-  authors/CI diffing.
+- JSON report export (`/unidict report json` or `logs/unidict-report.json`) for pack authors/CI diffing
+  (pagination itself landed 2026-11-11).
 - Dry-run mode: log what would be rewritten without mutating recipes; useful while adding GT/inputs.
 - Icon (`logoFile` empty) and optional-dependency metadata in `mcmod.info`.
 - Client-side T3 in CI (virtual display) for NEI/GUI/tooltip paths.
@@ -853,9 +857,9 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **243 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.3% line / 41.3% branch** at the baseline.
-  `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
+- `./gradlew test` — **241 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.7% line / 40.6% branch** at the baseline.
+  `check` enforces a **44% line / 40% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real
   `UnifyDrops` event, and the rewrite journal).

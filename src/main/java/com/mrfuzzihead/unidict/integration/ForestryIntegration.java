@@ -406,7 +406,7 @@ final class ForestryIntegration extends AbstractModuleThread {
      * ({@code Forestry:crated<ResourceName>}) is <em>already registered</em>, adds the two reciprocal
      * carpenter recipes through {@link #CARPENTER_ADDER} — crating ({@code ingot<Name>} OD → crate) and
      * uncrating (crate → 9 × canonical ingot). A resource without a registered crate is skipped (logged
-     * deferred), never fabricated: crate <em>item</em> creation at POST_INIT is the fragile part this
+     * deferred), never fabricated: crate <em>item</em> creation at LOAD_COMPLETE is the fragile part this
      * deliberately avoids (BB-3). Additive only.
      *
      * @return number of recipes added (crating + uncrating per wired crate)

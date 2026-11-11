@@ -148,9 +148,9 @@ final class IC2Integration extends AbstractModuleThread {
     /**
      * <p>
      * Idempotent re-run of the IC2 machine-output rewrite, invoked from {@code UniDict.serverStarted}
-     * (same pattern as {@link IntegrationModule#runCraftingAtServerStart()}). The POST_INIT pass already
+     * (same pattern as {@link IntegrationModule#runCraftingAtServerStart()}). The LOAD_COMPLETE pass already
      * canonicalizes the live {@code Recipes.*} maps, but a pack can re-register machine recipes after
-     * POST_INIT (IC2 re-parses recipe sources, or another mod re-adds via {@code Recipes.*}); re-running
+     * LOAD_COMPLETE (IC2 re-parses recipe sources, or another mod re-adds via {@code Recipes.*}); re-running
      * here locks the authoritative final recipe maps onto the canonical entries. Outputs are mutated in
      * place by {@link #OUTPUT_VIEW}, so IC2's internal {@code recipeCache} stays in sync — this is what
      * makes the IC2 macerator actually emit the canonical (e.g. Thermal Foundation) dust instead of IC2's.

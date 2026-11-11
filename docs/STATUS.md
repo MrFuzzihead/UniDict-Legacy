@@ -83,7 +83,7 @@ Two review-driven batches landed on top of the above; the authoritative, severit
 
 ## M1 — Pure resource model (kinds) — KEEP (substrate for selection + report)
 - [x] `Resource`/`UniAttributes` ported; 64-kind guard enforced (`IllegalStateException` at 64) + 10 ResourceTest T1 tests green
-- [x] Pure `MetaItem` hash helpers (`pure/MetaKey`) + 5 MetaKeyTest T1 tests green; pure/resource packages contain zero `net.minecraft*` imports (grep gate PASS)
+- [x] Pure `MetaKey.WILDCARD` sentinel remains; the unused item-key packing helpers and their 5 tests were removed 2026-11-11. Pure/resource packages contain zero `net.minecraft*` imports (grep gate PASS).
 
 ## M2 — Determinism & infra rework (thread pool / DI / explicit registry)
 Two commits (scope decision 2026-08-13): **Commit 1** = determinism/infra (lands first, before any

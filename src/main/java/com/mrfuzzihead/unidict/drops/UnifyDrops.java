@@ -19,7 +19,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 /**
  * Wired through the module framework: this is an {@link AbstractModuleThread} whose load-stage
  * {@link #call()} registers the persistent drop-time listener on Forge's event bus once. Running as
- * a POST_INIT integration thread means it is registered after the {@code ResourceHandler} pipeline
+ * a LOAD_COMPLETE integration thread means it is registered after the {@code ResourceHandler} pipeline
  * has run, so {@code UniDict.resourceHandler} is already populated; the handler still self-guards on
  * readiness for safety. Safe on both sides because the {@code world.isRemote} guard confines actual
  * conversion to the logical server.

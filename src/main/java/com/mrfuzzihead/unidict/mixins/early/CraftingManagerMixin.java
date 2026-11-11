@@ -25,7 +25,7 @@ import com.mrfuzzihead.unidict.resource.ResourceHandler;
  * <p>
  * <b>Config gate:</b> this hook runs only when {@code ConfigData#craftingUnificationEnabled()}
  * ({@code craftingIntegration} + the integration master switch) is on. It used to gate only on the
- * resource handler being published — which is unconditional after POST_INIT — so crafts were unified
+ * resource handler being published — which is unconditional after LOAD_COMPLETE — so crafts were unified
  * even with the crafting integration (or the whole integration module) disabled
  * (docs/CODE_REVIEW.md BUG-5).
  */
