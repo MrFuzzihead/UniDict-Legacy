@@ -25,7 +25,7 @@
 | 1 | **S1** | **IE integration never runs:** `Loader.isModLoaded("immersiveengineering")` is case-sensitive; IE's actual mod id is `ImmersiveEngineering`. | `integration/IntegrationModule.java:77` |
 | 2 | **S1/S2 (fixed 2026-11-11)** | `ConfigReader.parse` never seeded `forestryIntegration` or `craftingIntegration` from the preset; the reflection completeness test caught both. | `pure/config/ConfigReader.java:113-130` |
 | 3 | **S2 (fixed 2026-11-11)** | `metalsToUnify`/`resourceBlackList` and item-name tokens are now case-insensitive (`OreNames.resolveConfiguredNames`, `Text.containsIgnoreCase`). | `resource/UniResourceHandler.java:86-87,123,139-145` |
-| 4 | **S2** | `dependencies.gradle` still puts every "heavy" mod on the **runtime** classpath (`devOnlyNonPublishable`), contradicting its own "dev-LIGHT / compileOnly" comment and pulling CoFH Core in. Clean-clone dev runs depend on the local, untracked AT. | `dependencies.gradle:40-65` |
+| 4 | **S2 (fixed 2026-11-11)** | The default full-stack runtime is now documented; `-PunidictDevLight` switches heavy integrations to `compileOnly` (no CoFH Core), and waila was removed. Full-stack dev still needs the dev AT. | `dependencies.gradle:36-72` |
 | 5 | **S2 (fixed 2026-11-11)** | Server-start re-runs, the resource pipeline and module dispatch are now guarded (`Guarded` + per-module/thread `Throwable` handling); drops also guard the event bus. | `UniDict.java:78-125`; `module/ModuleHandler.java:34-46` |
 | 6 | **S2 (fixed 2026-11-11)** | Remaining concrete casts use `Accessors.as` (Crafting/Galacticraft/Chest); TE invoker factories are guarded and all three invoker seams are checked. | §1.5 |
 | 7 | **S2 (fixed 2026-11-11)** | `VerifyHarness` now uses the same `CanonicalEntries` predicate as NEI and the full late-OD classifier (excluded kinds + blacklist). | `VerifyHarness.java:162-250` |
@@ -164,6 +164,10 @@ a silent no-op. The existing review's §5.4 already flags this and it is still n
 ---
 
 ### 1.4 [S2] "Dev-LIGHT" dependency intent is not what the file does; CoFH is on the runtime path
+
+**Status (2026-11-11): fixed.** Full-stack is the documented default; `-PunidictDevLight` moves the
+heavy integrations to `compileOnly` and I verified its runtime classpath has no CoFH Core. The unused
+waila dependency (which pulled CoFH Core) was removed.
 
 **Where:** `dependencies.gradle:40-65`
 
@@ -601,76 +605,83 @@ make them cheap:
 
 ## 7. Dependency analysis (`dependencies.gradle`)
 
-### 7.1 Current vs latest published (checked 2026-11-10 against GTNH Maven)
+### 7.1 Current vs latest published (updated and applied 2026-11-11)
+
+> All rows below were applied in `dependencies.gradle` on 2026-11-11 and verified with
+> `./gradlew check`, `gameTestServer` and `verifyServer`.
 
 | Dependency | Current in repo | Latest published | Recommended pin / note |
 |---|---|---|---|
-| NotEnoughItems | `2.8.122-GTNH:dev` | `2.9.4-GTNH` | `2.9.4-GTNH:dev`; its POM requires CCC **1.4.22** |
-| CodeChickenCore | `1.4.17:dev` | `1.5.0` | Use **`1.4.22:dev`** for NEI 2.9.4; `1.5.0` is newer but not the version NEI declares. Test before using 1.5.0. |
+| NotEnoughItems | `2.9.4-GTNH:dev` | `2.9.4-GTNH` | `2.9.4-GTNH:dev`; its POM requires CCC **1.4.22** |
+| CodeChickenCore | `1.4.22:dev` | `1.5.0` | Use **`1.4.22:dev`** for NEI 2.9.4; `1.5.0` is newer but not the version NEI declares. Test before using 1.5.0. |
 | Mantle | `0.5.4:dev` | `0.6.0` | TiC 1.15.0 POM still pins **0.5.4**; stay on 0.5.4 unless testing 0.6.0. |
-| Railcraft | `9.17.31:dev` | `9.18.0` | `9.18.0:dev`; API source-compatible (verified constructors/getters). Keep `exclude group: "thaumcraft"`. |
-| TinkersConstruct | `1.14.97-GTNH:dev` | `1.15.0-GTNH` | `1.15.0-GTNH:dev`; API source-compatible (`CastingRecipe.output`, `getCastingRecipes`, registry accessors). Pulls newer GTNHLib/Angelica/Natura/ForgeMultipart transitively. |
-| ForestryMC | `4.11.35:dev` | `4.12.0` | `4.12.0:dev`; API source-compatible (`CentrifugeRecipe.outputs`, `SqueezerRecipeManager.containerRecipes`, `ShapedRecipeCustom`, `ICarpenterManager.addRecipe`). |
-| EnderCore | `0.5.14:dev` | `0.6.0` | EnderIO 2.11.0 POM requires **0.5.15**; use 0.5.15 (or test 0.6.0). |
-| EnderIO | `2.10.39:dev` | `2.11.0` | `2.11.0:dev`; API source-compatible (`Recipe`, `RecipeOutput`, `OreDictionaryPreferences`, manager `getRecipes`). |
+| Railcraft | `9.18.0:dev` | `9.18.0` | `9.18.0:dev`; API source-compatible (verified constructors/getters). Keep `exclude group: "thaumcraft"`. |
+| TinkersConstruct | `1.15.0-GTNH:dev` | `1.15.0-GTNH` | `1.15.0-GTNH:dev`; API source-compatible (`CastingRecipe.output`, `getCastingRecipes`, registry accessors). Pulls newer GTNHLib/Angelica/Natura/ForgeMultipart transitively. |
+| ForestryMC | `4.12.0:dev` | `4.12.0` | `4.12.0:dev`; API source-compatible (`CentrifugeRecipe.outputs`, `SqueezerRecipeManager.containerRecipes`, `ShapedRecipeCustom`, `ICarpenterManager.addRecipe`). |
+| EnderCore | `0.5.15:dev` | `0.6.0` | EnderIO 2.11.0 POM requires **0.5.15**; use 0.5.15 (or test 0.6.0). |
+| EnderIO | `2.11.0:dev` | `2.11.0` | `2.11.0:dev`; API source-compatible (`Recipe`, `RecipeOutput`, `OreDictionaryPreferences`, manager `getRecipes`). |
 | ThermalExpansion | `curse.maven:...:2388759` | 1.7.10 final `4.1.5` | No newer 1.7.10 file; cached jar reports 4.1.5. Keep. |
 | ThermalFoundation | `curse.maven:...:2388753` | 1.7.10 final `1.2.6` | No newer 1.7.10 file; cached jar reports 1.2.6. Keep. |
 | ImmersiveEngineering | `compileOnly ...:2299020` | 1.7.10 final `0.7.7` | No newer 1.7.10 file. **Fix the code's mod-id check (IE bug), not the dependency.** |
-| Galacticraft | `3.4.33-GTNH:dev` | `3.5.0-GTNH` | `3.5.0-GTNH:dev`; API source-compatible (`CompressorRecipes.getRecipeList`). Keep GT5/TiC exclusions. |
-| Applied Energistics 2 | `rv3-beta-1030-GTNH:dev` | `rv3-beta-1099-GTNH` | `rv3-beta-1099-GTNH:dev`; `IGrinderEntry` API unchanged. Note: Maven metadata's `<latest>` is stale at 999; the directory/cache contains 1099. |
+| Galacticraft | `3.5.0-GTNH:dev` | `3.5.0-GTNH` | `3.5.0-GTNH:dev`; API source-compatible (`CompressorRecipes.getRecipeList`). Keep GT5/TiC exclusions. |
+| Applied Energistics 2 | `rv3-beta-1099-GTNH:dev` | `rv3-beta-1099-GTNH` | `rv3-beta-1099-GTNH:dev`; `IGrinderEntry` API unchanged. Note: Maven metadata's `<latest>` is stale at 999; the directory/cache contains 1099. |
 | IC2 | `net.industrial-craft:...:2.2.828-experimental:dev` | actual 2.2.828 file `6833054` | **Important:** GTNH's `useIC2FromCurseforge` substitution rewrites this to `curse.maven:ic2-242638:2353971`, whose jar reports **2.2.827**, not 2.2.828. Keep the standard coordinate unless you deliberately pin `curse.maven:ic2-242638:6833054`; document the discrepancy. |
-| Et-Futurum-Requiem | `2.6.52-GTNH:dev` | `2.7.0-GTNH` | `2.7.0-GTNH:dev`; `etfuturum:copper_block` registry name and `blockCopper` registration unchanged (verified source). |
-| waila | `1.19.31:dev` | `1.20.0` | `1.20.0:dev`; no code uses waila. This is a dev-runtime-only dependency and can also be removed to shorten dev startup. |
-| StorageDrawers | `2.2.28-GTNH:dev` | `2.3.0-GTNH` | `2.3.0-GTNH:dev`; `CompTierRegistry.register(upper, lower, rate)` unchanged (verified source). |
-| JUnit Jupiter | `5.10.2` | `6.1.3` (or 5.x latest `5.14.4`) | For a Java-8-targeted build, prefer **`5.14.4`** + `junit-platform-launcher:1.14.4` (or import `org.junit:junit-bom:5.14.4`). JUnit 6 requires Java 17+, so only use it if the test JVM/variant is explicitly raised. |
-| `junit-platform-launcher` | no version | `1.14.4` (5.x) | The JUnit BOM currently resolves 1.10.2; pin it or use the BOM. |
-| Mockito | none | `4.11.0` (`core` + `inline`) | Added for the test harness; 4.11 is the last Java-8-compatible line. Mockito 5.x needs Java 11. |
+| Et-Futurum-Requiem | `2.7.0-GTNH:dev` | `2.7.0-GTNH` | `2.7.0-GTNH:dev`; `etfuturum:copper_block` registry name and `blockCopper` registration unchanged (verified source). |
+| waila | removed | — | Removed 2026-11-11: no code uses it, and its `cofh-core` transitive dependency defeated the `-PunidictDevLight` profile. |
+| StorageDrawers | `2.3.0-GTNH:dev` | `2.3.0-GTNH` | `2.3.0-GTNH:dev`; `CompTierRegistry.register(upper, lower, rate)` unchanged (verified source). |
+| JUnit Jupiter | `5.14.4` via BOM | `6.1.3` (or 5.x latest `5.14.4`) | Applied `org.junit:junit-bom:5.14.4`; JUnit 6 requires Java 17+, so 5.14.4 is the right Java-8 line. |
+| `junit-platform-launcher` | BOM-managed `1.14.4` | `1.14.4` (5.x) | Resolved by the JUnit BOM above. |
+| Mockito | `4.11.0` (`core` + `inline`) | `5.x` | Kept at 4.11: the last Java-8-compatible line; Mockito 5.x needs Java 11. |
 
 ### 7.2 "Correct tag" observations
 
 - The `-GTNH` suffix is used correctly on NEI, TiC, Galacticraft, AE2, StorageDrawers and EtF.
-- CCC/Mantle/Railcraft/Forestry/EnderCore/EnderIO/waila have no `-GTNH` suffix in their published
-  tags; that is correct for those artifacts.
+- CCC/Mantle/Railcraft/Forestry/EnderCore/EnderIO have no `-GTNH` suffix in their published tags;
+  that is correct for those artifacts. waila was removed.
 - `curse.maven` entries use file IDs, not semantic tags. The current TE/TF/IE IDs resolve to the last
   1.7.10 releases; the cached jars confirm versions 4.1.5 / 1.2.6 / 0.7.7.
 - The IC2 coordinate is the GTNH-canonical coordinate, but it does not resolve to 2.2.828; see above.
 - `testRuntimeOnly("org.junit.platform:junit-platform-launcher")` without a version is legal because
   the JUnit BOM aligns it, but it is an implicit tag. Pin it or use a BOM for reproducibility.
 
-### 7.3 Scope classification issue (repeated from §1.4)
+### 7.3 Scope classification (fixed 2026-11-11)
 
-The "dev-light" comment is not implemented. If the intent is to keep a full runtime for the current
-full-stack regression, update the comment and make the AT story explicit. If the intent is the focused
-IC2 dev set, change the heavy dependencies to `compileOnly` and use a Gradle property/profile for the
-full-stack run. Right now the file says one thing and does another, and a clean clone's runtime
-classpath differs from the documented one.
+The default dev runtime is the full stack, matching the CI/verify/game-test expectations. `dependencies.gradle`
+now implements an explicit `heavy(...)` helper: pass `-PunidictDevLight` to move the heavy optional
+integrations to `compileOnly` for a focused IC2/EtF runtime. I verified that the dev-light
+`runtimeClasspath` contains no CoFH Core (and removed the unused waila dependency, which pulled it
+in). Full-stack `runClient` still needs the untracked dev AT or the production pack's equivalent
+`World.collidingBoundingBoxes` widening; server verify/game-test runs do not tick item entities.
 
-### 7.4 Suggested coherent update block (illustrative — test before committing)
+### 7.4 Applied dependency block (2026-11-11)
+
+The audited versions below were applied to `dependencies.gradle`. The `heavy(...)` helper is the
+scope switch: full-stack runtime by default, `-PunidictDevLight` for a focused IC2/EtF runtime.
 
 ```groovy
-// GTNH Maven artifacts (latest published as of 2026-11-10, respecting dependent POMs)
+def devLight = project.hasProperty("unidictDevLight")
+def heavy = { String notation -> devLight ? compileOnly(notation) : devOnlyNonPublishable(notation) }
+
 devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.9.4-GTNH:dev")
 devOnlyNonPublishable("com.github.GTNewHorizons:CodeChickenCore:1.4.22:dev") // NEI 2.9.4 POM pin
-devOnlyNonPublishable("com.github.GTNewHorizons:Mantle:0.5.4:dev")           // TiC 1.15 POM pin
-devOnlyNonPublishable("com.github.GTNewHorizons:Railcraft:9.18.0:dev") {
-    exclude group: "thaumcraft"
-}
-devOnlyNonPublishable("com.github.GTNewHorizons:TinkersConstruct:1.15.0-GTNH:dev")
-devOnlyNonPublishable("com.github.GTNewHorizons:ForestryMC:4.12.0:dev")
-devOnlyNonPublishable("com.github.GTNewHorizons:EnderCore:0.5.15:dev")      // EnderIO 2.11 POM pin
-devOnlyNonPublishable("com.github.GTNewHorizons:EnderIO:2.11.0:dev")
-devOnlyNonPublishable("curse.maven:ThermalExpansion-69163:2388759")         // last 1.7.10
-devOnlyNonPublishable("curse.maven:ThermalFoundation-222880:2388753")       // last 1.7.10
-compileOnly("curse.maven:ImmersiveEngineering-231951:2299020")              // last 1.7.10
-devOnlyNonPublishable("com.github.GTNewHorizons:Galacticraft:3.5.0-GTNH:dev") {
-    exclude module: "GT5-Unofficial"
-    exclude module: "TinkersConstruct"
-}
-devOnlyNonPublishable("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1099-GTNH:dev")
-devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev") // resolves to 2.2.827 via GTNH rule
+heavy("com.github.GTNewHorizons:Mantle:0.5.4:dev")                           // TiC 1.15 POM pin
+def railcraft = heavy("com.github.GTNewHorizons:Railcraft:9.18.0:dev")
+railcraft.exclude group: "thaumcraft"
+heavy("com.github.GTNewHorizons:TinkersConstruct:1.15.0-GTNH:dev")
+heavy("com.github.GTNewHorizons:ForestryMC:4.12.0:dev")
+heavy("com.github.GTNewHorizons:EnderCore:0.5.15:dev")                       // EnderIO 2.11 POM pin
+heavy("com.github.GTNewHorizons:EnderIO:2.11.0:dev")
+heavy("curse.maven:ThermalExpansion-69163:2388759")                          // last 1.7.10
+heavy("curse.maven:ThermalFoundation-222880:2388753")                        // last 1.7.10
+compileOnly("curse.maven:ImmersiveEngineering-231951:2299020")               // last 1.7.10
+def galacticraft = heavy("com.github.GTNewHorizons:Galacticraft:3.5.0-GTNH:dev")
+galacticraft.exclude module: "GT5-Unofficial"
+galacticraft.exclude module: "TinkersConstruct"
+heavy("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1099-GTNH:dev")
+devOnlyNonPublishable("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 devOnlyNonPublishable("com.github.GTNewHorizons:StorageDrawers:2.3.0-GTNH:dev")
 runtimeOnlyNonPublishable("ganymedes01.etfuturum:Et-Futurum-Requiem:2.7.0-GTNH:dev")
-runtimeOnlyNonPublishable("com.github.GTNewHorizons:waila:1.20.0:dev")      // optional/removable
+// waila was removed: unused by code and its cofh-core transitive defeated -PunidictDevLight.
 
 testImplementation("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 testImplementation(platform("org.junit:junit-bom:5.14.4"))
@@ -682,17 +693,14 @@ testImplementation("org.mockito:mockito-inline:4.11.0")
 
 **Do not** bump `Mantle` to 0.6.0, `EnderCore` to 0.6.0 or `CodeChickenCore` to 1.5.0 without a test
 run: the current dependent POMs pin older versions, and those latest artifacts may target newer
-dependents. The source APIs this mod uses are compatible with the recommended table (verified against
-the extracted source jars for Forestry 4.12, EnderIO 2.11, Railcraft 9.18, TiC 1.15, Galacticraft 3.5,
+dependents. The source APIs this mod uses are compatible with the applied table (verified against the
+extracted source jars for Forestry 4.12, EnderIO 2.11, Railcraft 9.18, TiC 1.15, Galacticraft 3.5,
 AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 
 ### 7.5 Toolchain / buildscript
 
-- `settings.gradle.kts` currently uses `gtnhsettingsconvention 2.0.34`, and the local wrapper is
-  Gradle **9.7.1**. Both are current, but **these changes are uncommitted** (`git status` shows
-  `M gradle.properties`, `M gradle/wrapper/*`, `M settings.gradle.kts`). A clean checkout still uses
-  `gtnhsettingsconvention 2.0.20` + Gradle 9.3.1. Commit the build updates atomically or revert them;
-  do not commit only one half.
+- `settings.gradle.kts` uses `gtnhsettingsconvention 2.0.34`, and the wrapper is Gradle **9.7.1**;
+  these build updates are committed (`86154d9`). No action needed.
 - The auto-update removed the comment explaining why `org.gradle.configuration-cache` must stay
   disabled (RetroFuturaGradle's reobf file collection cannot be serialized). Restore that rationale.
 - `accessTransformersFile` is empty while the local AT is auto-detected by RFG; see §1.4. The build

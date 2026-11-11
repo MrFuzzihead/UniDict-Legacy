@@ -133,6 +133,10 @@ and `./gradlew verifyServer` (headless dedicated-server run of the `[unidict-ver
 `./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 44.6% line / 41.3% branch;
 floor 44% / 41%). CI: `.github/workflows/verify-server.yml` and `.github/workflows/test-harness.yml`.
 
+Focused dev runtime: `./gradlew runClient -PunidictDevLight` keeps the heavy integrations on the
+compile classpath only (no CoFH Core on the runtime path). Full-stack client runs need the dev-only
+access transformer or the production pack's equivalent field widening; server verification does not.
+
 - [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam and verify line.
 - [`docs/PLAN.md`](docs/PLAN.md) — implementation plan and milestone gates.
 - [`docs/STATUS.md`](docs/STATUS.md) — per-milestone tracker.

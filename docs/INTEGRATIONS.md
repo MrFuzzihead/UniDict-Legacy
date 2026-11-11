@@ -517,12 +517,14 @@ M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integ
 ### 3. "dev-LIGHT" classpath — heavy mods
 
 - The heavy GTNH mods (**TE, TF, EnderIO, EnderCore, Forestry, Railcraft, Mantle, TiC, IE, AE2**)
-  transitively drag **CoFH Core** onto the runtime classpath. In the current `dependencies.gradle` they
-  are `devOnlyNonPublishable` (compile **and** dev-runtime), so `cofh-core` is on the dev runtime
-  classpath — which is exactly why the dev-only AT in gotcha #2 exists.
+  transitively drag **CoFH Core** onto the runtime classpath. The default `dependencies.gradle` keeps
+  them as `devOnlyNonPublishable` for full-stack development; pass `-PunidictDevLight` to move them to
+  `compileOnly` and keep CoFH off the focused IC2/EtF runtime. The dev-only AT in gotcha #2 is still
+  needed for full-stack `runClient`.
 - **Do not "fix" the build by dropping them:** a real user pack with TE/CoFH needs the field widened by
   the pack (as production packs do), not by UniDict. Keep local full-stack dev runs paired with the AT.
-- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH.
+- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH;
+  `-PunidictDevLight` includes AE2 in the heavy set.
 
 ### 4. Galacticraft → GregTech (transitive)
 
