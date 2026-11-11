@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.drops.UnifyDrops;
 import com.mrfuzzihead.unidict.module.AbstractModule;
 
@@ -30,10 +31,12 @@ import cpw.mods.fml.common.Loader;
  * if (Config.ic2()) executor.add(new IC2Integration());
  * if (Config.ie()) executor.add(new IEIntegration());
  * if (Config.chest()) executor.add(new ChestIntegration());
- * if (Config.railcraft() && Loader.isModLoaded("Railcraft")) executor.add(new RailcraftIntegration());
- * if (Config.forestry() && Loader.isModLoaded("Forestry")) executor.add(new ForestryIntegration());
- * if (Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) executor.add(new GalacticraftIntegration());
- * if (Config.tinkersConstruct() && Loader.isModLoaded("TConstruct")) executor.add(new TinkersConstructIntegration());
+ * if (Config.railcraft() && Loader.isModLoaded(ModIds.RAILCRAFT)) executor.add(new RailcraftIntegration());
+ * if (Config.forestry() && Loader.isModLoaded(ModIds.FORESTRY)) executor.add(new ForestryIntegration());
+ * if (Config.galacticraft() && Loader.isModLoaded(ModIds.GALACTICRAFT_CORE))
+ *     executor.add(new GalacticraftIntegration());
+ * if (Config.tinkersConstruct() && Loader.isModLoaded(ModIds.TINKERS_CONSTRUCT))
+ *     executor.add(new TinkersConstructIntegration());
  * // M7 (accessor/mixin): EIO, Railcraft, TE, Forestry (carpenter grid outputs + squeezer remnants + centrifuge product
  * // keys). M8: Galacticraft (ingot / electric ingot compressor). TiC: smeltery casting table / basin.
  * </pre>
@@ -72,39 +75,39 @@ public final class IntegrationModule extends AbstractModule {
                 seamChecks.add(CraftingIntegration::checkSeams);
             }
             if (Config.furnace()) executor.add(new FurnaceIntegration()); // vanilla, always present
-            if (Config.ic2() && Loader.isModLoaded("IC2")) executor.add(new IC2Integration());
-            if (Config.ae2() && Loader.isModLoaded("appliedenergistics2")) executor.add(new AE2Integration());
-            if (Config.ie() && Loader.isModLoaded("immersiveengineering")) executor.add(new IEIntegration());
+            if (Config.ic2() && Loader.isModLoaded(ModIds.IC2)) executor.add(new IC2Integration());
+            if (Config.ae2() && Loader.isModLoaded(ModIds.APPLIED_ENERGISTICS)) executor.add(new AE2Integration());
+            if (Config.ie() && Loader.isModLoaded(ModIds.IMMERSIVE_ENGINEERING)) executor.add(new IEIntegration());
             if (Config.chest()) {
                 executor.add(new ChestIntegration()); // vanilla, always present
                 seamChecks.add(ChestIntegration::checkSeams);
             }
             // M7 (accessor/mixin): EIO, Railcraft, TE — interface + fake seam per mod, mod-gated.
-            if (Config.enderIO() && Loader.isModLoaded("EnderIO")) {
+            if (Config.enderIO() && Loader.isModLoaded(ModIds.ENDER_IO)) {
                 executor.add(new EIOIntegration());
                 seamChecks.add(EIOIntegration::checkSeams);
             }
-            if (Config.railcraft() && Loader.isModLoaded("Railcraft")) {
+            if (Config.railcraft() && Loader.isModLoaded(ModIds.RAILCRAFT)) {
                 executor.add(new RailcraftIntegration());
                 seamChecks.add(RailcraftIntegration::checkSeams);
             }
-            if (Config.thermalExpansion() && Loader.isModLoaded("ThermalExpansion")) {
+            if (Config.thermalExpansion() && Loader.isModLoaded(ModIds.THERMAL_EXPANSION)) {
                 executor.add(new TEIntegration());
                 seamChecks.add(TEIntegration::checkSeams);
             }
-            if (Config.forestry() && Loader.isModLoaded("Forestry")) {
+            if (Config.forestry() && Loader.isModLoaded(ModIds.FORESTRY)) {
                 executor.add(new ForestryIntegration());
                 seamChecks.add(ForestryIntegration::checkSeams);
             }
-            if (Config.storageDrawers() && Loader.isModLoaded("StorageDrawers"))
+            if (Config.storageDrawers() && Loader.isModLoaded(ModIds.STORAGE_DRAWERS))
                 executor.add(new StorageDrawersIntegration());
-            if (Config.tinkersConstruct() && Loader.isModLoaded("TConstruct"))
+            if (Config.tinkersConstruct() && Loader.isModLoaded(ModIds.TINKERS_CONSTRUCT))
                 executor.add(new TinkersConstructIntegration());
 
             // Galacticraft's compressor recipes only exist once GC registers them at FMLServerStarting
             // (RecipeManagerGC.setConfigurableRecipes), so it is NOT a LoadStage module — it is triggered
             // from UniDict.serverStarted via #runGalacticraftCompressor() instead (see GalacticraftIntegration).
-            if (Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) {
+            if (Config.galacticraft() && Loader.isModLoaded(ModIds.GALACTICRAFT_CORE)) {
                 seamChecks.add(GalacticraftIntegration::checkSeams);
             }
         }
@@ -126,7 +129,7 @@ public final class IntegrationModule extends AbstractModule {
      * Config.galacticraft() is on and GalacticraftCore is loaded.
      */
     public static void runGalacticraftCompressor() {
-        if (Config.integrationModule() && Config.galacticraft() && Loader.isModLoaded("GalacticraftCore")) {
+        if (Config.integrationModule() && Config.galacticraft() && Loader.isModLoaded(ModIds.GALACTICRAFT_CORE)) {
             GalacticraftIntegration.runCompressor();
         }
     }
@@ -148,7 +151,7 @@ public final class IntegrationModule extends AbstractModule {
      * — and IC2's internal {@code recipeCache} observes the change (see {@link IC2Integration#runAtServerStart()}).
      */
     public static void runIC2AtServerStart() {
-        if (Config.integrationModule() && Config.ic2() && Loader.isModLoaded("IC2")) {
+        if (Config.integrationModule() && Config.ic2() && Loader.isModLoaded(ModIds.IC2)) {
             IC2Integration.runAtServerStart();
         }
     }
@@ -160,7 +163,7 @@ public final class IntegrationModule extends AbstractModule {
      * canonical. No-op unless {@code Config.tinkersConstruct()} is on and TConstruct is loaded.
      */
     public static void runTinkersConstructAtServerStart() {
-        if (Config.integrationModule() && Config.tinkersConstruct() && Loader.isModLoaded("TConstruct")) {
+        if (Config.integrationModule() && Config.tinkersConstruct() && Loader.isModLoaded(ModIds.TINKERS_CONSTRUCT)) {
             TinkersConstructIntegration.runAtServerStart();
         }
     }

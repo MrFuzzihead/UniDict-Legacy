@@ -3,6 +3,7 @@ package com.mrfuzzihead.unidict;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.integration.IntegrationModule;
 import com.mrfuzzihead.unidict.module.ModuleHandler;
 import com.mrfuzzihead.unidict.nei.NEIHideModule;
@@ -50,7 +51,7 @@ public class UniDict {
         // NotEnoughItems is actually present — so NEIHelper (which references codechicken.nei.api.API)
         // is never loaded on a dedicated server or an NEI-less client.
         if (event.getSide()
-            .isClient() && Loader.isModLoaded("NotEnoughItems")) moduleHandler.addModule(new NEIHideModule());
+            .isClient() && Loader.isModLoaded(ModIds.NOT_ENOUGH_ITEMS)) moduleHandler.addModule(new NEIHideModule());
     }
 
     @Mod.EventHandler

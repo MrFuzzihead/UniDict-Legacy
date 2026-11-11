@@ -18,6 +18,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.crafting.IShapedRecipesAccessor;
 import com.mrfuzzihead.unidict.crafting.IShapelessRecipesAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
@@ -59,7 +60,7 @@ final class CraftingIntegration extends AbstractModuleThread {
         VerifyHarness.checkSeam("crafting/shapedOreRecipe", IShapedOreRecipeAccessor.class, ShapedOreRecipe.class);
         VerifyHarness
             .checkSeam("crafting/shapelessOreRecipe", IShapelessOreRecipeAccessor.class, ShapelessOreRecipe.class);
-        if (Loader.isModLoaded("IC2")) {
+        if (Loader.isModLoaded(ModIds.IC2)) {
             VerifyHarness.checkSeam("crafting/ic2AdvRecipe", IAdvRecipeAccessor.class, ic2.core.AdvRecipe.class);
             VerifyHarness.checkSeam(
                 "crafting/ic2AdvShapelessRecipe",

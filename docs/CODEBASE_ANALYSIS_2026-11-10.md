@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 222, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 226, see Appendix B)
   - `./gradlew verifyServer --offline` — **298 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -41,7 +41,10 @@
 
 ### 1.1 [S1] Immersive Engineering is never integrated — wrong mod-id casing
 
-**Where:** `src/main/java/com/mrfuzzihead/unidict/integration/IntegrationModule.java:77`
+**Status (2026-11-11): fixed.** The gate now uses `ModIds.IMMERSIVE_ENGINEERING`; `ModIdsTest` pins
+`ImmersiveEngineering` and `ModIdUsageTest` forbids new `Loader.isModLoaded("...")` literals.
+
+**Where (original):** `src/main/java/com/mrfuzzihead/unidict/integration/IntegrationModule.java:77`
 
 ```java
 if (Config.ie() && Loader.isModLoaded("immersiveengineering")) executor.add(new IEIntegration());
@@ -791,7 +794,7 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **222 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew test` — **226 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
 - `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.1% line / 40.4% branch** at the baseline.
   `check` enforces a **43% line / 39% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped

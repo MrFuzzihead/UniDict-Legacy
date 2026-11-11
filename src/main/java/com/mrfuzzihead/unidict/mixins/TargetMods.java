@@ -7,6 +7,8 @@ import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 
 public enum TargetMods implements ITargetMod {
 
+    // Keep these as literals: the early/late mixin loaders read this enum before the normal mod
+    // classes are safely visible, so referencing common.ModIds here can break mixin-loader class init.
     THERMAL_EXPANSION("ThermalExpansion"),
     ENDER_IO("EnderIO"),
     RAILCRAFT("Railcraft"),
