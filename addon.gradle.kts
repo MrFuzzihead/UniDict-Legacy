@@ -149,6 +149,9 @@ tasks.withType<JavaExec>().configureEach {
         classpath += gameTestSourceSet.output
         systemProperty("unidict.devVerify", "true")
         systemProperty("unidict.clientTest", "true")
+        // Xvfb/Mesa has no hardware GL; LWJGL2 otherwise refuses the software context before the
+        // game-test hook can run. This only affects the test client, not a normal runClient.
+        systemProperty("org.lwjgl.opengl.Display.allowSoftwareOpenGL", "true")
         val logFile = clientTestLog.get().asFile
         doFirst {
             logFile.parentFile.mkdirs()
