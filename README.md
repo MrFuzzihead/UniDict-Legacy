@@ -136,6 +136,7 @@ run of the `[unidict-verify]` oracle — no display needed; wired into CI via
 - [`docs/TestPlan.md`](docs/TestPlan.md) — the T1/T2/T3 verification doctrine.
 - [`docs/TODO.md`](docs/TODO.md) — forward-looking backlog.
 - [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) — severity-ranked review findings and what has been fixed.
+- [`docs/CODEBASE_ANALYSIS_2026-11-10.md`](docs/CODEBASE_ANALYSIS_2026-11-10.md) — independent follow-up analysis (new bugs, performance, refactors, features, dependency audit).
 
 ---
 
