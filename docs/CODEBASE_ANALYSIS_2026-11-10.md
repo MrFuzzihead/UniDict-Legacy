@@ -3,8 +3,8 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 231, see Appendix B)
-  - `./gradlew verifyServer --offline` — **298 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 239, see Appendix B)
+  - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
 - **Scope:** main Java, tests, Mixins/accessors, resources, Gradle/config surface, CI, docs and
@@ -26,8 +26,8 @@
 | 2 | **S1/S2 (fixed 2026-11-11)** | `ConfigReader.parse` never seeded `forestryIntegration` or `craftingIntegration` from the preset; the reflection completeness test caught both. | `pure/config/ConfigReader.java:113-130` |
 | 3 | **S2 (fixed 2026-11-11)** | `metalsToUnify`/`resourceBlackList` and item-name tokens are now case-insensitive (`OreNames.resolveConfiguredNames`, `Text.containsIgnoreCase`). | `resource/UniResourceHandler.java:86-87,123,139-145` |
 | 4 | **S2** | `dependencies.gradle` still puts every "heavy" mod on the **runtime** classpath (`devOnlyNonPublishable`), contradicting its own "dev-LIGHT / compileOnly" comment and pulling CoFH Core in. Clean-clone dev runs depend on the local, untracked AT. | `dependencies.gradle:40-65` |
-| 5 | **S2** | Server-start re-runs (`serverStarted`) and the resource pipeline / module init are **not exception-guarded**; one late-recipe failure can abort world load. | `UniDict.java:76-77,97-110`; `module/ModuleHandler.java:35-40` |
-| 6 | **S2** | Hard accessor casts and invoker casts remain in `CraftingIntegration`, `GalacticraftIntegration`, `TEIntegration` and one `ChestIntegration` path; BUG-9's `Accessors.as` hardening is incomplete, and TE invoker seams are not checked. | §1.5 |
+| 5 | **S2 (fixed 2026-11-11)** | Server-start re-runs, the resource pipeline and module dispatch are now guarded (`Guarded` + per-module/thread `Throwable` handling); drops also guard the event bus. | `UniDict.java:78-125`; `module/ModuleHandler.java:34-46` |
+| 6 | **S2 (fixed 2026-11-11)** | Remaining concrete casts use `Accessors.as` (Crafting/Galacticraft/Chest); TE invoker factories are guarded and all three invoker seams are checked. | §1.5 |
 | 7 | **S2** | `VerifyHarness`'s per-resource `hidden=` count and `lateOd modelled=` count disagree with the real NEI/model decisions. | `VerifyHarness.java:162-190,218-250` |
 | 8 | **S3** | The transparency report drops item damage/metadata, so distinct damage variants collapse into one "variant" and the report can be wrong. | `report/UniDictReport.java:57-79` |
 | 9 | **S3** | `ForestryIntegration.rewriteCentrifugeProducts` still silently merges colliding canonical keys and does a non-atomic `clear()+putAll` (BUG-10 as written). | `integration/ForestryIntegration.java:266-282` |
@@ -207,6 +207,11 @@ file). Locally RFG auto-detects the untracked AT and prints a warning; a clean c
 
 ### 1.5 [S2] Remaining hard casts / unchecked invoker seams
 
+**Status (2026-11-11): fixed.** `CraftingIntegration`, `GalacticraftIntegration` and `ChestIntegration`
+skip an unapplied accessor with a one-time warning; TE views use `Accessors.as` and return `null`
+(which the shared core now treats as "leave untouched"), and `TEIntegration.checkSeams` checks all
+three invoker interfaces.
+
 `Accessors.as` was introduced for BUG-9, but several paths still cast directly:
 
 - `CraftingIntegration.java:122-131` — if `recipe instanceof ShapedRecipes` / `ShapelessRecipes`, it
@@ -231,6 +236,10 @@ generic `Accessors.require`/`tryAs` helper that records the failure once.
 ---
 
 ### 1.6 [S2] Server-start re-runs and pipeline/module initialization are unguarded
+
+**Status (2026-11-11): fixed.** `UniDict` wraps every load-complete/server-start phase in `Guarded`,
+`ModuleHandler` isolates each module, `LoadStageExecutor` catches `Throwable`, and `UnifyDrops`
+guards the event handler with one-time failure logging.
 
 **Where:** `UniDict.java:76-77,97-110`; `module/ModuleHandler.java:35-40`;
 `module/LoadStageExecutor.java:83`.
@@ -432,11 +441,9 @@ stage that is never dispatched.
 - `CraftingIntegration` emits one warning per unhandled recipe (OPT-9). Aggregate by recipe class and
   report counts; a GT pack can otherwise flood the log.
 - `LoadStageExecutor` logs `thread.toString()` (class name + hash) instead of `threadName` on failure.
-- `ChestIntegration` skips entries whose accessor is missing silently; if the Mixin is ever removed,
-  this becomes a silent no-op. A one-time warning per integration is enough.
-- `UnifyDrops.onEntityJoinWorld` has no defensive boundary; a malformed stack that slips through the
-  resolver could throw on the event bus. Wrap the conversion in a per-event try/catch (log once) so a
-  single bad drop cannot break the listener.
+- `ChestIntegration` now warns once if the `ChestGenHooks` accessor is missing (fixed 2026-11-11).
+- `UnifyDrops.onEntityJoinWorld` now catches `Throwable` and logs only the first failure (fixed
+  2026-11-11), so one malformed drop cannot break the listener.
 
 ### 3.6 [S3] `Config` data publication / static test state
 
@@ -730,7 +737,7 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 | No test that the harness `hidden=` count equals `NEIHideThread`'s decision | §2.1 |
 | No test for `OreNames.modelledNames` excluding `EXCLUDED_KINDS`/blacklist | §2.2 |
 | No report test with two damage variants of the same item | §2.3 |
-| No server-start failure-injection test (a throwing re-run) | §1.6 |
+| Server-start / module failure injection | `GuardedTest`, `LoadStageExecutorTest` (Error) and `ModuleHandlerTest` (failing module) now cover it |
 | No `Accessors.as` failure-path test for the concrete-class branches / TE invokers | §1.5 |
 | No test for null main entries / wildcard main entries | §1.8 |
 | No test that `ConfigPresets.minimal()` disables NEI hiding (or an explicit decision not to) | §1.9 |
@@ -746,8 +753,8 @@ test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictRe
 2. **Fix §1.2 (preset seeds), §1.3 (case matching) and §3.2 (remove unnecessary chest Mixin)** —
    done 2026-11-11; covered by the reflection completeness test, `OreNamesTest`,
    `ResourceBlackListTest`, `TextTest` and the real-loot-entry chest tests.
-3. **Fix §1.6 (guarded re-runs/module init) and §1.5 (remaining casts/invoker seams)** — robustness
-   before release.
+3. **Fix §1.6 (guarded re-runs/module init) and §1.5 (remaining casts/invoker seams)** — done
+   2026-11-11 (`Guarded`, per-module/thread Throwable handling, `Accessors.as`, TE invoker seams).
 4. **Fix §2.1/§2.2/§2.3 diagnostics/report** — the harness and `/unidict report` are the product's
    transparency promise; they must be accurate.
 5. **Resolve §1.4 dependency scope + AT state**, then apply the dependency table in §7.4 with
@@ -764,7 +771,7 @@ test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictRe
 # Unit + seam baseline (220 tests)
 ./gradlew test --offline
 
-# Headless T3 baseline: 298 stage-1 + 5 stage-2 checks, 0 failures, ~40 s
+# Headless T3 baseline: 300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s
 ./gradlew verifyServer --offline
 
 # Dependency resolution (IC2 substitution, CoFH runtime)
@@ -810,15 +817,15 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **231 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.4% line / 41.5% branch** at the baseline.
+- `./gradlew test` — **239 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.7% line / 41.4% branch** at the baseline.
   `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real
   `UnifyDrops` event, and the rewrite journal).
 - `./gradlew clientTest` — the same mod's load-complete checks on the client; needs a display/Xvfb
   and is non-blocking in CI until it has a stable history.
-- `./gradlew verifyServer` — unchanged (298 stage-1 + 5 stage-2 checks).
+- `./gradlew verifyServer` — unchanged (300 stage-1 + 5 stage-2 checks).
 
 CI: `.github/workflows/test-harness.yml` runs the unit/coverage job and the in-game server job;
 `.github/workflows/verify-server.yml` keeps the verify oracle. The next step is to write regression

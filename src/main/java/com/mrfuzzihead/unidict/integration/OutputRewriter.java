@@ -71,8 +71,13 @@ final class OutputRewriter {
             final List<ItemStack> mapped = mapItems(original, resolveMain);
             // Only rebuild when something actually changed; never touch the map otherwise.
             if (isChanged(original, mapped)) {
-                recipe.setValue(view.rebuild(output, mapped));
-                rewritten++;
+                // A view may return null when the target recipe cannot be rebuilt safely (e.g. a missing
+                // @Invoker seam); leave the recipe untouched and do not report a phantom rewrite.
+                final V rebuilt = view.rebuild(output, mapped);
+                if (rebuilt != null) {
+                    recipe.setValue(rebuilt);
+                    rewritten++;
+                }
             }
         }
         return rewritten;
@@ -96,8 +101,11 @@ final class OutputRewriter {
             final List<ItemStack> original = view.getItems(recipe);
             final List<ItemStack> mapped = mapItems(original, resolveMain);
             if (isChanged(original, mapped)) {
-                recipes.set(i, view.rebuild(recipe, mapped));
-                rewritten++;
+                final R rebuilt = view.rebuild(recipe, mapped);
+                if (rebuilt != null) {
+                    recipes.set(i, rebuilt);
+                    rewritten++;
+                }
             }
         }
         return rewritten;

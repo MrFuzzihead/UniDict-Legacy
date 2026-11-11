@@ -26,8 +26,8 @@ grep "unidict-verify.*FAIL" logs/latest.log  # must be empty
 
 ### Test harness baseline (2026-11-11)
 
-- `./gradlew test` — **231 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; measured baseline **44.4% line / 41.5% branch**.
+- `./gradlew test` — **239 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; measured baseline **44.7% line / 41.4% branch**.
   `check` enforces a **44% line / 41% branch** floor (a regression guard, not a target).
 - `./gradlew gameTestServer` — boots a dedicated server and runs **23/23** live-world assertions from
   `src/gameTest`: resource model/report publication, canonical resolution, a non-canonical variant,
@@ -36,7 +36,7 @@ grep "unidict-verify.*FAIL" logs/latest.log  # must be empty
 - `./gradlew clientTest` — the same game-test mod on the client at load-complete; prints
   `UNIDICT_CLIENT_TEST_OK` and exits. It needs a display; CI uses Xvfb and keeps this job non-blocking
   until it is stable.
-- `./gradlew verifyServer` — unchanged: **298 stage-1 + 5 stage-2** checks, 0 failures.
+- `./gradlew verifyServer` — unchanged: **300 stage-1 + 5 stage-2** checks, 0 failures.
 
 Both in-game tasks grep marker lines from their captured console logs, so a crash, hang or partial run
 fails the Gradle task instead of silently passing. The JaCoCo unit report is deliberately not merged
@@ -58,7 +58,7 @@ display. `verifyServer`:
    `harness complete` line (exit hook ran), a non-empty `report summary=resources=… rewrites=…`, every
    server-side `integration=…` line, and the `spikeA`/`resourceIndex …` checks.
 
-Current baseline: **298 stage-1 checks + 5 stage-2 checks, 0 failures, ~35 s** (including **17
+Current baseline: **300 stage-1 checks + 5 stage-2 checks, 0 failures, ~35 s** (including **19
 `PASS seam=…`** mixin-seam checks, BUG-9). It also enforces the
 BUG-8 Phase A gate in three steps: stage-1 `lateOd added=0` (the model was built from the complete
 dictionary), `lateOdServer withEntries=0` (nothing with entries appeared later) and

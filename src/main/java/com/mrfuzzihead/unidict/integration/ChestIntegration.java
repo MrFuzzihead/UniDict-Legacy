@@ -35,10 +35,18 @@ final class ChestIntegration extends AbstractModuleThread {
                 int rewritten = 0;
                 final Map<String, ChestGenHooks> chestInfo = getChestInfo();
                 if (chestInfo != null) {
+                    boolean warned = false;
                     for (final ChestGenHooks category : chestInfo.values()) {
-                        rewritten += rewriteCategory(
-                            (IChestGenHooksAccessor) category,
-                            resourceHandler::getMainItemStack);
+                        final IChestGenHooksAccessor accessor = Accessors.as(category, IChestGenHooksAccessor.class);
+                        if (accessor == null) {
+                            if (!warned) {
+                                warned = true;
+                                UniDict.LOG
+                                    .warn(threadName + "ChestGenHooks accessor not applied; chest loot skipped.");
+                            }
+                            continue;
+                        }
+                        rewritten += rewriteCategory(accessor, resourceHandler::getMainItemStack);
                     }
                 }
                 UniDict.LOG.info(threadName + "rewrote " + rewritten + " chest loot entries to their canonical items.");

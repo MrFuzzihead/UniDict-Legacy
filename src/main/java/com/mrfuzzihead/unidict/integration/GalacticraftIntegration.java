@@ -12,6 +12,7 @@ import net.minecraftforge.oredict.ShapelessOreRecipe;
 import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.crafting.IShapedRecipesAccessor;
 import com.mrfuzzihead.unidict.galacticraft.IShapelessOreRecipeAccessor;
 import com.mrfuzzihead.unidict.report.RewriteJournal;
@@ -47,17 +48,7 @@ final class GalacticraftIntegration {
         final UnaryOperator<ItemStack> resolveMain = resourceHandler::getMainItemStack;
         int rewritten = 0;
         for (final IRecipe recipe : CompressorRecipes.getRecipeList()) {
-            // Both compressor recipe types hold a mutable output; rewrite in place (BB-3).
-            if (recipe instanceof ShapedRecipes) {
-                final IShapedRecipesAccessor accessor = (IShapedRecipesAccessor) recipe;
-                rewritten += rewriteOutput(
-                    accessor::unidict$getRecipeOutput,
-                    accessor::unidict$setRecipeOutput,
-                    resolveMain);
-            } else if (recipe instanceof ShapelessOreRecipe) {
-                final IShapelessOreRecipeAccessor accessor = (IShapelessOreRecipeAccessor) recipe;
-                rewritten += rewriteOutput(accessor::unidict$getOutput, accessor::unidict$setOutput, resolveMain);
-            }
+            rewritten += rewriteRecipe(recipe, resolveMain);
         }
         // Record every run: RewriteJournal accumulates the per-pass delta into one line per machine, so a
         // later world load (GC re-registers at every FMLServerStarting) adds only newly-rewritten recipes
@@ -70,6 +61,26 @@ final class GalacticraftIntegration {
             VerifyHarness.record(true, "integration=Galacticraft", "machine=compressor", "rewritten=" + rewritten);
         }
         return rewritten;
+    }
+
+    /**
+     * Rewrites one compressor recipe through the correct accessor. A recipe whose accessor Mixin did not
+     * apply is skipped locally instead of casting and aborting the whole compressor pass.
+     *
+     * @return 1 when the output was rewritten, else 0
+     */
+    static int rewriteRecipe(final IRecipe recipe, final UnaryOperator<ItemStack> resolveMain) {
+        if (recipe instanceof ShapedRecipes) {
+            final IShapedRecipesAccessor accessor = Accessors.as(recipe, IShapedRecipesAccessor.class);
+            if (accessor == null) return 0;
+            return rewriteOutput(accessor::unidict$getRecipeOutput, accessor::unidict$setRecipeOutput, resolveMain);
+        }
+        if (recipe instanceof ShapelessOreRecipe) {
+            final IShapelessOreRecipeAccessor accessor = Accessors.as(recipe, IShapelessOreRecipeAccessor.class);
+            if (accessor == null) return 0;
+            return rewriteOutput(accessor::unidict$getOutput, accessor::unidict$setOutput, resolveMain);
+        }
+        return 0;
     }
 
     /** Non-destructive in-place output rewrite (BB-3); {@code @return} 1 if rewritten, else 0. */

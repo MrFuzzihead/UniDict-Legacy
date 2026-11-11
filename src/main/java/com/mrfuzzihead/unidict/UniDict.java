@@ -3,6 +3,7 @@ package com.mrfuzzihead.unidict;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mrfuzzihead.unidict.common.Guarded;
 import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.integration.IntegrationModule;
 import com.mrfuzzihead.unidict.module.ModuleHandler;
@@ -74,11 +75,19 @@ public class UniDict {
         // precedes world load — so the model sees the complete Ore Dictionary. Every integration, the NEI
         // hide pass and the drop listener are LOAD_COMPLETE modules, so they still run after the handler is
         // published. BB-1: the verify/report pass runs after the modules, so every rewrite is captured.
-        runResourcePipeline();
-        moduleHandler.startModules(LoadStage.getStage(event.getClass()));
+        runGuarded("resource pipeline", UniDict::runResourcePipeline);
+        runGuarded("module dispatch", () -> moduleHandler.startModules(LoadStage.getStage(event.getClass())));
         // Dev-only: verify every mixin-seam the registered integrations rely on (docs/CODE_REVIEW.md BUG-9).
-        integrationModule.checkSeams();
-        proxy.loadComplete(event);
+        runGuarded("mixin seam checks", integrationModule::checkSeams);
+        runGuarded("proxy load-complete", () -> proxy.loadComplete(event));
+    }
+
+    /**
+     * Runs one lifecycle phase in isolation. A bad optional integration must not abort world load; the
+     * failure is logged and the remaining phases/modules still run (docs/CODEBASE_ANALYSIS §1.6).
+     */
+    private static void runGuarded(final String phase, final Runnable action) {
+        Guarded.run(phase, action, t -> LOG.error("[unidict] " + phase + " failed; continuing", t));
     }
 
     /** M4 selection core: create the resource model, reconcile it, and publish the ResourceHandler. */
@@ -98,22 +107,22 @@ public class UniDict {
     public void serverStarted(FMLServerStartedEvent event) {
         // Galacticraft registers its compressor recipes during FMLServerStarting, so the compressor
         // rewrite is deferred until the server is fully up (see GalacticraftIntegration).
-        IntegrationModule.runGalacticraftCompressor();
+        runGuarded("galacticraft compressor", IntegrationModule::runGalacticraftCompressor);
         // Crafting compaction/alloy recipes (and script edits) can likewise be registered only at
         // server start; re-run the (idempotent) crafting output rewrite here to catch them.
-        IntegrationModule.runCraftingAtServerStart();
+        runGuarded("crafting server-start re-run", IntegrationModule::runCraftingAtServerStart);
         // IC2 machine recipes (incl. the macerator) can be re-registered after POST_INIT; re-run the
         // (idempotent, in-place) machine-output rewrite so the final authoritative recipes are canonicalized.
-        IntegrationModule.runIC2AtServerStart();
+        runGuarded("IC2 server-start re-run", IntegrationModule::runIC2AtServerStart);
         // Tinkers' Construct casting recipes (incl. those added by its addons — ExtraTiC, TSteelworks,
         // Mariculture) can be registered after LOAD_COMPLETE; re-run the (idempotent, in-place) casting
         // output rewrite so the final authoritative list is canonicalized.
-        IntegrationModule.runTinkersConstructAtServerStart();
+        runGuarded("Tinkers' Construct server-start re-run", IntegrationModule::runTinkersConstructAtServerStart);
         // Dev-only T3 oracle, stage 2: the world's block/item id map is applied during world load
         // (FMLModIdMappingEvent, i.e. between SERVER_ABOUT_TO_START and here), so this is the earliest
         // point at which an id-staleness regression in the resource index is observable — the drop-time
         // cross-wiring bug had no stage that could see it (docs/TODO.md #3b).
-        VerifyHarness.runPostRemapChecks();
+        runGuarded("post-remap verification", VerifyHarness::runPostRemapChecks);
         exitAfterVerificationIfRequested();
     }
 

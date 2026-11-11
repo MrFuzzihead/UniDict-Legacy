@@ -59,6 +59,34 @@ class ModuleHandlerTest {
         handler.startModules(LoadStage.PRE_INIT);
     }
 
+    @Test
+    void aModuleThatThrowsDuringInitDoesNotPreventLaterModules() {
+        final ModuleHandler handler = new ModuleHandler();
+        final List<String> log = new ArrayList<>();
+        handler.addModule(new FailingModule());
+        handler.addModule(new FakeCountingModule("after", log));
+
+        handler.startModules(LoadStage.POST_INIT);
+
+        assertEquals(
+            java.util.Arrays.asList("after"),
+            log,
+            "the healthy module must still initialize/run after a Throwable");
+    }
+
+    /** A module whose init fails with an Error (the optional-mod class-loading shape). */
+    private static final class FailingModule extends AbstractModule {
+
+        FailingModule() {
+            super("failing");
+        }
+
+        @Override
+        protected void init() {
+            throw new AssertionError("missing optional class");
+        }
+    }
+
     /** A module that registers one plain POST_INIT thread recording its name each run. */
     private static final class FakeCountingModule extends AbstractModule {
 

@@ -27,6 +27,9 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 @SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 public final class UnifyDrops extends AbstractModuleThread {
 
+    /** Log a malformed event once, not on every item tick/join. */
+    private boolean failureLogged;
+
     /** Public because {@code IntegrationModule} (a different package) constructs it. */
     public UnifyDrops() {
         super("UnifyDrops", "Integration");
@@ -47,16 +50,23 @@ public final class UnifyDrops extends AbstractModuleThread {
      */
     @SubscribeEvent
     public void onEntityJoinWorld(EntityJoinWorldEvent event) {
-        if (!Config.unifyDrops() || event.world.isRemote) return;
-        if (!(event.entity instanceof EntityItem)) return;
-        final ResourceHandler resourceHandler = UniDict.resourceHandler;
-        if (resourceHandler == null || resourceHandler.resources.isEmpty()) return;
-        final EntityItem item = (EntityItem) event.entity;
-        final ItemStack stack = item.getEntityItem();
-        if (stack == null || stack.stackSize <= 0) return;
-        final ItemStack main = unifyDrop(stack, resourceHandler::getMainItemStack);
-        // unifyDrop returns the input identity unless it really changed; only then touch the entity.
-        if (main != null && main != stack) item.setEntityItemStack(main);
+        try {
+            if (!Config.unifyDrops() || event.world.isRemote) return;
+            if (!(event.entity instanceof EntityItem)) return;
+            final ResourceHandler resourceHandler = UniDict.resourceHandler;
+            if (resourceHandler == null || resourceHandler.resources.isEmpty()) return;
+            final EntityItem item = (EntityItem) event.entity;
+            final ItemStack stack = item.getEntityItem();
+            if (stack == null || stack.stackSize <= 0) return;
+            final ItemStack main = unifyDrop(stack, resourceHandler::getMainItemStack);
+            // unifyDrop returns the input identity unless it really changed; only then touch the entity.
+            if (main != null && main != stack) item.setEntityItemStack(main);
+        } catch (final Throwable t) {
+            if (!failureLogged) {
+                failureLogged = true;
+                UniDict.LOG.error("[unidict] drop-time unification failed; further failures suppressed.", t);
+            }
+        }
     }
 
     /**

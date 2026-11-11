@@ -18,6 +18,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.crafting.IShapedRecipesAccessor;
 import com.mrfuzzihead.unidict.crafting.IShapelessRecipesAccessor;
@@ -112,6 +113,8 @@ final class CraftingIntegration extends AbstractModuleThread {
      */
     static int rewriteCraftingOutputs(final List<IRecipe> recipes, final UnaryOperator<ItemStack> resolveMain) {
         int rewritten = 0;
+        boolean warnedShaped = false;
+        boolean warnedShapeless = false;
         for (final IRecipe recipe : recipes) {
             if (recipe == null) continue;
             final ItemStack output = recipe.getRecipeOutput();
@@ -121,13 +124,29 @@ final class CraftingIntegration extends AbstractModuleThread {
 
             // Try shaped accessor (catches ShapedRecipes + subclasses like ShapedOreRecipe)
             if (recipe instanceof ShapedRecipes) {
-                ((IShapedRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
+                final IShapedRecipesAccessor accessor = Accessors.as(recipe, IShapedRecipesAccessor.class);
+                if (accessor == null) {
+                    if (!warnedShaped) {
+                        warnedShaped = true;
+                        LOG.warn(PREFIX + "ShapedRecipes accessor not applied; shaped outputs are skipped.");
+                    }
+                    continue;
+                }
+                accessor.unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }
             // Try vanilla shapeless accessor (catches ShapelessRecipes + subclasses like ShapelessOreRecipe)
             if (recipe instanceof ShapelessRecipes) {
-                ((IShapelessRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
+                final IShapelessRecipesAccessor accessor = Accessors.as(recipe, IShapelessRecipesAccessor.class);
+                if (accessor == null) {
+                    if (!warnedShapeless) {
+                        warnedShapeless = true;
+                        LOG.warn(PREFIX + "ShapelessRecipes accessor not applied; shapeless outputs are skipped.");
+                    }
+                    continue;
+                }
+                accessor.unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }

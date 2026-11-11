@@ -3,6 +3,9 @@ package com.mrfuzzihead.unidict.module;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.mrfuzzihead.unidict.LoadStage;
 
 /**
@@ -13,6 +16,8 @@ import com.mrfuzzihead.unidict.LoadStage;
  * which every stage is dispatched to the module's sequential {@link LoadStageExecutor}.
  */
 public final class ModuleHandler {
+
+    private static final Logger LOG = LogManager.getLogger("UniDict");
 
     private final List<AbstractModule> modules = new ArrayList<>();
 
@@ -29,8 +34,17 @@ public final class ModuleHandler {
     public void startModules(final LoadStage loadStage) {
         if (loadStage == null || modules.isEmpty()) return;
         for (final AbstractModule module : modules) {
-            module.initOnce();
-            module.start(loadStage);
+            try {
+                module.initOnce();
+                module.start(loadStage);
+            } catch (final Throwable t) {
+                // A broken optional module must not abort the dispatch (or the game). Keep going with
+                // the remaining modules; the failure is visible in the log and the dev harness.
+                LOG.error(
+                    "Module " + module.getClass()
+                        .getName() + " failed at load stage " + loadStage + "; continuing.",
+                    t);
+            }
         }
     }
 }

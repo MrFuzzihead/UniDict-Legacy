@@ -52,7 +52,7 @@ public abstract class CraftingManagerMixin {
             final ItemStack canonical = handler.getMainItemStack(result);
             // getMainItemStack returns identity for protected / non-unified / not-yet-ready items.
             if (canonical != result) cir.setReturnValue(canonical);
-        } catch (final Exception ignored) {
+        } catch (final Throwable ignored) {
             // Never let unification break crafting.
         }
     }

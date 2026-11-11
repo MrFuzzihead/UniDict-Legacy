@@ -90,6 +90,35 @@ class LoadStageExecutorTest {
         assertTrue(executor.isEmpty(LoadStage.LOAD_COMPLETE));
     }
 
+    @Test
+    void aThrowingThreadIsContainedAndLaterThreadsStillRun() {
+        final List<String> log = new ArrayList<>();
+        final LoadStageExecutor executor = new LoadStageExecutor("TestModule");
+        executor.add(new ThrowingThread("boom", new AssertionError("optional mod class missing")));
+        executor.add(new FakeModuleThread("after", log));
+
+        final List<String> results = executor.run(LoadStage.POST_INIT, null);
+
+        assertEquals(1, results.size(), "only the successful thread contributes a result");
+        assertEquals(java.util.Arrays.asList("after"), log, "the executor must continue after a Throwable");
+    }
+
+    /** A thread that throws an {@link Error}, not just an Exception. */
+    static final class ThrowingThread extends AbstractModuleThread {
+
+        private final Error failure;
+
+        ThrowingThread(final String name, final Error failure) {
+            super(name, "Module");
+            this.failure = failure;
+        }
+
+        @Override
+        public String call() {
+            throw failure;
+        }
+    }
+
     /** A thread pinned to the LOAD_COMPLETE stage via {@link SpecifiedLoadStage}. */
     @SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
     static final class FakeLoadCompleteThread extends AbstractModuleThread {

@@ -82,6 +82,32 @@ class OutputRewriterTest {
     }
 
     @Test
+    void nullRebuildIsSkippedAndNotCounted() {
+        final ItemStack original = new ItemStack(new Item(), 1, 1);
+        final ItemStack canonical = new ItemStack(new Item(), 1, 2);
+        final Holder holder = new Holder(new ArrayList<>(Arrays.asList(original)));
+        final Map<String, Holder> recipes = new HashMap<>();
+        recipes.put("blocked", holder);
+
+        final OutputRewriter.OutputView<Holder> refuses = new OutputRewriter.OutputView<Holder>() {
+
+            @Override
+            public List<ItemStack> getItems(final Holder output) {
+                return output.items;
+            }
+
+            @Override
+            public Holder rebuild(final Holder output, final List<ItemStack> mapped) {
+                return null; // e.g. a missing @Invoker seam: leave the record untouched
+            }
+        };
+
+        assertEquals(0, OutputRewriter.rewriteOutputs(recipes, refuses, s -> canonical));
+        assertSame(holder, recipes.get("blocked"));
+        assertSame(original, holder.items.get(0));
+    }
+
+    @Test
     void genericCoreListRemapsOutputsInPlacePreservingCount() {
         final Item itemA = new Item();
         final Item itemB = new Item();

@@ -59,8 +59,9 @@ final class TEIntegration extends AbstractModuleThread {
         @Override
         public FurnaceManager.RecipeFurnace rebuild(final FurnaceManager.RecipeFurnace original,
             final List<ItemStack> mapped) {
-            return ((IRecipeFurnaceFactory) original)
-                .rebuildFurnace(original.getInput(), mapped.get(0), original.getEnergy());
+            final IRecipeFurnaceFactory factory = Accessors.as(original, IRecipeFurnaceFactory.class);
+            if (factory == null) return null; // invoker seam missing: leave the recipe untouched
+            return factory.rebuildFurnace(original.getInput(), mapped.get(0), original.getEnergy());
         }
     };
 
@@ -75,7 +76,9 @@ final class TEIntegration extends AbstractModuleThread {
         @Override
         public PulverizerManager.RecipePulverizer rebuild(final PulverizerManager.RecipePulverizer original,
             final List<ItemStack> mapped) {
-            return ((IRecipePulverizerFactory) original).rebuildPulverizer(
+            final IRecipePulverizerFactory factory = Accessors.as(original, IRecipePulverizerFactory.class);
+            if (factory == null) return null; // invoker seam missing: leave the recipe untouched
+            return factory.rebuildPulverizer(
                 original.getInput(),
                 mapped.get(0),
                 mapped.get(1),
@@ -95,7 +98,9 @@ final class TEIntegration extends AbstractModuleThread {
         @Override
         public SmelterManager.RecipeSmelter rebuild(final SmelterManager.RecipeSmelter original,
             final List<ItemStack> mapped) {
-            return ((IRecipeSmelterFactory) original).rebuildSmelter(
+            final IRecipeSmelterFactory factory = Accessors.as(original, IRecipeSmelterFactory.class);
+            if (factory == null) return null; // invoker seam missing: leave the recipe untouched
+            return factory.rebuildSmelter(
                 original.getPrimaryInput(),
                 original.getSecondaryInput(),
                 mapped.get(0),
@@ -114,6 +119,12 @@ final class TEIntegration extends AbstractModuleThread {
         VerifyHarness.checkSeam("te/furnaceManager", IFurnaceManagerAccessor.class, FurnaceManager.class);
         VerifyHarness.checkSeam("te/pulverizerManager", IPulverizerManagerAccessor.class, PulverizerManager.class);
         VerifyHarness.checkSeam("te/smelterManager", ISmelterManagerAccessor.class, SmelterManager.class);
+        VerifyHarness.checkSeam("te/furnaceInvoker", IRecipeFurnaceFactory.class, FurnaceManager.RecipeFurnace.class);
+        VerifyHarness.checkSeam(
+            "te/pulverizerInvoker",
+            IRecipePulverizerFactory.class,
+            PulverizerManager.RecipePulverizer.class);
+        VerifyHarness.checkSeam("te/smelterInvoker", IRecipeSmelterFactory.class, SmelterManager.RecipeSmelter.class);
     }
 
     @Override
