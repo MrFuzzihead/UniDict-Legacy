@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Repository:** `C:/Users/Duncan/Documents/Workspace/UniDict-Legacy` (`main` @ `91f7498`)
 - **Baseline I verified in this workspace:**
-  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 239, see Appendix B)
+  - `./gradlew test --offline` — **220 tests, 0 failures** (pre-harness; now 243, see Appendix B)
   - `./gradlew verifyServer --offline` — **300 stage-1 + 5 stage-2 checks, 0 failures, ~40 s**
   - `./gradlew dependencies --configuration compileClasspath --offline` — resolves (with one notable
     IC2 substitution, see §7)
@@ -28,8 +28,8 @@
 | 4 | **S2** | `dependencies.gradle` still puts every "heavy" mod on the **runtime** classpath (`devOnlyNonPublishable`), contradicting its own "dev-LIGHT / compileOnly" comment and pulling CoFH Core in. Clean-clone dev runs depend on the local, untracked AT. | `dependencies.gradle:40-65` |
 | 5 | **S2 (fixed 2026-11-11)** | Server-start re-runs, the resource pipeline and module dispatch are now guarded (`Guarded` + per-module/thread `Throwable` handling); drops also guard the event bus. | `UniDict.java:78-125`; `module/ModuleHandler.java:34-46` |
 | 6 | **S2 (fixed 2026-11-11)** | Remaining concrete casts use `Accessors.as` (Crafting/Galacticraft/Chest); TE invoker factories are guarded and all three invoker seams are checked. | §1.5 |
-| 7 | **S2** | `VerifyHarness`'s per-resource `hidden=` count and `lateOd modelled=` count disagree with the real NEI/model decisions. | `VerifyHarness.java:162-190,218-250` |
-| 8 | **S3** | The transparency report drops item damage/metadata, so distinct damage variants collapse into one "variant" and the report can be wrong. | `report/UniDictReport.java:57-79` |
+| 7 | **S2 (fixed 2026-11-11)** | `VerifyHarness` now uses the same `CanonicalEntries` predicate as NEI and the full late-OD classifier (excluded kinds + blacklist). | `VerifyHarness.java:162-250` |
+| 8 | **S3 (fixed 2026-11-11)** | Report descriptors now include `@damage` / `@*`, so damage variants stay distinct. | `report/UniDictReport.java:57-78` |
 | 9 | **S3** | `ForestryIntegration.rewriteCentrifugeProducts` still silently merges colliding canonical keys and does a non-atomic `clear()+putAll` (BUG-10 as written). | `integration/ForestryIntegration.java:266-282` |
 | 10 | **S3 (fixed 2026-11-11)** | `WeightedRandomChestContent.theItemId` is public in 1.7.10; the accessor mixin/interface/fake were removed in favour of direct field access. | `integration/ChestIntegration.java:85-110` |
 | 11 | **S3** | The dev-light/dependency comments, `POST_INIT` comments/table, `EtFuturum:block_copper` examples and "no findings open" docs are stale or wrong. | §8 |
@@ -330,6 +330,9 @@ does not assert this field either.
 
 ### 2.1 [S2] `VerifyHarness` `hidden=` disagrees with the actual NEI pass
 
+**Status (2026-11-11): fixed.** `CanonicalEntries.contains` is shared by `NEIHideThread` and
+`VerifyHarness.runResourceReport`, so both apply the same protected-or-canonical-elsewhere rule.
+
 `VerifyHarness.runResourceReport` (`:162-190`) calls `SelectionRules.hiddenIndices` with
 `ResourceHandler::isProtected` as the only `alwaysVisible` predicate. `NEIHideThread` (`:69-75`) adds
 `isCanonicalElsewhere(canonicalEntries, stack)` as well. Therefore a variant that is canonical in
@@ -340,6 +343,9 @@ another container is counted as "hidden" by the harness but is actually kept vis
 predicate in `runResourceReport`.
 
 ### 2.2 [S2] `lateOd modelled=` overcounts excluded kinds / blacklisted resources
+
+**Status (2026-11-11): fixed.** The 6-arg `OreNames.modelledNames` applies `EXCLUDED_KINDS` and the
+resource blacklist; `checkLateOd` passes both, and `OreNamesTest` pins the rule.
 
 `OreNames.modelledNames` (`:261-277`) checks `metalsToUnify` and `childrenOfMetals` but does not skip:
 
@@ -352,6 +358,9 @@ never have registered. Apply the same filters in `modelledNames`, and add a test
 and a blacklisted resource.
 
 ### 2.3 [S3] Transparency report drops damage/metadata
+
+**Status (2026-11-11): fixed.** `UniDictReport.describe` and `VerifyHarness.describe` append
+`@<damage>` (or `@*` for the wildcard); `UniDictReportTest` pins the suffix.
 
 `UniDictReport.describe` (`:57-67`) returns only `modid:path`. `describeAll` (`:70-80`) de-duplicates
 by that string, so two variants with the same item but different damage (common for ore blocks,
@@ -370,6 +379,8 @@ at damage 1+. Iterate the real container entries (or all OD entries) instead, or
 each damage present in the model.
 
 ### 2.5 [S3] `VerifyHarness` comment/duplicate-javadoc cleanup
+
+**Status (2026-11-11): fixed.** The duplicated sentence and stale stage-1 comment were cleaned up.
 
 `VerifyHarness.java:386` has a duplicated sentence:
 
@@ -734,9 +745,9 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 | Case-insensitive metals/blacklist | now covered by `OreNamesTest.resolveConfiguredNames...` and `ResourceBlackListTest.blackListMatchingIsCaseInsensitive` |
 | Item-name token matching | `TextTest` covers the case-insensitive matcher; corrected every code/test example to `etfuturum:copper_block`. The MC-bound registry lookup remains T3. |
 | No collision test for `ForestryIntegration.rewriteCentrifugeProducts` | §3.1 / BUG-10 |
-| No test that the harness `hidden=` count equals `NEIHideThread`'s decision | §2.1 |
-| No test for `OreNames.modelledNames` excluding `EXCLUDED_KINDS`/blacklist | §2.2 |
-| No report test with two damage variants of the same item | §2.3 |
+| Harness/NEI hidden decision | shared `CanonicalEntries` + `CanonicalEntriesTest`; same predicate in both paths |
+| Late-OD modelled filter | `OreNamesTest.modelledNamesHonoursExcludedKindsAndBlacklistedResources` |
+| Report damage suffix | `UniDictReportTest.damageSuffixDistinguishesMetadataFromWildcard`; full `GameData` rendering remains T3 |
 | Server-start / module failure injection | `GuardedTest`, `LoadStageExecutorTest` (Error) and `ModuleHandlerTest` (failing module) now cover it |
 | No `Accessors.as` failure-path test for the concrete-class branches / TE invokers | §1.5 |
 | No test for null main entries / wildcard main entries | §1.8 |
@@ -817,8 +828,8 @@ The baseline was extended before starting the fixes, using `MrFuzzihead/Peripher
 reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the marker-driven
 one-shot server/client tasks:
 
-- `./gradlew test` — **239 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.7% line / 41.4% branch** at the baseline.
+- `./gradlew test` — **243 tests**, 0 failures (JUnit 5.10.2 + Mockito 4.11.0 + mockito-inline).
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **44.6% line / 41.3% branch** at the baseline.
   `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real

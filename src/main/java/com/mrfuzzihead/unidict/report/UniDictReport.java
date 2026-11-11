@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.MetaKey;
 import com.mrfuzzihead.unidict.pure.report.ReportEntry;
 import com.mrfuzzihead.unidict.pure.report.ReportFormatter;
 import com.mrfuzzihead.unidict.pure.report.RewriteRecord;
@@ -63,7 +64,16 @@ public final class UniDictReport {
         if (registryName == null) return Util.UNKNOWN_MOD;
         final String owner = Util.getModName(stack);
         // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
-        return registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        final String base = registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        return base + damageSuffix(stack.getItemDamage());
+    }
+
+    /**
+     * @param damage item damage/metadata
+     * @return {@code @<damage>}, or {@code @*} for the Ore Dictionary wildcard
+     */
+    static String damageSuffix(final int damage) {
+        return damage == MetaKey.WILDCARD ? "@*" : "@" + damage;
     }
 
     /** Describes each entry, de-duplicating identical qualified names for a stable variant list. */

@@ -283,6 +283,32 @@ public final class OreNames {
     public static List<String> modelledNames(final Collection<String> oreNames,
         final Collection<String> resourceUniverse, final Collection<String> metalsToUnify,
         final Collection<String> childrenOfMetals) {
+        return modelledNames(
+            oreNames,
+            resourceUniverse,
+            metalsToUnify,
+            childrenOfMetals,
+            EXCLUDED_KINDS,
+            Collections.emptySet());
+    }
+
+    /**
+     * The full late-registration classifier: a name is modelled only when its resource and kind are
+     * configured, the kind is not in {@code excludedKinds}, and the resource is not blacklisted.
+     * {@code ignoredResourceNames} is matched case-insensitively, like the rest of the config surface.
+     *
+     * @param oreNames             the names to classify
+     * @param resourceUniverse     every dictionary name, used to discover resource names
+     * @param metalsToUnify        configured metal resource names
+     * @param childrenOfMetals     configured kind names
+     * @param excludedKinds        kind prefixes that are never unified (may be {@code null})
+     * @param ignoredResourceNames resources excluded by the config blacklist (may be {@code null})
+     * @return the modelled names, sorted (never {@code null})
+     */
+    public static List<String> modelledNames(final Collection<String> oreNames,
+        final Collection<String> resourceUniverse, final Collection<String> metalsToUnify,
+        final Collection<String> childrenOfMetals, final Set<String> excludedKinds,
+        final Collection<String> ignoredResourceNames) {
         final List<String> modelled = new ArrayList<>();
         if (oreNames == null || oreNames.isEmpty()) return modelled;
         final List<String> resources = metalResourceNames(resourceUniverse);
@@ -292,7 +318,10 @@ public final class OreNames {
             final String resource = resourceOf(name, resources);
             if (resource == null) continue;
             if (!KindNames.containsIgnoreCase(metalsToUnify, resource)) continue;
-            if (!KindNames.containsIgnoreCase(childrenOfMetals, kindOf(name, resource))) continue;
+            final String kind = kindOf(name, resource);
+            if (excludedKinds != null && excludedKinds.contains(kind)) continue;
+            if (!KindNames.containsIgnoreCase(childrenOfMetals, kind)) continue;
+            if (KindNames.containsIgnoreCase(ignoredResourceNames, resource)) continue;
             modelled.add(name);
         }
         java.util.Collections.sort(modelled);

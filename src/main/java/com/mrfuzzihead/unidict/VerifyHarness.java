@@ -15,6 +15,7 @@ import net.minecraftforge.oredict.OreDictionary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mrfuzzihead.unidict.common.CanonicalEntries;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.oredict.OreDictionaryBridge;
 import com.mrfuzzihead.unidict.oredict.UniOreDictionary;
@@ -168,6 +169,11 @@ public final class VerifyHarness {
         final List<String> lines = new ArrayList<>();
         final boolean autoHideInNEI = Config.get().autoHideInNEI;
         final Set<Long> kindBlackSet = UniResourceHandler.getKindBlackSet();
+        // Match NEIHideThread exactly: a variant that is canonical in another container is never hidden.
+        final List<ItemStack> canonicalEntries = new ArrayList<>();
+        for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
+            for (final UniResourceContainer container : resource.getChildrenCollection())
+                canonicalEntries.add(container.getMainEntry());
         for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 final List<ItemStack> entries = container.getEntries();
@@ -178,7 +184,8 @@ public final class VerifyHarness {
                         container.kind,
                         kindBlackSet,
                         ResourceHandler::isModBlacklisted,
-                        ResourceHandler::isProtected)
+                        stack -> ResourceHandler.isProtected(stack)
+                            || CanonicalEntries.contains(canonicalEntries, stack))
                     .size();
                 lines.add(
                     "resource=" + container.name
@@ -234,8 +241,13 @@ public final class VerifyHarness {
                 .getUn(name);
             if (entries != null && !entries.isEmpty()) addedWithEntries.add(name);
         }
-        final List<String> modelledNames = OreNames
-            .modelledNames(addedWithEntries, live, Config.get().metalsToUnify, Config.get().childrenOfMetals);
+        final List<String> modelledNames = OreNames.modelledNames(
+            addedWithEntries,
+            live,
+            Config.get().metalsToUnify,
+            Config.get().childrenOfMetals,
+            OreNames.EXCLUDED_KINDS,
+            Config.get().resourceBlackList);
         final List<String> modelledSample = (modelledNames.size() <= SAMPLE_LIMIT) ? modelledNames
             : modelledNames.subList(0, SAMPLE_LIMIT);
         // The modelled entries are the actionable ones for Phase A; the raw alphabetical sample only shows
@@ -383,8 +395,7 @@ public final class VerifyHarness {
     }
 
     /**
-     * Every variant must still be resolvable after the remap /** Every variant must still be resolvable after the remap
-     * — the cheapest id-staleness detector.
+     * Every variant must still be resolvable after the remap — the cheapest id-staleness detector.
      */
     private static void checkIndexCoverage() {
         final ResourceHandler resourceHandler = UniDict.resourceHandler;
@@ -517,6 +528,8 @@ public final class VerifyHarness {
         if (registryName == null) return Util.UNKNOWN_MOD;
         final String owner = Util.getModName(stack);
         // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
-        return registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        final String base = registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        final int damage = stack.getItemDamage();
+        return base + (damage == OreDictionary.WILDCARD_VALUE ? "@*" : "@" + damage);
     }
 }

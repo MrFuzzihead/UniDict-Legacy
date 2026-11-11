@@ -126,11 +126,11 @@ UniDict is a small client-*and*-server-aware mod. You can drop it into a pack th
 
 ## Developer docs
 
-Verification: `./gradlew check` (239 unit/seam tests + Mockito + the JaCoCo coverage floor + game-test
+Verification: `./gradlew check` (243 unit/seam tests + Mockito + the JaCoCo coverage floor + game-test
 compilation), `./gradlew gameTestServer` (boots a dedicated server with the non-shipped `src/gameTest`
 mod and runs 23 in-game assertions), `./gradlew clientTest` (client smoke; use Xvfb on headless Linux),
 and `./gradlew verifyServer` (headless dedicated-server run of the `[unidict-verify]` oracle). Coverage:
-`./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 44.7% line / 41.4% branch;
+`./gradlew jacocoTestReport` → `build/reports/jacoco/test/html` (baseline 44.6% line / 41.3% branch;
 floor 44% / 41%). CI: `.github/workflows/verify-server.yml` and `.github/workflows/test-harness.yml`.
 
 - [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — every machine/loot integration, its load stage, seam and verify line.

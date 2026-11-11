@@ -12,6 +12,7 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.CanonicalEntries;
 import com.mrfuzzihead.unidict.helper.NEIHelper;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
@@ -108,13 +109,7 @@ final class NEIHideThread extends AbstractModuleThread {
      * @return {@code true} when the stack already is some container's canonical entry
      */
     static boolean isCanonicalElsewhere(final Collection<ItemStack> canonicalEntries, final ItemStack stack) {
-        if (canonicalEntries == null || stack == null || stack.getItem() == null) return false;
-        for (final ItemStack canonical : canonicalEntries) {
-            if (canonical == null || canonical.getItem() == null) continue;
-            if (canonical.getItem() == stack.getItem() && canonical.getItemDamage() == stack.getItemDamage())
-                return true;
-        }
-        return false;
+        return CanonicalEntries.contains(canonicalEntries, stack);
     }
 
     /**
