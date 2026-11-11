@@ -93,6 +93,7 @@ public final class ConfigPresets {
     public static ConfigData minimal() {
         return ConfigData.builder()
             .unifyDrops(true)
+            .autoHideInNEI(false)
             .protectedOreDictionaryNames(new LinkedHashSet<>(Arrays.asList("raw")))
             .metalsToUnify(new LinkedHashSet<>(Arrays.asList("Iron", "Gold", "Copper", "Tin")))
             .childrenOfMetals(new LinkedHashSet<>(Arrays.asList("ingot", "ore", "dust", "nugget")))

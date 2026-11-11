@@ -36,6 +36,7 @@ class ConfigPresetsTest {
         assertFalse(c.keepOneEntry);
         assertFalse(c.inputReplacement);
         assertTrue(c.unifyDrops); // drops unification is default-on (safe, non-destructive)
+        assertFalse(c.autoHideInNEI); // minimal must not hide NEI variants
     }
 
     @Test

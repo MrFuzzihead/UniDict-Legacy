@@ -43,7 +43,7 @@ public final class ResourceHandler {
      * the same field (TODO.md P0 #1).
      */
     public static boolean isModBlacklisted(final ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return false;
+        if (stack == null || stack.getItem() == null || Config.get().autoHideInNEIModBlackSet.isEmpty()) return false;
         return Config.get().autoHideInNEIModBlackSet.contains(Util.getModName(stack));
     }
 

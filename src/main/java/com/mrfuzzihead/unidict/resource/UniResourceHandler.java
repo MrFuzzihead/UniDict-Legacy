@@ -111,8 +111,8 @@ public final class UniResourceHandler {
 
     /** Reconciles entries and builds + publishes the {@link ResourceHandler}. Sequential. */
     public void postInit() {
-        apiResourceMap.values()
-            .forEach(Resource::updateEntries);
+        // Only the published (selected-metal) resources need reconciliation; updating the full API map
+        // would sort/override containers that no consumer ever reads.
         resourceMap.values()
             .forEach(Resource::updateEntries);
         // Filter BEFORE the handler indexes the model. Previously the blacklist was applied after

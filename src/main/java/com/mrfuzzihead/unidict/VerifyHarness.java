@@ -57,7 +57,7 @@ import cpw.mods.fml.common.registry.GameData;
  */
 public final class VerifyHarness {
 
-    private static final Logger LOG = LogManager.getLogger("UniDict");
+    private static final Logger LOG = LogManager.getLogger("unidict");
     private static final String SYS_PROP = "unidict.devVerify";
     private static final String ENV_VAR = "UNIDICT_DEV_VERIFY";
     /**

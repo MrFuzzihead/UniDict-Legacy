@@ -322,6 +322,8 @@ deterministic. Add T1 tests for each.
 
 ### 1.9 [S3] `ConfigPresets.minimal()` does not disable NEI hiding
 
+**Status (2026-11-11): fixed.** `minimal` now sets `autoHideInNEI(false)`; `ConfigPresetsTest` pins it.
+
 `ConfigData.Builder.autoHideInNEI` defaults to `true`, and `ConfigPresets.minimal()` does not set it.
 So "minimal — vanilla-safe only (furnace + chest loot)" still hides non-main variants in NEI (for the
 four minimal metals). That may be intended, but it contradicts the "lightest touch" wording. Set
@@ -479,10 +481,11 @@ edge, but `volatile` is cheap and documents the intent. Similarly, `UniResourceH
 
 ## 4. Optimizations (including still-open OPT items)
 
-**Status (2026-11-11): items 1–4 done.** The resolver now checks the exact container before the
-protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled entry, NEI
-canonical membership is an O(1) `IdentityDamageIndex`, and `getEntries()` returns a read-only view
-instead of a copy. Items 5–10 are still candidates.
+**Status (2026-11-11): items 1–4, 6, 8 and 9 done.** The resolver now checks the exact container
+before the protection lookup (unmodelled stacks pay no OD lookup), protection is cached per modelled
+entry, NEI canonical membership is O(1), `getEntries()` is a read-only view, only selected resources
+are reconciled, Crafting warnings are aggregated by recipe class, and the empty mod-blacklist path
+returns early. Items 5, 7 and 10 remain candidates.
 
 These are not release blockers, but several are directly on hot paths (`findMatchingRecipe`, drops,
 NEI load):
@@ -772,7 +775,7 @@ AE2 1099, StorageDrawers 2.3 and NEI 2.9.4).
 | Server-start / module failure injection | `GuardedTest`, `LoadStageExecutorTest` (Error) and `ModuleHandlerTest` (failing module) now cover it |
 | No `Accessors.as` failure-path test for the concrete-class branches / TE invokers | §1.5 |
 | No test for null main entries / wildcard main entries | §1.8 |
-| No test that `ConfigPresets.minimal()` disables NEI hiding (or an explicit decision not to) | §1.9 |
+| Minimal preset NEI hiding | `ConfigPresetsTest` now asserts `autoHideInNEI(false)` |
 
 Cheap additions: a reflection-based `ConfigData` field-completeness test; a pure `ModIds` constant
 test; a `ForestryIntegrationTest` collision case; a `ReportFormatter`/`UniDictReport` damage case.
@@ -851,7 +854,7 @@ reference for JaCoCo, Mockito, the non-shipped `src/gameTest` source set and the
 one-shot server/client tasks:
 
 - `./gradlew test` — **243 tests**, 0 failures (JUnit 5.14.4 + Mockito 4.11.0 + mockito-inline).
-- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.2% line / 41.4% branch** at the baseline.
+- `./gradlew jacocoTestReport` — JaCoCo 0.8.16; **45.3% line / 41.3% branch** at the baseline.
   `check` enforces a **44% line / 41% branch** floor and compiles the game-test mod.
 - `./gradlew gameTestServer` — **23/23** live-world assertions from the non-shipped
   `src/gameTest` mod (model/report publication, canonical resolution, furnace output, the real

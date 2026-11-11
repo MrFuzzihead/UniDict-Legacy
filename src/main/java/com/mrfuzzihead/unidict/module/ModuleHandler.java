@@ -17,7 +17,7 @@ import com.mrfuzzihead.unidict.LoadStage;
  */
 public final class ModuleHandler {
 
-    private static final Logger LOG = LogManager.getLogger("UniDict");
+    private static final Logger LOG = LogManager.getLogger("unidict");
 
     private final List<AbstractModule> modules = new ArrayList<>();
 

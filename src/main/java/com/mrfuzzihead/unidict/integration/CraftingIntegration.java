@@ -1,6 +1,8 @@
 package com.mrfuzzihead.unidict.integration;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.ItemStack;
@@ -47,7 +49,7 @@ import cpw.mods.fml.common.Loader;
 @SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class CraftingIntegration extends AbstractModuleThread {
 
-    private static final Logger LOG = LogManager.getLogger("UniDict");
+    private static final Logger LOG = LogManager.getLogger("unidict");
     private static final String PREFIX = "Crafting Integration: ";
 
     CraftingIntegration() {
@@ -115,6 +117,7 @@ final class CraftingIntegration extends AbstractModuleThread {
         int rewritten = 0;
         boolean warnedShaped = false;
         boolean warnedShapeless = false;
+        final Map<String, Integer> unhandled = new LinkedHashMap<>();
         for (final IRecipe recipe : recipes) {
             if (recipe == null) continue;
             final ItemStack output = recipe.getRecipeOutput();
@@ -181,18 +184,18 @@ final class CraftingIntegration extends AbstractModuleThread {
                 rewritten++;
                 continue;
             }
-            // Custom IRecipe subclasses (GT/IC2/etc.) aren't covered by the accessor seam. Log it only
-            // when the canonical genuinely differs (fresh-identical stacks from getMainItemStack would
-            // otherwise spam misleading warnings).
+            // Custom IRecipe subclasses (GT/IC2/etc.) aren't covered by the accessor seam. Aggregate by
+            // class instead of flooding the log with one warning per recipe (OPT-9).
             if (canonical.getItem() != output.getItem() || canonical.getItemDamage() != output.getItemDamage()) {
-                LOG.warn(
-                    PREFIX + "recipe type {} (output={}) resolves to canonical {} but is not a Shaped/Shapeless "
-                        + "recipe — not rewritten by UniDict",
+                unhandled.merge(
                     recipe.getClass()
                         .getName(),
-                    output,
-                    canonical);
+                    1,
+                    Integer::sum);
             }
+        }
+        if (!unhandled.isEmpty()) {
+            LOG.warn(PREFIX + "{} crafting recipe type(s) were not rewritable: {}", unhandled.size(), unhandled);
         }
         return rewritten;
     }
