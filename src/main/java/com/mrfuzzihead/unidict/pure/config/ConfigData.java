@@ -64,7 +64,7 @@ public final class ConfigData {
      * Qualified item-name substrings protecting a specific item (or its variants) from canonicalization
      * and NEI hiding. Matched against the registered {@code modid:path} name — unlike
      * {@link #protectedOreDictionaryNames}, which matches OD tags. This is for cases where the item has
-     * no carve-out OD tag: e.g. {@code "EtFuturum:block_copper"} keeps a mod's decorative copper block
+     * no carve-out OD tag: e.g. {@code "etfuturum:copper_block"} keeps a mod's decorative copper block
      * (incl. aged/oxidized variants of that name) obtainable and visible instead of folding it into the
      * canonical copper block.
      */
@@ -74,7 +74,7 @@ public final class ConfigData {
      * its unified container — an ownership override on top of the owner-priority order. This is the
      * mechanism for shared-OD-tag craft conflicts: e.g. EtF and TF both register 9-ingot → block recipes
      * from {@code ingotCopper}, so they collide on the same crafting pattern; making
-     * {@code "EtFuturum:block_copper"} canonical means every copper-block recipe's output is rewritten to
+     * {@code "etfuturum:copper_block"} canonical means every copper-block recipe's output is rewritten to
      * that block, so only one block is craftable (and the colliding TF recipe effectively produces the
      * same block).
      */

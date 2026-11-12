@@ -1,7 +1,10 @@
 package com.mrfuzzihead.unidict.common;
 
 import java.util.Comparator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.Config;
@@ -25,6 +28,9 @@ public final class Util {
     /** Owner reported for a stack whose registry entry has no namespaced {@code modid:name}. */
     public static final String UNKNOWN_MOD = "unknown";
 
+    /** Item owner namespaces are stable across registry-id remaps; cache them for the sort/NEI hot paths. */
+    private static final Map<Item, String> OWNER_CACHE = new ConcurrentHashMap<>();
+
     private Util() {}
 
     /**
@@ -39,12 +45,22 @@ public final class Util {
      * owner list or hide blacklist contains, so they simply sort last / stay visible.
      */
     public static String getModName(final ItemStack itemStack) {
-        if (itemStack == null || itemStack.getItem() == null) return UNKNOWN_MOD;
+        return itemStack == null ? UNKNOWN_MOD : getModName(itemStack.getItem());
+    }
+
+    /** Item overload of {@link #getModName(ItemStack)} for callers that hold the immutable item fact. */
+    public static String getModName(final Item item) {
+        if (item == null) return UNKNOWN_MOD;
+        final String cached = OWNER_CACHE.get(item);
+        if (cached != null) return cached;
         final String name = GameData.getItemRegistry()
-            .getNameForObject(itemStack.getItem());
+            .getNameForObject(item);
         if (name == null) return UNKNOWN_MOD;
         final int colon = name.indexOf(':');
-        return colon < 0 ? name : name.substring(0, colon);
+        final String owner = colon < 0 ? name : name.substring(0, colon);
+        // Do not cache UNKNOWN_MOD: the registry may not be fully populated when this is first called.
+        OWNER_CACHE.putIfAbsent(item, owner);
+        return owner;
     }
 
     /**

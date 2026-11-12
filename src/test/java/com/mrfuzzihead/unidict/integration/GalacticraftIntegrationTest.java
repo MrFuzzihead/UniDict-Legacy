@@ -8,6 +8,7 @@ import java.util.function.UnaryOperator;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.ShapedRecipes;
 
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +60,19 @@ class GalacticraftIntegrationTest {
 
         assertEquals(1, rewritten, "a resolvable shapeless output should be rewritten");
         assertSame(canonicalA, shapeless.unidict$getOutput(), "output should be rewritten in place");
+    }
+
+    @Test
+    void compressorRecipeWithoutTheAccessorIsSkippedInsteadOfCast() {
+        // In a JVM test the Mixin is not applied, so the concrete ShapedRecipes does NOT implement the
+        // accessor. rewriteRecipe must skip it locally instead of throwing ClassCastException.
+        final Item item = new Item();
+        final ItemStack output = new ItemStack(item, 1, 1);
+        final ItemStack canonical = new ItemStack(item, 1, 2);
+        final ShapedRecipes recipe = new ShapedRecipes(1, 1, new ItemStack[] { new ItemStack(new Item()) }, output);
+
+        assertEquals(0, GalacticraftIntegration.rewriteRecipe(recipe, stack -> canonical));
+        assertSame(output, recipe.getRecipeOutput());
     }
 
     @Test

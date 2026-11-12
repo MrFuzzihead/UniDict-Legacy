@@ -7,12 +7,13 @@ import java.util.Set;
 
 import javax.annotation.Nonnull;
 
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.unidict.common.Util;
+import com.mrfuzzihead.unidict.pure.MetaKey;
 import com.mrfuzzihead.unidict.pure.report.ReportEntry;
 import com.mrfuzzihead.unidict.pure.report.ReportFormatter;
-import com.mrfuzzihead.unidict.pure.report.RewriteRecord;
 import com.mrfuzzihead.unidict.resource.Resource;
 import com.mrfuzzihead.unidict.resource.ResourceHandler;
 import com.mrfuzzihead.unidict.resource.UniResourceContainer;
@@ -39,14 +40,11 @@ public final class UniDictReport {
         if (resourceHandler == null || resourceHandler.resources == null) return reportEntries;
         for (final Resource<UniResourceContainer> resource : resourceHandler.resources)
             for (final UniResourceContainer container : resource.getChildrenCollection()) reportEntries.add(
-                ReportEntry
-                    .from(container.name, describe(container.getMainEntry()), describeAll(container.getEntries())));
+                ReportEntry.from(
+                    container.name,
+                    describe(container.getMainEntryItem(), container.getMainEntryDamage()),
+                    describeAll(container.getEntries())));
         return reportEntries;
-    }
-
-    /** @return a defensive snapshot of every recorded rewrite. */
-    public static List<RewriteRecord> rewriteRecords() {
-        return RewriteJournal.snapshot();
     }
 
     /** The full report as stable, diffable lines (rendered purely by {@link ReportFormatter}). */
@@ -55,15 +53,29 @@ public final class UniDictReport {
     }
 
     private static String describe(final ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return "none";
+        return stack == null ? "none" : describe(stack.getItem(), stack.getItemDamage());
+    }
+
+    /** Describes an immutable main-entry fact without allocating a disposable canonical stack. */
+    private static String describe(final Item item, final int damage) {
+        if (item == null) return "none";
         final String registryName = GameData.getItemRegistry()
-            .getNameForObject(stack.getItem());
-        // A stack without a registry name has no owner to describe; report the same sentinel as the
+            .getNameForObject(item);
+        // An item without a registry name has no owner to describe; report the same sentinel as the
         // owner lookup instead of throwing while rendering the report (docs/CODE_REVIEW.md BUG-7).
         if (registryName == null) return Util.UNKNOWN_MOD;
-        final String owner = Util.getModName(stack);
+        final String owner = Util.getModName(item);
         // The registry name already carries its mod prefix; avoid a redundant "mod:mod:name".
-        return registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        final String base = registryName.startsWith(owner + ":") ? registryName : owner + ":" + registryName;
+        return base + damageSuffix(damage);
+    }
+
+    /**
+     * @param damage item damage/metadata
+     * @return {@code @<damage>}, or {@code @*} for the Ore Dictionary wildcard
+     */
+    static String damageSuffix(final int damage) {
+        return damage == MetaKey.WILDCARD ? "@*" : "@" + damage;
     }
 
     /** Describes each entry, de-duplicating identical qualified names for a stable variant list. */

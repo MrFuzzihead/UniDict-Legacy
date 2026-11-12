@@ -13,7 +13,6 @@ import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
 import com.mrfuzzihead.unidict.chest.IChestGenHooksAccessor;
-import com.mrfuzzihead.unidict.chest.IWeightedRandomChestContentAccessor;
 import com.mrfuzzihead.unidict.common.Accessors;
 import com.mrfuzzihead.unidict.module.AbstractModuleThread;
 import com.mrfuzzihead.unidict.module.SpecifiedLoadStage;
@@ -36,10 +35,18 @@ final class ChestIntegration extends AbstractModuleThread {
                 int rewritten = 0;
                 final Map<String, ChestGenHooks> chestInfo = getChestInfo();
                 if (chestInfo != null) {
+                    boolean warned = false;
                     for (final ChestGenHooks category : chestInfo.values()) {
-                        rewritten += rewriteCategory(
-                            (IChestGenHooksAccessor) category,
-                            resourceHandler::getMainItemStack);
+                        final IChestGenHooksAccessor accessor = Accessors.as(category, IChestGenHooksAccessor.class);
+                        if (accessor == null) {
+                            if (!warned) {
+                                warned = true;
+                                UniDict.LOG
+                                    .warn(threadName + "ChestGenHooks accessor not applied; chest loot skipped.");
+                            }
+                            continue;
+                        }
+                        rewritten += rewriteCategory(accessor, resourceHandler::getMainItemStack);
                     }
                 }
                 UniDict.LOG.info(threadName + "rewrote " + rewritten + " chest loot entries to their canonical items.");
@@ -73,10 +80,6 @@ final class ChestIntegration extends AbstractModuleThread {
     /** Dev seam self-check (docs/CODE_REVIEW.md BUG-9), asserted by the verifyServer harness. */
     static void checkSeams() {
         VerifyHarness.checkSeam("chest/chestGenHooks", IChestGenHooksAccessor.class, ChestGenHooks.class);
-        VerifyHarness.checkSeam(
-            "chest/weightedRandomChestContent",
-            IWeightedRandomChestContentAccessor.class,
-            WeightedRandomChestContent.class);
     }
 
     /** Non-destructive rewrite of a single chest category's loot table, via {@link #rewriteContents}. */
@@ -86,20 +89,16 @@ final class ChestIntegration extends AbstractModuleThread {
     }
 
     /**
-     * Rewrites every loot entry's item in place to its canonical (main) entry. Only the private
-     * {@code theItemId} reference changes (through the accessor seam); the list is structurally
-     * untouched — same count and order, entries keep their weights/min/max (BB-3).
+     * Rewrites every loot entry's item in place to its canonical (main) entry. In 1.7.10
+     * {@code WeightedRandomChestContent.theItemId} is a public field, so no accessor Mixin is needed; the
+     * list is structurally untouched — same count and order, entries keep their weights/min/max (BB-3).
      *
      * @return number of entries whose item actually changed
      */
     static int rewriteContents(final List<WeightedRandomChestContent> contents,
         final UnaryOperator<ItemStack> resolveMain) {
         int rewritten = 0;
-        for (final WeightedRandomChestContent content : contents) {
-            // Guard: a content is only rewritable after the accessor mixin was applied to its class.
-            if (content instanceof IWeightedRandomChestContentAccessor
-                && rewriteContent((IWeightedRandomChestContentAccessor) content, resolveMain)) rewritten++;
-        }
+        for (final WeightedRandomChestContent content : contents) if (rewriteContent(content, resolveMain)) rewritten++;
         return rewritten;
     }
 
@@ -109,12 +108,13 @@ final class ChestIntegration extends AbstractModuleThread {
      *
      * @return {@code true} when the item was rewritten
      */
-    static boolean rewriteContent(final IWeightedRandomChestContentAccessor content,
+    static boolean rewriteContent(final WeightedRandomChestContent content,
         final UnaryOperator<ItemStack> resolveMain) {
-        final ItemStack original = content.getTheItemId();
+        if (content == null) return false;
+        final ItemStack original = content.theItemId;
         final ItemStack main = resolveMain.apply(original);
         if (main == original) return false;
-        content.setTheItemId(main);
+        content.theItemId = main;
         return true;
     }
 }

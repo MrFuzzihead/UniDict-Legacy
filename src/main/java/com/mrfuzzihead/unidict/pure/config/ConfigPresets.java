@@ -17,7 +17,7 @@ import java.util.Map;
  * Three documented presets:
  * <ul>
  * <li>{@link #minimal()} — minimal metal set, only the two vanilla-safe integrations (furnace, chest).</li>
- * <li>{@link #standard()} — the default {@link #defaults()}: all 10 kept integrations, full metal list.</li>
+ * <li>{@link #standard()} — the default surface: all 10 kept integrations, full metal list.</li>
  * <li>{@link #maxCompat()} — standard plus aggressive features (input replacement + keep-one-entry).</li>
  * </ul>
  */
@@ -65,11 +65,6 @@ public final class ConfigPresets {
 
     private ConfigPresets() {}
 
-    /** The standard defaults every {@link ConfigReader} and the runtime {@code Config} start from. */
-    public static ConfigData defaults() {
-        return standard();
-    }
-
     /**
      * Resolves a preset name to its deterministic {@link ConfigData} (BB-2). Accepts
      * case-insensitive {@code minimal} / {@code standard} / {@code max-compat}; unknown or blank
@@ -98,6 +93,7 @@ public final class ConfigPresets {
     public static ConfigData minimal() {
         return ConfigData.builder()
             .unifyDrops(true)
+            .autoHideInNEI(false)
             .protectedOreDictionaryNames(new LinkedHashSet<>(Arrays.asList("raw")))
             .metalsToUnify(new LinkedHashSet<>(Arrays.asList("Iron", "Gold", "Copper", "Tin")))
             .childrenOfMetals(new LinkedHashSet<>(Arrays.asList("ingot", "ore", "dust", "nugget")))

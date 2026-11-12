@@ -1,13 +1,41 @@
 import java.io.File
 import java.io.FileOutputStream
+import java.math.BigDecimal
 
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 // M0: ensure the JVM unit-test task runs on the JUnit Platform (see docs/PLAN.md §0 / T1).
+// JaCoCo and the Java 8 test launcher mirror MrFuzzihead/PeripheralsPlusPlus: the mod targets Java 8
+// bytecode, and Mockito 4.x (the last Java-8-compatible line) is happiest on that runtime.
+apply(plugin = "jacoco")
+project.extensions.configure(JacocoPluginExtension::class.java) {
+    toolVersion = "0.8.16"
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    extensions.configure(JacocoTaskExtension::class.java) {
+        isEnabled = true
+    }
+    javaLauncher.set(
+        project.extensions.getByType(JavaToolchainService::class.java).launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(8))
+        }
+    )
+    testLogging {
+        events("failed")
+        exceptionFormat = TestExceptionFormat.FULL
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -25,7 +53,13 @@ tasks.withType<Test>().configureEach {
 val devVerifyProperty = project.hasProperty("unidictDevVerify")
 val serverVerifyRequested = devVerifyProperty ||
     gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "verifyServer" }
+val gameTestRequested = project.hasProperty("gameTest") ||
+    gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "gameTestServer" }
+val clientTestRequested = project.hasProperty("clientTest") ||
+    gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "clientTest" }
 val verifyServerLog = layout.buildDirectory.file("unidict-verify-server.log")
+val gameTestLog = layout.buildDirectory.file("unidict-gametest-server.log")
+val clientTestLog = layout.buildDirectory.file("unidict-client-test.log")
 // RFG runs the dedicated server from run/server/ and prompts for the EULA / online-mode on the console
 // inside its own doFirst. A verify run has no console, so a dependency must create those files first.
 val serverRunDir = layout.projectDirectory.dir("run/server").asFile
@@ -62,16 +96,63 @@ val prepareDevServer by tasks.registering {
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Non-shipped in-game test mod (`src/gameTest`).
+//
+// The source set is only added to runServer/runClient when gameTestServer/clientTest is requested, so it
+// never reaches the published jar and cannot affect normal dev runs. The test mod is a separate @Mod with
+// `required-after:unidict`, which guarantees its loadComplete/serverStarted handler runs after UniDict's.
+// ---------------------------------------------------------------------------------------------
+val mainSourceSet = project.extensions.getByType(SourceSetContainer::class.java).getByName("main")
+val gameTestSourceSet = project.extensions.getByType(SourceSetContainer::class.java).create("gameTest")
+configurations.getByName(gameTestSourceSet.compileClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("compileClasspath"))
+configurations.getByName(gameTestSourceSet.runtimeClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("runtimeClasspath"))
+gameTestSourceSet.compileClasspath += mainSourceSet.output
+gameTestSourceSet.compileClasspath += mainSourceSet.compileClasspath
+gameTestSourceSet.runtimeClasspath += mainSourceSet.output
+gameTestSourceSet.runtimeClasspath += mainSourceSet.runtimeClasspath
+// The game-test mod is plain Java 8. Leaving Jabel's compiler plugin on this classpath makes javac load
+// it through ServiceLoader, which then wants ByteBuddy's agent (not present here).
+gameTestSourceSet.compileClasspath = gameTestSourceSet.compileClasspath
+    .filter { !it.name.contains("jabel") }
+
 tasks.withType<JavaExec>().configureEach {
     if (devVerifyProperty) systemProperty("unidict.devVerify", "true")
 
-    if (name == "runServer" && serverVerifyRequested) {
+    if (name == "runServer" && (serverVerifyRequested || gameTestRequested)) {
         // Runs before RFG's own doFirst, so the EULA/online-mode prompts are skipped.
         dependsOn(prepareDevServer)
         systemProperty("unidict.devVerify", "true")
-        // Dev-only: stop the JVM after the stage-2 checks so this is a single-shot assertion.
-        systemProperty("unidict.verify.exitAfterStart", "true")
-        val logFile = verifyServerLog.get().asFile
+        if (gameTestRequested) {
+            classpath += gameTestSourceSet.output
+            systemProperty("unidict.gameTest", "true")
+        }
+        // `verifyServer` and `gameTestServer` are separate one-shot runs; do not combine them. The verify
+        // task exits at stage 2, which would prevent the game-test mod from reaching serverStarted.
+        if (serverVerifyRequested && !gameTestRequested) {
+            systemProperty("unidict.verify.exitAfterStart", "true")
+        }
+        val logFile = if (gameTestRequested) gameTestLog.get().asFile else verifyServerLog.get().asFile
+        doFirst {
+            logFile.parentFile.mkdirs()
+            logFile.writeText("")
+            val out = FileOutputStream(logFile, true)
+            standardOutput = out
+            errorOutput = out
+        }
+        doLast { (standardOutput as? FileOutputStream)?.flush() }
+    }
+
+    if (name == "runClient" && clientTestRequested) {
+        classpath += gameTestSourceSet.output
+        systemProperty("unidict.devVerify", "true")
+        systemProperty("unidict.clientTest", "true")
+        // Xvfb/Mesa has no hardware GL; LWJGL2 otherwise refuses the software context before the
+        // game-test hook can run. This only affects the test client, not a normal runClient.
+        systemProperty("org.lwjgl.opengl.Display.allowSoftwareOpenGL", "true")
+        val logFile = clientTestLog.get().asFile
         doFirst {
             logFile.parentFile.mkdirs()
             logFile.writeText("")
@@ -170,7 +251,6 @@ tasks.register("verifyServer") {
             "seam=crafting/ic2AdvRecipe",
             "seam=crafting/ic2AdvShapelessRecipe",
             "seam=chest/chestGenHooks",
-            "seam=chest/weightedRandomChestContent",
             "seam=forestry/shapedOreRecipe",
             "seam=forestry/centrifugeRecipe",
             "seam=enderio/oreDictionaryPreferences",
@@ -178,6 +258,9 @@ tasks.register("verifyServer") {
             "seam=te/furnaceManager",
             "seam=te/pulverizerManager",
             "seam=te/smelterManager",
+            "seam=te/furnaceInvoker",
+            "seam=te/pulverizerInvoker",
+            "seam=te/smelterInvoker",
             "seam=galacticraft/shapedRecipes",
             "seam=galacticraft/shapelessOreRecipe")) {
             if (!text.contains("[unidict-verify] PASS $check")) problems += "missing PASS '$check'"
@@ -228,5 +311,127 @@ tasks.register("verifyServer") {
                 })
         }
         logger.lifecycle("verifyServer: PASS")
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// JaCoCo coverage (unit tests only).
+//
+// The in-game run is deliberately not merged: a Forge 1.7.10 dev launch rewrites classes through ASM, so
+// JaCoCo class ids in a game run do not match the on-disk class files (the reference project measured
+// this too). Unit coverage is the stable, comparable number used by the gate.
+// ---------------------------------------------------------------------------------------------
+val jacocoExec = project.files(layout.buildDirectory.file("jacoco/test.exec"))
+
+fun jacocoClassDirs() = project.files(mainSourceSet.output.classesDirs).asFileTree.matching {
+    exclude(
+        "com/mrfuzzihead/unidict/Tags.class",
+        "com/mrfuzzihead/unidict/mixins/**"
+    )
+}
+
+tasks.named<JacocoReport>("jacocoTestReport") {
+    group = "verification"
+    description = "Generates HTML and XML JaCoCo coverage reports from the unit test run"
+    dependsOn(tasks.named("test"))
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(jacocoClassDirs())
+    sourceDirectories.setFrom(mainSourceSet.allJava.srcDirs)
+    executionData.setFrom(jacocoExec)
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    group = "verification"
+    description = "Fails the build when unit test coverage drops below the measured baseline"
+    dependsOn(tasks.named("test"))
+
+    classDirectories.setFrom(jacocoClassDirs())
+    sourceDirectories.setFrom(mainSourceSet.allJava.srcDirs)
+    executionData.setFrom(jacocoExec)
+
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                // Measured baseline on 2026-11-11: 1148/2565 = 44.8% line coverage. The floor is a
+                // regression guard, not a target; raise it when new tests land.
+                minimum = BigDecimal("0.44")
+            }
+            limit {
+                counter = "BRANCH"
+                value = "COVEREDRATIO"
+                // Measured baseline: 629/1548 = 40.6% branch coverage.
+                minimum = BigDecimal("0.40")
+            }
+        }
+    }
+}
+
+// `check` compiles the game-test mod and enforces the coverage floor, so CI catches regressions.
+tasks.named("check").configure {
+    dependsOn(tasks.named("jacocoTestReport"))
+    dependsOn(tasks.named("jacocoTestCoverageVerification"))
+    dependsOn(gameTestSourceSet.classesTaskName)
+}
+
+// ---------------------------------------------------------------------------------------------
+// In-game / smoke test tasks.
+// ---------------------------------------------------------------------------------------------
+tasks.register("gameTestServer") {
+    group = "verification"
+    description = "Boots a dedicated server with the non-shipped game-test mod and asserts its result"
+    dependsOn("runServer")
+    doLast {
+        val logFile = gameTestLog.get().asFile
+        if (!logFile.exists()) throw GradleException("gameTestServer: no captured log at $logFile")
+        val text = logFile.readText()
+        val problems = mutableListOf<String>()
+        if (!text.contains("UNIDICT_GAMETEST_OK")) problems += "missing UNIDICT_GAMETEST_OK marker"
+        if (text.contains("UNIDICT_GAMETEST_FAILED")) problems += "UNIDICT_GAMETEST_FAILED present"
+        if (text.contains("[unidict-verify] FAIL ")) problems += "verify-harness FAIL line present"
+        val summary = Regex("\\[UNIDICT-GAMETEST\\] (\\d+)/(\\d+) checks passed").find(text)
+        if (summary == null) {
+            problems += "missing game-test summary line"
+        } else {
+            logger.lifecycle("gameTestServer: ${summary.groupValues[1]}/${summary.groupValues[2]} checks passed")
+        }
+        if (problems.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    append("gameTestServer FAILED:\n- ").append(problems.joinToString("\n- "))
+                    append("\n--- log tail ---\n").append(tailOf(text))
+                })
+        }
+        logger.lifecycle("gameTestServer: PASS")
+    }
+}
+
+tasks.register("clientTest") {
+    group = "verification"
+    description = "Boots the dev client with the non-shipped game-test mod (requires a display or Xvfb)"
+    dependsOn("runClient")
+    doLast {
+        val logFile = clientTestLog.get().asFile
+        if (!logFile.exists()) throw GradleException("clientTest: no captured log at $logFile")
+        val text = logFile.readText()
+        val problems = mutableListOf<String>()
+        if (!text.contains("UNIDICT_CLIENT_TEST_OK")) problems += "missing UNIDICT_CLIENT_TEST_OK marker"
+        if (text.contains("UNIDICT_CLIENT_TEST_FAILED")) problems += "UNIDICT_CLIENT_TEST_FAILED present"
+        if (text.contains("[unidict-verify] FAIL ")) problems += "verify-harness FAIL line present"
+        if (problems.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    append("clientTest FAILED:\n- ").append(problems.joinToString("\n- "))
+                    append("\n--- log tail ---\n").append(tailOf(text))
+                })
+        }
+        logger.lifecycle("clientTest: PASS")
     }
 }

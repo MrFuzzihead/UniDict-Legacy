@@ -1,6 +1,8 @@
 package com.mrfuzzihead.unidict.integration;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 
 import net.minecraft.item.ItemStack;
@@ -18,6 +20,8 @@ import com.mrfuzzihead.unidict.Config;
 import com.mrfuzzihead.unidict.LoadStage;
 import com.mrfuzzihead.unidict.UniDict;
 import com.mrfuzzihead.unidict.VerifyHarness;
+import com.mrfuzzihead.unidict.common.Accessors;
+import com.mrfuzzihead.unidict.common.ModIds;
 import com.mrfuzzihead.unidict.crafting.IShapedRecipesAccessor;
 import com.mrfuzzihead.unidict.crafting.IShapelessRecipesAccessor;
 import com.mrfuzzihead.unidict.forestry.IShapedOreRecipeAccessor;
@@ -45,7 +49,7 @@ import cpw.mods.fml.common.Loader;
 @SpecifiedLoadStage(stage = LoadStage.LOAD_COMPLETE)
 final class CraftingIntegration extends AbstractModuleThread {
 
-    private static final Logger LOG = LogManager.getLogger("UniDict");
+    private static final Logger LOG = LogManager.getLogger("unidict");
     private static final String PREFIX = "Crafting Integration: ";
 
     CraftingIntegration() {
@@ -59,7 +63,7 @@ final class CraftingIntegration extends AbstractModuleThread {
         VerifyHarness.checkSeam("crafting/shapedOreRecipe", IShapedOreRecipeAccessor.class, ShapedOreRecipe.class);
         VerifyHarness
             .checkSeam("crafting/shapelessOreRecipe", IShapelessOreRecipeAccessor.class, ShapelessOreRecipe.class);
-        if (Loader.isModLoaded("IC2")) {
+        if (Loader.isModLoaded(ModIds.IC2)) {
             VerifyHarness.checkSeam("crafting/ic2AdvRecipe", IAdvRecipeAccessor.class, ic2.core.AdvRecipe.class);
             VerifyHarness.checkSeam(
                 "crafting/ic2AdvShapelessRecipe",
@@ -111,6 +115,9 @@ final class CraftingIntegration extends AbstractModuleThread {
      */
     static int rewriteCraftingOutputs(final List<IRecipe> recipes, final UnaryOperator<ItemStack> resolveMain) {
         int rewritten = 0;
+        boolean warnedShaped = false;
+        boolean warnedShapeless = false;
+        final Map<String, Integer> unhandled = new LinkedHashMap<>();
         for (final IRecipe recipe : recipes) {
             if (recipe == null) continue;
             final ItemStack output = recipe.getRecipeOutput();
@@ -120,13 +127,29 @@ final class CraftingIntegration extends AbstractModuleThread {
 
             // Try shaped accessor (catches ShapedRecipes + subclasses like ShapedOreRecipe)
             if (recipe instanceof ShapedRecipes) {
-                ((IShapedRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
+                final IShapedRecipesAccessor accessor = Accessors.as(recipe, IShapedRecipesAccessor.class);
+                if (accessor == null) {
+                    if (!warnedShaped) {
+                        warnedShaped = true;
+                        LOG.warn(PREFIX + "ShapedRecipes accessor not applied; shaped outputs are skipped.");
+                    }
+                    continue;
+                }
+                accessor.unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }
             // Try vanilla shapeless accessor (catches ShapelessRecipes + subclasses like ShapelessOreRecipe)
             if (recipe instanceof ShapelessRecipes) {
-                ((IShapelessRecipesAccessor) recipe).unidict$setRecipeOutput(canonical);
+                final IShapelessRecipesAccessor accessor = Accessors.as(recipe, IShapelessRecipesAccessor.class);
+                if (accessor == null) {
+                    if (!warnedShapeless) {
+                        warnedShapeless = true;
+                        LOG.warn(PREFIX + "ShapelessRecipes accessor not applied; shapeless outputs are skipped.");
+                    }
+                    continue;
+                }
+                accessor.unidict$setRecipeOutput(canonical);
                 rewritten++;
                 continue;
             }
@@ -161,18 +184,18 @@ final class CraftingIntegration extends AbstractModuleThread {
                 rewritten++;
                 continue;
             }
-            // Custom IRecipe subclasses (GT/IC2/etc.) aren't covered by the accessor seam. Log it only
-            // when the canonical genuinely differs (fresh-identical stacks from getMainItemStack would
-            // otherwise spam misleading warnings).
+            // Custom IRecipe subclasses (GT/IC2/etc.) aren't covered by the accessor seam. Aggregate by
+            // class instead of flooding the log with one warning per recipe (OPT-9).
             if (canonical.getItem() != output.getItem() || canonical.getItemDamage() != output.getItemDamage()) {
-                LOG.warn(
-                    PREFIX + "recipe type {} (output={}) resolves to canonical {} but is not a Shaped/Shapeless "
-                        + "recipe — not rewritten by UniDict",
+                unhandled.merge(
                     recipe.getClass()
                         .getName(),
-                    output,
-                    canonical);
+                    1,
+                    Integer::sum);
             }
+        }
+        if (!unhandled.isEmpty()) {
+            LOG.warn(PREFIX + "{} crafting recipe type(s) were not rewritable: {}", unhandled.size(), unhandled);
         }
         return rewritten;
     }

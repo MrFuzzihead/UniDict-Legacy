@@ -11,7 +11,7 @@ public enum Mixins implements IMixins {
         .addCommonMixins("OreDictionaryMixin")),
 
     CHEST_GEN(new MixinBuilder().setPhase(Phase.EARLY)
-        .addCommonMixins("ChestGenHooksMixin", "WeightedRandomChestContentMixin")),
+        .addCommonMixins("ChestGenHooksMixin")),
 
     FORESTRY(new MixinBuilder().setPhase(Phase.EARLY)
         .addCommonMixins("ShapedOreRecipeMixin")),

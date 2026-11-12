@@ -267,18 +267,62 @@ final class ForestryIntegration extends AbstractModuleThread {
         final UnaryOperator<ItemStack> resolveMain) {
         final Map<ItemStack, Float> mapped = new LinkedHashMap<>();
         int changed = 0;
+        int merged = 0;
         for (final Map.Entry<ItemStack, Float> entry : products.entrySet()) {
             final ItemStack product = entry.getKey();
             if (product == null) continue;
-            final ItemStack canonical = resolveMain.apply(product);
+            final ItemStack resolved = resolveMain.apply(product);
+            final ItemStack canonical = (resolved == null) ? product : resolved;
             if (canonical != product) changed++;
-            mapped.put(canonical, entry.getValue());
+
+            final ItemStack existing = semanticKey(mapped, canonical);
+            if (existing == null) {
+                mapped.put(canonical, entry.getValue());
+            } else {
+                // Two variants now resolve to the same item+damage. Merge their chances instead of
+                // silently letting the last one win (especially important for an ItemStackMap-backed
+                // recipe map that compares by value, not identity).
+                final float first = (mapped.get(existing) == null) ? 0f : mapped.get(existing);
+                final float second = (entry.getValue() == null) ? 0f : entry.getValue();
+                mapped.put(existing, Math.min(1f, first + second));
+                merged++;
+            }
         }
-        if (changed > 0) {
+        if (changed == 0) return 0;
+
+        // The map may be immutable (or may reject a partial replacement). Keep a backup so a failed
+        // clear/putAll cannot leave the recipe with no products at all.
+        final Map<ItemStack, Float> original = new LinkedHashMap<>(products);
+        try {
             products.clear();
             products.putAll(mapped);
+        } catch (final RuntimeException e) {
+            try {
+                products.clear();
+                products.putAll(original);
+            } catch (final RuntimeException restoreFailure) {
+                e.addSuppressed(restoreFailure);
+            }
+            UniDict.LOG.warn("Forestry Integration: could not replace the centrifuge product map; left untouched.", e);
+            return 0;
+        }
+        if (merged > 0) {
+            UniDict.LOG.warn(
+                "Forestry Integration: merged " + merged
+                    + " centrifuge product variant(s) that resolved to the same canonical item"
+                    + " (chances summed, capped at 1.0).");
         }
         return changed;
+    }
+
+    /** Finds an existing key with the same item identity and damage (works for value-equality maps too). */
+    private static ItemStack semanticKey(final Map<ItemStack, Float> map, final ItemStack candidate) {
+        if (candidate == null || candidate.getItem() == null) return null;
+        for (final ItemStack key : map.keySet()) {
+            if (key != null && key.getItem() == candidate.getItem() && key.getItemDamage() == candidate.getItemDamage())
+                return key;
+        }
+        return null;
     }
 
     /**
@@ -362,7 +406,7 @@ final class ForestryIntegration extends AbstractModuleThread {
      * ({@code Forestry:crated<ResourceName>}) is <em>already registered</em>, adds the two reciprocal
      * carpenter recipes through {@link #CARPENTER_ADDER} — crating ({@code ingot<Name>} OD → crate) and
      * uncrating (crate → 9 × canonical ingot). A resource without a registered crate is skipped (logged
-     * deferred), never fabricated: crate <em>item</em> creation at POST_INIT is the fragile part this
+     * deferred), never fabricated: crate <em>item</em> creation at LOAD_COMPLETE is the fragile part this
      * deliberately avoids (BB-3). Additive only.
      *
      * @return number of recipes added (crating + uncrating per wired crate)

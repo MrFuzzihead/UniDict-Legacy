@@ -1,7 +1,6 @@
 package com.mrfuzzihead.unidict.module;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -23,8 +22,6 @@ class ModuleHandlerTest {
         final ModuleHandler handler = new ModuleHandler();
         final List<String> log = new ArrayList<>();
         handler.addModule(new FakeCountingModule("modA", log));
-
-        assertFalse(handler.isEmpty());
 
         // First POST_INIT dispatch lazily initializes (registers the POST_INIT thread) and runs it.
         handler.startModules(LoadStage.POST_INIT);
@@ -57,6 +54,34 @@ class ModuleHandlerTest {
         // No way to count modules publicly; ensure driving works exactly once is covered above.
         // Here just assert a fresh, empty-stage dispatch does not throw.
         handler.startModules(LoadStage.PRE_INIT);
+    }
+
+    @Test
+    void aModuleThatThrowsDuringInitDoesNotPreventLaterModules() {
+        final ModuleHandler handler = new ModuleHandler();
+        final List<String> log = new ArrayList<>();
+        handler.addModule(new FailingModule());
+        handler.addModule(new FakeCountingModule("after", log));
+
+        handler.startModules(LoadStage.POST_INIT);
+
+        assertEquals(
+            java.util.Arrays.asList("after"),
+            log,
+            "the healthy module must still initialize/run after a Throwable");
+    }
+
+    /** A module whose init fails with an Error (the optional-mod class-loading shape). */
+    private static final class FailingModule extends AbstractModule {
+
+        FailingModule() {
+            super("failing");
+        }
+
+        @Override
+        protected void init() {
+            throw new AssertionError("missing optional class");
+        }
     }
 
     /** A module that registers one plain POST_INIT thread recording its name each run. */

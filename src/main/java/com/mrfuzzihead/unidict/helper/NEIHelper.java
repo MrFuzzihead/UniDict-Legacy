@@ -15,7 +15,7 @@ import codechicken.nei.api.API;
  * wired ({@code nei.NEIHideThread}). The dev-mode main-thread guard is the enforceable form of the
  * M4 rule "NEI calls only on the main thread" — the original crash was {@code updateEntries} →
  * {@code removeBadEntriesFromNEI} → {@code API.hideItem} running on fork-join threads. Hiding runs
- * at POST_INIT on the client main thread; entries are hidden, never removed (BB-3).
+ * at LOAD_COMPLETE on the client main thread; entries are hidden, never removed (BB-3).
  */
 public final class NEIHelper {
 

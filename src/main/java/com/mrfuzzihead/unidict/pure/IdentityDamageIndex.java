@@ -12,8 +12,7 @@ package com.mrfuzzihead.unidict.pure;
  * entry and get B's canonical stack back. That is how an EtF Amethyst Shard drop came back as an
  * aluminum ore block while keeping its drop count.
  * Keys here are the Item *instance* (identity), which a remap does not touch, and the damage value,
- * which no remap touches. MetaKey keeps its role for one-shot key math inside a single pass
- * (recipe/cumulative keys); it must never be the key of a map that outlives postInit.
+ * which no remap touches. MetaKey now only supplies the {@link MetaKey#WILDCARD} sentinel.
  */
 
 import java.util.IdentityHashMap;

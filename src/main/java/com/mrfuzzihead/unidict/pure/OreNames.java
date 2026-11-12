@@ -154,6 +154,28 @@ public final class OreNames {
     }
 
     /**
+     * Resolves configured names (metals, blacklist entries) against the discovered resource spellings,
+     * case-insensitively, while preserving the configured order and de-duplicating the result. This is
+     * the case-insensitive behaviour the rest of the kind/config surface already has; before it, a
+     * lowercase {@code metalsToUnify} entry silently matched nothing.
+     *
+     * @param configured the user-configured names (any casing)
+     * @param discovered the actual resource names discovered from the dictionary
+     * @return the matching discovered names in configured order (never {@code null})
+     */
+    public static List<String> resolveConfiguredNames(final Collection<String> configured,
+        final Collection<String> discovered) {
+        final List<String> resolved = new ArrayList<>();
+        if (configured == null || configured.isEmpty() || discovered == null || discovered.isEmpty()) return resolved;
+        final Set<String> seen = new LinkedHashSet<>();
+        for (final String configuredName : configured) {
+            final String actual = KindNames.findIgnoreCase(discovered, configuredName);
+            if (actual != null && seen.add(actual)) resolved.add(actual);
+        }
+        return resolved;
+    }
+
+    /**
      * @param oreName      the full Ore Dictionary name
      * @param resourceName a suffix of {@code oreName} (see {@link #resourceOf})
      * @return the kind prefix ({@code ingotCopper} - {@code Copper} -> {@code ingot}), possibly empty
@@ -215,7 +237,7 @@ public final class OreNames {
 
     /**
      * Ore Dictionary names that appeared <b>after</b> the model snapshot was taken — the late-registration
-     * diagnostic (docs/CODE_REVIEW.md BUG-8 Phase B). The resource model is a one-shot POST_INIT
+     * diagnostic (docs/CODE_REVIEW.md BUG-8 Phase B). The resource model is a one-shot LOAD_COMPLETE
      * snapshot, so a name registered later (another mod's postInit, a script, a late-loaded mod) is
      * invisible to selection/rewrites; this makes that measurable instead of silent.
      *
@@ -261,6 +283,32 @@ public final class OreNames {
     public static List<String> modelledNames(final Collection<String> oreNames,
         final Collection<String> resourceUniverse, final Collection<String> metalsToUnify,
         final Collection<String> childrenOfMetals) {
+        return modelledNames(
+            oreNames,
+            resourceUniverse,
+            metalsToUnify,
+            childrenOfMetals,
+            EXCLUDED_KINDS,
+            Collections.emptySet());
+    }
+
+    /**
+     * The full late-registration classifier: a name is modelled only when its resource and kind are
+     * configured, the kind is not in {@code excludedKinds}, and the resource is not blacklisted.
+     * {@code ignoredResourceNames} is matched case-insensitively, like the rest of the config surface.
+     *
+     * @param oreNames             the names to classify
+     * @param resourceUniverse     every dictionary name, used to discover resource names
+     * @param metalsToUnify        configured metal resource names
+     * @param childrenOfMetals     configured kind names
+     * @param excludedKinds        kind prefixes that are never unified (may be {@code null})
+     * @param ignoredResourceNames resources excluded by the config blacklist (may be {@code null})
+     * @return the modelled names, sorted (never {@code null})
+     */
+    public static List<String> modelledNames(final Collection<String> oreNames,
+        final Collection<String> resourceUniverse, final Collection<String> metalsToUnify,
+        final Collection<String> childrenOfMetals, final Set<String> excludedKinds,
+        final Collection<String> ignoredResourceNames) {
         final List<String> modelled = new ArrayList<>();
         if (oreNames == null || oreNames.isEmpty()) return modelled;
         final List<String> resources = metalResourceNames(resourceUniverse);
@@ -270,7 +318,10 @@ public final class OreNames {
             final String resource = resourceOf(name, resources);
             if (resource == null) continue;
             if (!KindNames.containsIgnoreCase(metalsToUnify, resource)) continue;
-            if (!KindNames.containsIgnoreCase(childrenOfMetals, kindOf(name, resource))) continue;
+            final String kind = kindOf(name, resource);
+            if (excludedKinds != null && excludedKinds.contains(kind)) continue;
+            if (!KindNames.containsIgnoreCase(childrenOfMetals, kind)) continue;
+            if (KindNames.containsIgnoreCase(ignoredResourceNames, resource)) continue;
             modelled.add(name);
         }
         java.util.Collections.sort(modelled);

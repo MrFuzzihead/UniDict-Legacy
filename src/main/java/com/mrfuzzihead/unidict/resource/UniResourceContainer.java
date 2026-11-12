@@ -53,11 +53,6 @@ public final class UniResourceContainer implements IResourceContainer {
         this.initialSize = entries.size();
     }
 
-    public UniResourceContainer(@Nonnull final String name, final long kind, final boolean sort) {
-        this(name, kind);
-        if (sort) setSort(true);
-    }
-
     public ItemStack getMainEntry() {
         return new ItemStack(mainEntryItem, 1, mainEntryMeta);
     }
@@ -74,10 +69,11 @@ public final class UniResourceContainer implements IResourceContainer {
      * {@link #getMainEntry(int)}, so an already-canonical drop or a re-run over already-rewritten recipes
      * costs no allocation on the hot path (docs/CODE_REVIEW.md OPT-1). Package-private: both the container
      * and {@code ResourceHandler} live in this package, and the value is what {@link #getMainEntry()} uses.
+     * Public so report/verify callers can render the immutable descriptor without allocating a stack.
      *
      * @return the main entry's item (set by {@link #updateEntries()}); {@code null} only before that runs
      */
-    Item getMainEntryItem() {
+    public Item getMainEntryItem() {
         return mainEntryItem;
     }
 
@@ -86,13 +82,13 @@ public final class UniResourceContainer implements IResourceContainer {
      *
      * @return the main entry's item damage / metadata; see {@link #getMainEntryItem()}
      */
-    int getMainEntryDamage() {
+    public int getMainEntryDamage() {
         return mainEntryMeta;
     }
 
-    /** A defensive copy of the snapshot entries (never the live / internal list). */
+    /** A read-only view of the snapshot entries (never the live Ore Dictionary list). */
     public List<ItemStack> getEntries() {
-        return new ArrayList<>(entries);
+        return Collections.unmodifiableList(entries);
     }
 
     @Override

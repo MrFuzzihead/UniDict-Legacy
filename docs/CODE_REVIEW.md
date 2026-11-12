@@ -451,6 +451,9 @@ each machine in its own try/catch so one failure cannot disable the others.
 
 ### BUG-10 — centrifuge product rewrite is only correct for identity-keyed maps (S3)
 
+**Status: fixed 2026-11-11.** Semantic item+damage collisions are merged (chances summed, capped at
+1.0) and a failed map replacement restores the original; tests cover collision and immutable maps.
+
 **Where:** `integration/ForestryIntegration.java:290-305`
 
 ```java
@@ -754,10 +757,9 @@ unchanged.
 
 ### OPT-8 — report rendering
 
-`/unidict report` sends one `ChatComponentText` per line; on a GTNH pack that is 100–200 chat packets
-and several hundred string allocations per invocation. Batch into pages (e.g. 8 lines per component
-with `\n`) and add pagination (`/unidict report <resource>` already filters, but the unfiltered dump is
-loud).
+**Status (2026-11-11): fixed.** `/unidict report [resource] [page]` filters first and then sends at most
+20 lines per page via the pure `ReportPager`, so the unfiltered GTNH dump no longer emits 100–200 chat
+packets at once.
 
 ### OPT-9 — `CraftingIntegration` per-recipe warning spam
 
@@ -824,7 +826,7 @@ sub-items whose metadata encodes the material).
 6. **Localization** — there is no `src/main/resources/assets/unidict/` at all: the command strings and
    all user-facing text are hardcoded English, and `mcmod.info` has an empty `logoFile`. A lang file is
    cheap and expected for a released mod.
-7. **Pagination and chat formatting** for `/unidict report` (see OPT-8).
+7. ~~**Pagination and chat formatting** for `/unidict report`~~ — landed 2026-11-11 (see OPT-8).
 8. **A "dry run" / preview mode** that logs what would be rewritten without mutating recipes (useful
    while adding the missing integrations above).
 9. **Optional-dependency metadata** in `mcmod.info` (the integrations are optional, but pack tools get
@@ -882,6 +884,8 @@ guard that greps `src/main`), which makes adding these cheap.
    `ConfigPresets.standard()` uses the correct `"etfuturum:copper_block"`. Anyone copying the doc
    value into `protectedItemNames`/`canonicalItemNames` gets a silent no-op. Pick one spelling and use
    it everywhere (and document that matching is a case-sensitive substring).
+   **Fixed (2026-11-11):** all code/test examples now use `etfuturum:copper_block`; token matching is
+   case-insensitive via `Text.containsIgnoreCase`.
 5. **Kind-name conventions are undocumented and inconsistent** (BUG-3): `ownerOfKind` examples are
    uppercase, `hideInNEIBlackSet` examples are lowercase.
 6. **`README` mod table** does not mention the Tinkers' Construct casting, Storage Drawers, drop-time
@@ -915,22 +919,10 @@ guard that greps `src/main`), which makes adding these cheap.
 
 ## 7. Suggested order of work
 
-> Items 1–3 and most of item 5 are done in batch 1 (§8). The list is kept as the original plan.
-
-1. **BUG-2** (AT wiring) + **BUG-1** (blacklist) + **BUG-3** (kind casing) — three small changes that
-   unblock a correct release and the documented TE/CoFH gate.
-2. **OPT-1 / BUG-6** — one change in `getMainItemStack` that fixes reporting, removes allocations and
-   makes re-runs true no-ops.
-3. **BUG-4** (NBT) + **BUG-5** (crafting mixin gate) — data-safety and config-honesty.
-4. **BUG-8** (re-index at LOAD_COMPLETE) — unlocks late mods, more accurate models, and the eventual
-   `/unidict reload` (BUG-11).
-5. **BUG-7**, **BUG-9**, **BUG-15**, **BUG-17**, **BUG-18** — robustness, reporting correctness, and
-   diagnostics (BUG-18 doubles as the mitigation for BUG-3).
-6. Docs sync (README kind names + registry-name spelling + preset claims) and the test gaps in §4.
-7. Then the feature work: **GT5 integration** → `inputReplacement` → `customUnifiedResources` →
-   BB-4 fuels → fluids → `/unidict reload` → the QoL/API items.
-
----
+The historical review sequence is complete. The current, authoritative feature order is maintained in
+[`TODO.md`](TODO.md#suggested-direction-authoritative): **GT5 output rewrites → `inputReplacement` → NEI
+live-entries → `customUnifiedResources` → diagnostics/JSON → BB-4 fuels → fluid outputs → UX/API/polish**.
+See §8 for the completed fix batches.
 
 ## 8. Implemented batches
 
@@ -980,11 +972,9 @@ output is covered by a differential test against the code it replaced.
 | **OPT-6** | `ConfigData` precomputes owner rank maps (global + per non-empty kind override, first occurrence wins, case-insensitive kind key); `OwnerOrder.indexOf/globalIndexOf` become map lookups instead of `List.indexOf` scans. | `ConfigDataTest` (first-occurrence wins, unlisted/null, per-kind override + case-insensitivity, empty-override fallback to global); existing `OwnerOrderTest` unchanged. |
 | **OPT-1 remainder** | `UniResourceContainer` exposes package-private `getMainEntryItem()/getMainEntryDamage()`; `ResourceHandler.getMainItemStack` decides (via the already-tested `CanonicalRules`) without allocating, and only builds the canonical stack when it will replace the input. Canonical drops, crafting lookups and server-start re-runs now allocate nothing. | `CanonicalRulesTest` covers every branch of the decision; the two accessors are field reads on the same state `getMainEntry()` uses. |
 
-**Still JVM-verifiable but not done:** OPT-2 (protection cache — needs a cache lifecycle tied to the
-re-index/config, plus the protection rules extracted), OPT-4 (`getEntries()` view — needs the MC-bound
-container, no JVM seam), OPT-8 (report batching — pure pagination is testable, but 1.7.10 chat rendering
-of multi-line components cannot be verified without a client), OPT-9 (warning aggregation — the
-collection lives in the MC-bound loop; only a trivial formatter would be testable).
+**Later status (2026-11-11):** OPT-2 (protection cache), OPT-4 (read-only `getEntries()` view), OPT-8
+(paged report via `ReportPager`) and OPT-9 (warning aggregation) have all landed; see
+`docs/CODEBASE_ANALYSIS_2026-11-10.md` §4.
 
 ### Batch 4 — headless T3 harness (+ the first item it verifies)
 
@@ -1090,10 +1080,8 @@ need yet. Implement it only if a real pack shows `missing > 0`.
 Phase C, which is only worth implementing if a real pack shows `model-complete missing > 0` — §9 explains
 how to check that in a production pack without the dev harness.
 
-**Pure/optimization candidates that can be fully unit-tested:** OPT-2 (protection cache — needs the
-rules extracted plus a cache lifecycle tied to the re-index/config), OPT-4 (`getEntries()` view — no
-JVM seam for the MC-bound container), OPT-8 (pagination helper is pure, chat rendering is not), OPT-9
-(aggregation lives in the MC-bound loop). Done: OPT-1, OPT-3, OPT-5, OPT-6, OPT-7 (subsumed).
+**Pure/optimization candidates:** all optimization items are now done, including the canonical
+item+damage reuse (see `docs/CODEBASE_ANALYSIS_2026-11-10.md` §4 item 10).
 
 **Cleanup:** the rest of BUG-19 (unused `MetaItem`/`UniOreDictionary`/`ResourceHandler` surface).
 

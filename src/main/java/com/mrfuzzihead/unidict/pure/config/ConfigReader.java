@@ -117,6 +117,8 @@ public final class ConfigReader {
             .ieIntegration(defaults.ieIntegration)
             .chestIntegration(defaults.chestIntegration)
             .enderIOIntegration(defaults.enderIOIntegration)
+            .forestryIntegration(defaults.forestryIntegration)
+            .craftingIntegration(defaults.craftingIntegration)
             .railcraftIntegration(defaults.railcraftIntegration)
             .thermalExpansionIntegration(defaults.thermalExpansionIntegration)
             .galacticraftIntegration(defaults.galacticraftIntegration)

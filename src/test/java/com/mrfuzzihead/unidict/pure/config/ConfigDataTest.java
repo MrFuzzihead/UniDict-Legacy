@@ -175,7 +175,7 @@ class ConfigDataTest {
             .resourceBlackList(Arrays.asList("Aluminium"))
             .ownerPriorities(Arrays.asList("ThermalFoundation", "IC2"))
             .autoHideInNEIModBlackSet(new LinkedHashSet<>(Arrays.asList("ThermalFoundation")))
-            .protectedItemNames(new LinkedHashSet<>(Arrays.asList("EtFuturum:block_copper")))
+            .protectedItemNames(new LinkedHashSet<>(Arrays.asList("etfuturum:copper_block")))
             .canonicalItemNames(new LinkedHashSet<>(Arrays.asList("etfuturum:copper_block")))
             .build();
 
@@ -184,7 +184,7 @@ class ConfigDataTest {
         assertTrue(c.resourceBlackList.contains("Aluminium"));
         assertTrue(c.ownerPriorities.contains("ThermalFoundation"));
         assertTrue(c.autoHideInNEIModBlackSet.contains("ThermalFoundation"));
-        assertTrue(c.protectedItemNames.contains("EtFuturum:block_copper"));
+        assertTrue(c.protectedItemNames.contains("etfuturum:copper_block"));
         assertTrue(c.canonicalItemNames.contains("etfuturum:copper_block"));
     }
 }

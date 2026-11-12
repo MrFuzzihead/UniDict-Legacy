@@ -43,7 +43,6 @@ class UniOreDictionaryTest {
         final List<String> idToName = new ArrayList<>();
         final List<List<ItemStack>> idToStack = new ArrayList<>();
         final List<List<ItemStack>> idToStackUn = new ArrayList<>();
-        final Map<Integer, List<Integer>> stackToId = new LinkedHashMap<>();
 
         int ore(final String name, final List<ItemStack> stacks, final List<ItemStack> stacksUn) {
             final int id = idToName.size();
@@ -56,8 +55,7 @@ class UniOreDictionaryTest {
     }
 
     private UniOreDictionary u(final Fixture f) {
-        return new UniOreDictionary(
-            new FakeOreDictionaryAccessor(f.nameToId, f.idToName, f.idToStack, f.idToStackUn, f.stackToId));
+        return new UniOreDictionary(new FakeOreDictionaryAccessor(f.nameToId, f.idToStack, f.idToStackUn));
     }
 
     @Test

@@ -80,7 +80,7 @@ public final class LoadStageExecutor {
                 final String result = thread.call();
                 results.add(result);
                 if (logger != null) logger.info(result);
-            } catch (final Exception e) {
+            } catch (final Throwable e) {
                 if (logger != null) {
                     logger.error("Something really bad happened on " + thread + " at load stage " + stage.name());
                     logger.error(e);

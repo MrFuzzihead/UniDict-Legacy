@@ -12,6 +12,7 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.item.crafting.ShapedRecipes;
 import net.minecraft.world.World;
 
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,21 @@ class CraftingIntegrationTest {
         final SpecifiedLoadStage annotation = CraftingIntegration.class.getAnnotation(SpecifiedLoadStage.class);
         assertTrue(annotation != null, "CraftingIntegration must declare a @SpecifiedLoadStage");
         assertEquals(LoadStage.LOAD_COMPLETE, annotation.stage());
+    }
+
+    @Test
+    void shapedRecipeWithoutTheAccessorIsSkippedInsteadOfCast() {
+        // In a JVM test the Mixin is not applied, so the concrete ShapedRecipes does NOT implement the
+        // accessor. The rewrite must detect that via Accessors.as and skip it, not throw ClassCastException.
+        final Item item = new Item();
+        final ItemStack output = new ItemStack(item, 1, 1);
+        final ItemStack canonical = new ItemStack(item, 1, 2);
+        final ShapedRecipes recipe = new ShapedRecipes(1, 1, new ItemStack[] { new ItemStack(new Item()) }, output);
+        final List<IRecipe> recipes = new ArrayList<>();
+        recipes.add(recipe);
+
+        assertEquals(0, CraftingIntegration.rewriteCraftingOutputs(recipes, stack -> canonical));
+        assertSame(output, recipe.getRecipeOutput());
     }
 
     @Test

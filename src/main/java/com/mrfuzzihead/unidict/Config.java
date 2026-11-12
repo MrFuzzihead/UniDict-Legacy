@@ -59,15 +59,6 @@ public class Config {
 
     // ---- convenience accessors consulted by integrations / selection ---------------------------
 
-    /** Strict one-entry collapse — deferred/stretch (TODO.md P0 #2); parsed for back-compat, not wired in. */
-    public static boolean keepOneEntry() {
-        return data.keepOneEntry;
-    }
-
-    public static boolean inputReplacement() {
-        return data.inputReplacement;
-    }
-
     public static boolean unifyDrops() {
         return data.unifyDrops;
     }

@@ -20,6 +20,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.unidict.Config;
+import com.mrfuzzihead.unidict.common.CanonicalIndex;
+import com.mrfuzzihead.unidict.common.Text;
 import com.mrfuzzihead.unidict.common.Util;
 import com.mrfuzzihead.unidict.pure.CanonicalRules;
 import com.mrfuzzihead.unidict.pure.IdentityDamageIndex;
@@ -41,7 +43,7 @@ public final class ResourceHandler {
      * the same field (TODO.md P0 #1).
      */
     public static boolean isModBlacklisted(final ItemStack stack) {
-        if (stack == null || stack.getItem() == null) return false;
+        if (stack == null || stack.getItem() == null || Config.get().autoHideInNEIModBlackSet.isEmpty()) return false;
         return Config.get().autoHideInNEIModBlackSet.contains(Util.getModName(stack));
     }
 
@@ -53,7 +55,7 @@ public final class ResourceHandler {
      * contains one of the substrings (default {@code "raw"} keeps raw metals tagged {@code rawCopper}/…
      * as the mined/processing form).</li>
      * <li>{@code protectedItemNames} — the item's registered {@code modid:path} name contains one of
-     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "EtFuturum:block_copper"}
+     * the substrings (for carve-outs with no distinct OD tag, e.g. {@code "etfuturum:copper_block"}
      * keeps a mod's decorative copper block, incl. its aged/oxidized variants).</li>
      * </ul>
      * Protected items are returned unchanged by {@link #getMainItemStack} — so a mined raw-metal or a
@@ -69,7 +71,7 @@ public final class ResourceHandler {
         try {
             for (final int oreId : OreDictionary.getOreIDs(stack)) {
                 final String name = OreDictionary.getOreName(oreId);
-                for (final String token : odTokens) if (name.contains(token)) return true;
+                for (final String token : odTokens) if (Text.containsIgnoreCase(name, token)) return true;
             }
         } catch (final Exception ignored) {
             // Never let an OD membership lookup abort canonicalization.
@@ -79,7 +81,7 @@ public final class ResourceHandler {
                 final String registry = GameData.getItemRegistry()
                     .getNameForObject(stack.getItem());
                 if (registry != null)
-                    for (final String token : itemSubstrings) if (registry.contains(token)) return true;
+                    for (final String token : itemSubstrings) if (Text.containsIgnoreCase(registry, token)) return true;
             } catch (final Exception ignored) {
                 // Never let a registry name lookup abort canonicalization.
             }
@@ -101,7 +103,8 @@ public final class ResourceHandler {
         try {
             final String registry = GameData.getItemRegistry()
                 .getNameForObject(stack.getItem());
-            if (registry != null) for (final String token : canonical) if (registry.contains(token)) return true;
+            if (registry != null)
+                for (final String token : canonical) if (Text.containsIgnoreCase(registry, token)) return true;
         } catch (final Exception ignored) {
             // Never let a registry name lookup abort selection.
         }
@@ -121,6 +124,10 @@ public final class ResourceHandler {
      * {@code getMainEntry(size)} keeps the caller's stack size). Item identity survives a remap; ids do not.
      */
     private final IdentityDamageIndex<UniAttributes<UniResourceContainer>> individualStackAttributes = new IdentityDamageIndex<>();
+    /** O(1) canonical membership for NEI/report loops (item identity + damage). */
+    private final CanonicalIndex canonicalEntries = new CanonicalIndex();
+    /** Cached protection decision for modelled entries; unknown/late stacks still use isProtected(). */
+    private final IdentityDamageIndex<Boolean> protectedEntries = new IdentityDamageIndex<>();
     private final Map<String, UniResourceContainer> containerMap = new HashMap<>();
     private final Map<String, Resource<UniResourceContainer>> resourceMap;
     /**
@@ -153,6 +160,14 @@ public final class ResourceHandler {
 
     public boolean resourceExists(@Nonnull final String name) {
         return resourceMap.containsKey(name);
+    }
+
+    /**
+     * @param stack a candidate variant
+     * @return {@code true} when the stack is the main entry of any unified container
+     */
+    public boolean isCanonicalEntry(final ItemStack stack) {
+        return canonicalEntries.contains(stack);
     }
 
     public boolean containerExists(@Nonnull final String name) {
@@ -201,12 +216,14 @@ public final class ResourceHandler {
      */
     public ItemStack getMainItemStack(final ItemStack thing) {
         if (thing == null || thing.getItem() == null) return thing;
+        // Resolve first: unmodelled stacks (the vast majority) must not pay the Ore Dictionary
+        // protection lookup at all. Modelled entries use the precomputed protection cache.
+        final UniResourceContainer container = containerOf(thing);
+        if (container == null) return thing;
         // Protected items (e.g. EtF raw copper via the default "raw" OD-name substring) are never
         // canonicalized — a mined raw-metal drop stays raw instead of becoming a mod's ore block
         // (TODO.md P0 #1). This also shields protected items from machine input/output rewrites.
-        if (isProtected(thing)) return thing;
-        final UniResourceContainer container = containerOf(thing);
-        if (container == null) return thing;
+        if (isProtectedCached(thing)) return thing;
         // Decide without allocating first: only build the canonical stack when it will actually replace the
         // input. A canonical drop (or a re-run over already-rewritten recipes) therefore costs nothing
         // beyond the index lookups (docs/CODE_REVIEW.md OPT-1).
@@ -252,18 +269,33 @@ public final class ResourceHandler {
      */
     void populateIndividualStackAttributes() {
         individualStackAttributes.clear();
+        canonicalEntries.clear();
+        protectedEntries.clear();
         containerMap.clear();
         for (final Resource<UniResourceContainer> resource : new ArrayList<>(resources)) {
             for (final UniResourceContainer container : resource.getChildrenCollection()) {
                 containerMap.put(container.name, container);
                 final UniAttributes<UniResourceContainer> uniAttributes = new UniAttributes<>(resource, container);
+                final Item mainItem = container.getMainEntryItem();
+                if (mainItem != null) canonicalEntries.add(mainItem, container.getMainEntryDamage());
                 // Re-derive the (item, damage) pairs from the container's own snapshot instead of a
                 // precomputed id hash: the hash baked in load-time registry ids and went stale on remap.
                 for (final ItemStack entry : container.getEntries()) {
                     final Item item = (entry == null) ? null : entry.getItem();
-                    if (item != null) individualStackAttributes.put(item, item.getDamage(entry), uniAttributes);
+                    if (item == null) continue;
+                    final int damage = item.getDamage(entry);
+                    individualStackAttributes.put(item, damage, uniAttributes);
+                    if (isProtected(entry)) protectedEntries.put(item, damage, Boolean.TRUE);
                 }
             }
         }
+    }
+
+    /** @return the cached protection decision for a modelled entry, or a live lookup when unknown. */
+    private boolean isProtectedCached(final ItemStack stack) {
+        final Item item = stack.getItem();
+        if (item == null) return false;
+        final Boolean cached = protectedEntries.get(item, item.getDamage(stack));
+        return (cached != null) ? cached : isProtected(stack);
     }
 }

@@ -39,11 +39,6 @@ public final class OreDictionaryBridge implements IOreDictionaryAccessor {
     }
 
     @Override
-    public List<String> getIdToName() {
-        return ACCESSOR.getIdToName();
-    }
-
-    @Override
     public List<List<ItemStack>> getIdToStack() {
         return ACCESSOR.getIdToStack();
     }
@@ -53,8 +48,4 @@ public final class OreDictionaryBridge implements IOreDictionaryAccessor {
         return ACCESSOR.getIdToStackUn();
     }
 
-    @Override
-    public Map<Integer, List<Integer>> getStackToId() {
-        return ACCESSOR.getStackToId();
-    }
 }

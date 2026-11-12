@@ -18,14 +18,6 @@ import org.junit.jupiter.api.Test;
 class SelectionRulesTest {
 
     @Test
-    void mainIndexIsFirstElementOfNonEmptyList() {
-        assertEquals(-1, SelectionRules.mainIndex(Arrays.asList()));
-        assertEquals(-1, SelectionRules.mainIndex(null));
-        assertEquals(0, SelectionRules.mainIndex(Arrays.asList("a")));
-        assertEquals(0, SelectionRules.mainIndex(Arrays.asList("a", "b", "c")));
-    }
-
-    @Test
     void shouldHideNonMainRequiresAutoHideAndNonBlacklistedKind() {
         final Set<Long> black = new LinkedHashSet<>(Arrays.asList(1L, 4L));
         // autoHide off -> never hide

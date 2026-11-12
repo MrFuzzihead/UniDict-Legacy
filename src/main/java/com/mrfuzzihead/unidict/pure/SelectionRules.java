@@ -28,15 +28,6 @@ public final class SelectionRules {
     private SelectionRules() {}
 
     /**
-     * Index of the canonical ("main") entry within a list already ordered by selection priority.
-     *
-     * @return {@code 0} when the list is non-empty, {@code -1} when it is empty.
-     */
-    public static int mainIndex(final List<?> entries) {
-        return (entries == null || entries.isEmpty()) ? -1 : 0;
-    }
-
-    /**
      * Whether non-main variants should be hidden in NEI for a given kind — the kind-level hide gate
      * fed by the NEI hide-set builder ({@link #hiddenIndices}). Hiding requires {@code autoHideInNEI}
      * and the kind not being in {@code kindBlackSet} ({@code hideInNEIBlackSet}).

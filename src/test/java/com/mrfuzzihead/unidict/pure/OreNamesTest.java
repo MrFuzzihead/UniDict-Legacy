@@ -235,12 +235,48 @@ class OreNamesTest {
     }
 
     @Test
+    void modelledNamesHonoursExcludedKindsAndBlacklistedResources() {
+        final List<String> live = Arrays.asList("stickCopper", "ingotCopper", "oreCopper", "ingotAluminium");
+        final List<String> metals = Arrays.asList("Copper", "Aluminium");
+        final List<String> kinds = Arrays.asList("stick", "ingot", "ore");
+        final Set<String> excluded = new LinkedHashSet<>(Collections.singletonList("stick"));
+        final List<String> ignored = Collections.singletonList("aluminium");
+
+        assertEquals(
+            Arrays.asList("ingotCopper", "oreCopper"),
+            OreNames.modelledNames(live, live, metals, kinds, excluded, ignored));
+        // The 4-arg compatibility overload applies the default excluded-kind set but no blacklist.
+        assertEquals(
+            Arrays.asList("ingotAluminium", "ingotCopper", "oreCopper"),
+            OreNames.modelledNames(live, live, metals, kinds));
+    }
+
+    @Test
     void capitalisationOnlyTouchesTheFirstCharacter() {
         assertEquals("Copper", OreNames.capitalizeFirst("copper"));
         assertEquals("MeteoricIron", OreNames.capitalizeFirst("meteoricIron"));
         assertEquals("X", OreNames.capitalizeFirst("X"));
         assertNull(OreNames.capitalizeFirst(null));
         assertEquals("", OreNames.capitalizeFirst(""));
+    }
+
+    @Test
+    void resolveConfiguredNamesIgnoresCasePreservesConfiguredOrderAndDeduplicates() {
+        final List<String> discovered = Arrays.asList("Copper", "Iron", "Tin");
+        final List<String> configured = Arrays.asList("copper", "IRON", "missing", "Copper", "tin");
+        assertEquals(Arrays.asList("Copper", "Iron", "Tin"), OreNames.resolveConfiguredNames(configured, discovered));
+        assertTrue(
+            OreNames.resolveConfiguredNames(Collections.emptyList(), discovered)
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(configured, Collections.emptyList())
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(null, discovered)
+                .isEmpty());
+        assertTrue(
+            OreNames.resolveConfiguredNames(configured, null)
+                .isEmpty());
     }
 
     @Test

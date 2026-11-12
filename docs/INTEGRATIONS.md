@@ -32,17 +32,17 @@ is expected to emit.
 |-----------------------|--------------|--------|---------------------------------------------------------------|---------------|-----------------------------------|------------------------------------|
 | Vanilla **Furnace**   | ✅ done      | M4     | public `FurnaceRecipes.smelting().getSmeltingList()`          | LOAD_COMPLETE | ✅ outputs-only (`setValue`)      | `report rewrite=furnace furnace rewritten=N` (no harness line yet) |
 | **Crafting table**    | ✅ done      | M5     | in-place output mutator via accessors: `Shaped/ShapelessRecipes`, Forge `ShapedOreRecipe`/`ShapelessOreRecipe` (+ Forestry `ShapedRecipeCustom`), IC2 `AdvShapelessRecipe` (public field) and `AdvRecipe` (public-`final` field accessor); + `findMatchingRecipe` read-side safety net | LOAD_COMPLETE + server start (idempotent, re-run) | ✅ outputs rewritten in place (BB-3, never removes recipes) | `report rewrite=crafting table rewritten=N` |
-| **AE2** (grinder)     | ✅ done      | M6     | public `AEApi.instance().registries().grinder()`              | POST_INIT     | ✅ (interface+fake seam)          | `PASS integration=ae2 rewritten=…` |
-| **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | POST_INIT     | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
-| **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
-| **Chest** (loot)      | ✅ done      | M6     | accessor seam (`ChestGenHooks`, `WeightedRandomChestContent`) | POST_INIT     | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
-| **EnderIO**           | ✅ done (T3 vfy 2026-08-14) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | POST_INIT     | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
-| **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | POST_INIT     | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
+| **AE2** (grinder)     | ✅ done      | M6     | public `AEApi.instance().registries().grinder()`              | LOAD_COMPLETE | ✅ (interface+fake seam)          | `PASS integration=ae2 rewritten=…` |
+| **IC2** (10 machines) | ✅ done      | M6     | public `Recipes.*` machine maps                               | LOAD_COMPLETE | ✅ (`OutputRewriter`)             | `PASS integration=ic2 …`           |
+| **IE** (4 machines)   | ✅ done      | M6     | public static `api.crafting` lists                            | LOAD_COMPLETE | ✅ (`OutputRewriter`, `List.set`) | `PASS integration=ie …`            |
+| **Chest** (loot)      | ✅ done      | M6     | `ChestGenHooks` accessor + public `WeightedRandomChestContent.theItemId` | LOAD_COMPLETE | ✅ in-place item rewrite          | `PASS integration=Chest …`         |
+| **EnderIO**           | ✅ done (T3 vfy 2026-08-14) | M7     | accessor (`OreDictionaryPreferences.preferences`)             | LOAD_COMPLETE | ✅ (`OutputRewriter`, lazy `OutputView`)| `…=EnderIO`                        |
+| **Railcraft**         | ✅ impl + tests (T3 verified) | M7     | accessor (`BlastFurnaceCraftingManager.recipes`) + public `RockCrusherCraftingManager.getRecipes()` | LOAD_COMPLETE | ✅ (`OutputRewriter`, `List.set`) / in-place chance-outputs rewrite | `…=Railcraft` |
 | **Thermal Expansion** | ✅ done (T3 vfy 2026-08-14) | M7     | 3× accessor+invoker (`Furnace/Pulverizer/SmelterManager`)     | LOAD_COMPLETE | ✅ (`OutputRewriter`, `Map.setValue`)  | `…=ThermalExpansion`               |
-| **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | POST_INIT | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
+| **Forestry**           | ✅ impl + T2 + T3 | M7     | early `@Accessor` for Forge `ShapedOreRecipe.output` + public `SqueezerRecipeManager.containerRecipes` + late `@Accessor` for `CentrifugeRecipe.outputs` | LOAD_COMPLETE | ✅ (in-place output / `Map.Entry.setValue` / in-place product map) | `…=Forestry` |
 | **Galacticraft**       | ✅ done (impl; T3 to confirm) | M8     | public `CompressorRecipes.getRecipeList()` (`List<IRecipe>`), in-place via `IShapedRecipesAccessor` (shaped) + `IShapelessOreRecipeAccessor` (shapeless) | FMLServerStarting | ✅ (in-place output write) | `…=Galacticraft` |
-| **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | POST_INIT | ✅ output-only, identity-preserving | INFO (log only) |
-| **Storage Drawers**    | ✅ impl + T2 (T3 to confirm) | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same blessed path as Minetweaker `Compaction`) | POST_INIT | ✅ additive registry seeding — no recipe mutation | INFO (log only) |
+| **Drops** (ground item) | ✅ done (new, not upstream) | 2026 | `EntityJoinWorldEvent` → `ResourceHandler.getMainItemStack` (clean-NBT only) | LOAD_COMPLETE | ✅ output-only, identity-preserving | INFO (log only) |
+| **Storage Drawers**    | ✅ impl + T2 (T3 to confirm) | 2026 | public `StorageDrawers.compRegistry.register(upper, lower, rate)` (same blessed path as Minetweaker `Compaction`) | LOAD_COMPLETE | ✅ additive registry seeding — no recipe mutation | INFO (log only) |
 | **Tinkers' Construct** (smeltery casting) | ✅ impl + T2 (T3 pending) | 2026 | public `TConstructRegistry.getTableCasting()`/`getBasinCasting()` → `LiquidCasting.getCastingRecipes()`; `CastingRecipe.output` is a public field | LOAD_COMPLETE + server start (idempotent, re-run) | ✅ in-place `output` write (never a removal) | `…=TinkersConstruct` |
 
 
@@ -57,7 +57,7 @@ Engineering (compileOnly) and NEI hiding (client-only). See `TestPlan.md` §T3 a
 
 ### Cross-cutting module — `UnifyDrops` (landed, new — not from upstream)
 
-Registered in `IntegrationModule` **outside** the `Config.integrationModule()` master switch (gated only on its own `Config.unifyDrops()`, default on), `UnifyDrops` listens for `EntityJoinWorldEvent` and upgrades a dropped/generated `EntityItem`'s stack to the canonical entry of its unified resource. Runs at POST_INIT (after the `ResourceHandler` pipeline) and is server-side only (`world.isRemote` guard). Only **clean** stacks are replaced — any stack with an NBT tag compound (enchanted/tagged/lore) is left untouched, and already-canonical drops are returned by identity (no spurious re-writes). It reuses the exact resolver (`ResourceHandler.getMainItemStack`) the machine integrations use, so it stays implicitly coupled to whatever the resource model covers (e.g. if BB‑4 fuels land, drops unify fuels automatically). Because it is a runtime listener, its effect is currently reported by the log line in `call()`; a T3 `[unidict-verify]` gate does not exist yet and is a candidate to add.
+Registered in `IntegrationModule` **outside** the `Config.integrationModule()` master switch (gated only on its own `Config.unifyDrops()`, default on), `UnifyDrops` listens for `EntityJoinWorldEvent` and upgrades a dropped/generated `EntityItem`'s stack to the canonical entry of its unified resource. Runs at LOAD_COMPLETE (after the `ResourceHandler` pipeline) and is server-side only (`world.isRemote` guard). Only **clean** stacks are replaced — any stack with an NBT tag compound (enchanted/tagged/lore) is left untouched, and already-canonical drops are returned by identity (no spurious re-writes). It reuses the exact resolver (`ResourceHandler.getMainItemStack`) the machine integrations use, so it stays implicitly coupled to whatever the resource model covers (e.g. if BB‑4 fuels land, drops unify fuels automatically). Because it is a runtime listener, its effect is currently reported by the log line in `call()`; a T3 `[unidict-verify]` gate does not exist yet and is a candidate to add.
 
 ### Cross-cutting module — `StorageDrawersIntegration` (landed, new — not from upstream)
 
@@ -70,7 +70,7 @@ block — the exact collision reported in `TODO.md`. This is a Storage-Drawers-i
 question that drop-time `UnifyDrops` cannot fix (it only upgrades world-`EntityItem` drops, not the
 drawer's stored view or manual in-inventory extraction).
 
-**What it does:** at POST_INIT (after the `ResourceHandler` pipeline) it walks every unified resource,
+**What it does:** at LOAD_COMPLETE (after the `ResourceHandler` pipeline) it walks every unified resource,
 resolves the canonical `block`/`ingot`/`nugget` entries from the model, and seeds
 `StorageDrawers.compRegistry` through the mod's **own public `register(upper, lower, rate)` API** —
 the same path Minetweaker's `Compaction` integration uses. Because the registry is consulted *before*
@@ -201,17 +201,16 @@ new M7 integration must replicate:
 - **What it is:** a best-effort, minor rewrite of **loot** (not a machine). Rewrites the ITEM of every
   Forge chest-loot entry (dungeons, mineshafts, villages, strongholds, bonus chests) in place to the
   canonical `getMainItemStack`.
-- **Non-destructive:** only the entry's item reference changes via the accessor seam; the `contents`
-  list keeps its exact count/order and each entry keeps its weights/min/max (BB-3).
-- **Accessors:**
-  - `ChestGenHooksMixin` — `@Accessor` ×2: static `chestInfo` registry + instance `contents`.
-    Forge-added fields → `remap=false`. Interface `IChestGenHooksAccessor`.
-  - `WeightedRandomChestContentMixin` — a **1.7.10-necessitated second accessor**: upstream
-    (1.12.2) rewrote `theItemId` as a *public* field, but in 1.7.10 it is `private` (notch `qx.b`,
-    SRG `field_76297_b`). Exposes get+set; `remap=true` (vanilla field). Interface
-    `IWeightedRandomChestContentAccessor`.
-- **Tests:** `ChestIntegrationTest` (3 T2, fake-driven `rewriteContents`/`rewriteCategory`/
-  `rewriteContent`); fakes `FakeChestGenHooksAccessor` + `FakeWeightedRandomChestContent`.
+- **Non-destructive:** only the entry's item reference changes via the public `theItemId` field; the
+  `contents` list keeps its exact count/order and each entry keeps its weights/min/max (BB-3).
+- **Accessor:** `ChestGenHooksMixin` — `@Accessor` ×2: static `chestInfo` registry + instance
+  `contents`. Forge-added fields → `remap=false`. Interface `IChestGenHooksAccessor`.
+- **Loot item field:** `WeightedRandomChestContent.theItemId` is **public** in 1.7.10, so the
+  integration writes it directly. The earlier assumption that it was private was wrong; the second
+  accessor Mixin/interface/fake were removed on 2026-11-11.
+- **Tests:** `ChestIntegrationTest` (3 T2, real `WeightedRandomChestContent` entries through the
+  `rewriteContents`/`rewriteCategory`/`rewriteContent` seams) and `ChestIntegrationMockitoTest`
+  (mocked `IChestGenHooksAccessor`); `FakeChestGenHooksAccessor` remains.
 - **Config:** `Config.chest()`. Registered early via `Mixins.CHEST_GEN`.
 
 ### Toolchain rules learned here (apply to M7 accessors)
@@ -269,7 +268,7 @@ reproduced. Three rewrite surfaces:
   when a pack adds such a recipe. An immutable product map (unusual) is skipped, not fatal.
 
 All three rewrite only *outputs*; inputs, fluids and crate-*item* creation are untouched (inputs = M5-deferred;
-fluids = no 1.7.10 fluid-equivalence model, BB-4; crate-item creation = fragile, deferred). Runs at POST_INIT
+fluids = no 1.7.10 fluid-equivalence model, BB-4; crate-item creation = fragile, deferred). Runs at LOAD_COMPLETE
 (default), early-skips on an empty resource model.
 
 Two small **additive** complements (upstream's `bronzeThings()` + crate recipes, ported through Forestry's
@@ -284,7 +283,7 @@ ever *added* recipes; nothing is removed, replaced, or registered globally (BB-3
 - **Crate wiring.** For every unified `ingot` resource whose Forestry crate item (`Forestry:crated<Name>`) is
   *already registered*, the two reciprocal carpenter recipes are added — crating (9 × `ingot<Name>`
   OreDictionary → crate) and uncrating (crate → 9 × canonical ingot). A resource without a registered crate is
-  skipped (logged debug), never fabricated: creating a new `ItemCrated` at POST_INIT is the fragile part this
+  skipped (logged debug), never fabricated: creating a new `ItemCrated` at LOAD_COMPLETE is the fragile part this
   deliberately avoids (post-lock item registration + Forestry's `createCrateRecipes()` drain has already run).
 
 **T3 (in-game, 2026-08-15):** `PASS integration=Forestry machine=carpenter rewritten=7`,
@@ -518,12 +517,14 @@ M7's new EIO/Railcraft/TE pairs must follow both (mixin `addRequiredMod` + integ
 ### 3. "dev-LIGHT" classpath — heavy mods
 
 - The heavy GTNH mods (**TE, TF, EnderIO, EnderCore, Forestry, Railcraft, Mantle, TiC, IE, AE2**)
-  transitively drag **CoFH Core** onto the runtime classpath. In the current `dependencies.gradle` they
-  are `devOnlyNonPublishable` (compile **and** dev-runtime), so `cofh-core` is on the dev runtime
-  classpath — which is exactly why the dev-only AT in gotcha #2 exists.
+  transitively drag **CoFH Core** onto the runtime classpath. The default `dependencies.gradle` keeps
+  them as `devOnlyNonPublishable` for full-stack development; pass `-PunidictDevLight` to move them to
+  `compileOnly` and keep CoFH off the focused IC2/EtF runtime. The dev-only AT in gotcha #2 is still
+  needed for full-stack `runClient`.
 - **Do not "fix" the build by dropping them:** a real user pack with TE/CoFH needs the field widened by
   the pack (as production packs do), not by UniDict. Keep local full-stack dev runs paired with the AT.
-- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH.
+- **AE2 surprise:** AE2 also drags `cofh-core` transitively, so keeping AE2 at runtime re-adds CoFH;
+  `-PunidictDevLight` includes AE2 in the heavy set.
 
 ### 4. Galacticraft → GregTech (transitive)
 

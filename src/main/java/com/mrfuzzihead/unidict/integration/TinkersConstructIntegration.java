@@ -133,7 +133,7 @@ final class TinkersConstructIntegration extends AbstractModuleThread {
 
     /**
      * Server-started re-run of the casting rewrite. TiC addons may register additional casting recipes
-     * after POST_INIT; the (idempotent, in-place) rewrite is re-run so the authoritative final recipe
+     * after LOAD_COMPLETE; the (idempotent, in-place) rewrite is re-run so the authoritative final recipe
      * list is canonicalized. Mirrors {@link IC2Integration#runAtServerStart()}.
      *
      * @return the number of casting outputs rewritten on this pass
